@@ -1107,6 +1107,15 @@ Typed stubs for 9.1–9.7 are committed at the paths above (under `src/`). Where
 - **`settings.holdToToggle`**: for hold actions (`boost`, `fineAdjust`, `download`, `jackOut`) a press latches `down` until the next press.
 - **Lab**: `?lab=input` is the live action HUD (also exposes `window.__nonspace`). Gamepad-only and mouse-only are both playable from the default map.
 
+### 9.13 Contract notes from M5.2 (repo copy only)
+
+- **`audio/sfx/*`**: every §7.3 recipe is a real graph, dispatched from `AudioEngine.sfx`. Flight wind is a looping beam hiss (`catalog.setFlight(speed)` / lab handle `setFlight`); `gridTick` is the line-crossing click a later flight controller fires. `SfxId` is unchanged.
+- **`audio/modem.ts`**: Bell 103 FSK (originate 1070/1270 Hz, answer 2025/2225 Hz, 300 baud) with handshake chirps, then full-duplex random bit streams, band-limited and mixed low. Replaces the M5.1 modem stub. `modem.start()` / `modem.stop()` on §9.7 are unchanged.
+- **`audio/dixieVoice.ts`**: formant-bank barks (`bark(lineId)` is deterministic from the id via `hashString` + PCG32) and a gated-noise laugh (no inhale). Not added to the §9.7 interface — M7.2 imports the module. The lab handle exposes `dixie()`.
+- **`bindSfxToEvents(bus, engine, dixie?)`**: maps §9.1 events onto sfx / modem / Dixie even when visuals are still stubs. Flatline is event-driven; `FLATLINE_TIMING` / `flatlinePhaseAt(elapsed)` are the shared clock so a visual stub (and later Flatline mode) can lock to the audio. §9.1 itself is unchanged.
+- **`createNoopAudioEngine()` / `createRecordingAudioEngine()`**: unchanged.
+- **Dev route:** `?lab=sfx`. Does not need WebGL2.
+
 ---
 
 ## 10. Milestones and tasks
