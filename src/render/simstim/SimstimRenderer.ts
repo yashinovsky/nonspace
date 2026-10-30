@@ -15,72 +15,40 @@ import {
   type PerspectiveCamera,
 } from 'three';
 import type { SimstimTimeline } from '../../content/simstim/types';
-import { SEG7 } from '../../simstim/clock';
 import type { PainOverlay } from '../../simstim/Pain';
 import type { FigureSample, TimelineSample } from '../../simstim/MollyTimeline';
 import type { Renderer } from '../Renderer';
 import { hexToRgb01, SIMSTIM_PALETTE_HEX } from './palette';
-import flatDitherBody from './flatDither.frag?raw';
+import flatDitherBody from './flatDither.frag';
 
 const LIGHT = new Vector3(0.35, 0.82, 0.45).normalize();
 
-const VERT = /* glsl */ `
-varying vec3 vWorldPos;
+const VERT = /* glsl */ `varying vec3 vWorldPos;
 #include <common>
 #include <logdepthbuf_pars_vertex>
-void main() {
-  vec4 world = modelMatrix * vec4(position, 1.0);
-  vWorldPos = world.xyz;
-  gl_Position = projectionMatrix * viewMatrix * world;
-  #include <logdepthbuf_vertex>
-}
-`;
+void main(){vec4 world=modelMatrix*vec4(position,1.0);vWorldPos=world.xyz;gl_Position=projectionMatrix*viewMatrix*world;
+#include <logdepthbuf_vertex>
+}`;
 
-const FRAG = /* glsl */ `
-varying vec3 vWorldPos;
-uniform vec3 uAlbedo;
-uniform vec3 uLightDir;
-uniform float uAmbient;
-uniform float uDither;
-uniform vec3 uPalette[16];
+const FRAG = /* glsl */ `varying vec3 vWorldPos;
+uniform vec3 uAlbedo;uniform vec3 uLightDir;uniform float uAmbient;uniform float uDither;uniform vec3 uPalette[16];
 #include <common>
 #include <logdepthbuf_pars_fragment>
 ${flatDitherBody}
-void main() {
-  #include <logdepthbuf_fragment>
-  vec3 n = normalize(cross(dFdx(vWorldPos), dFdy(vWorldPos)));
-  if (!gl_FrontFacing) n = -n;
-  float ndl = max(0.0, dot(n, uLightDir));
-  vec3 lit = uAlbedo * (uAmbient + (1.0 - uAmbient) * ndl);
-  vec3 col = ditherQuantize(lit, gl_FragCoord.xy, uDither, uPalette);
-  gl_FragColor = vec4(col, 1.0);
-}
-`;
+void main(){
+#include <logdepthbuf_fragment>
+vec3 n=normalize(cross(dFdx(vWorldPos),dFdy(vWorldPos)));if(!gl_FrontFacing)n=-n;
+float ndl=max(0.0,dot(n,uLightDir));
+vec3 lit=uAlbedo*(uAmbient+(1.0-uAmbient)*ndl);
+gl_FragColor=vec4(ditherQuantize(lit,gl_FragCoord.xy,uDither,uPalette),1.0);
+}`;
 
-const VIGNETTE_VERT = /* glsl */ `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`;
+const VIGNETTE_VERT = /* glsl */ `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`;
 
-const VIGNETTE_FRAG = /* glsl */ `
-varying vec2 vUv;
-uniform float uPain;
-uniform float uSilver;
-uniform float uBright;
-void main() {
-  vec2 p = vUv * 2.0 - 1.0;
-  float r = length(p);
-  float vig = smoothstep(0.45, 1.2, r);
-  vec3 silver = vec3(0.62, 0.68, 0.74);
-  vec3 red = vec3(0.72, 0.04, 0.05);
-  float a = vig * uSilver * 0.55 + uPain * vig * 0.75;
-  vec3 col = mix(silver, red, clamp(uPain * 1.2, 0.0, 1.0));
-  gl_FragColor = vec4(col * uBright, a);
-}
-`;
+const VIGNETTE_FRAG = /* glsl */ `varying vec2 vUv;uniform float uPain;uniform float uSilver;uniform float uBright;
+void main(){vec2 p=vUv*2.0-1.0;float vig=smoothstep(0.45,1.2,length(p));
+vec3 col=mix(vec3(0.62,0.68,0.74),vec3(0.72,0.04,0.05),clamp(uPain*1.2,0.0,1.0));
+gl_FragColor=vec4(col*uBright,vig*uSilver*0.55+uPain*vig*0.75);}`;
 
 export interface SimstimRenderer {
   load(def: SimstimTimeline): void;
@@ -88,21 +56,21 @@ export interface SimstimRenderer {
   dispose(): void;
 }
 
-export function createFlatDitherMaterial(hex: number, ambient = 0.72): ShaderMaterial {
+const PALETTE_VEC = SIMSTIM_PALETTE_HEX.map((h) => new Vector3(...hexToRgb01(h)));
+
+function createFlatDitherMaterial(hex: number, ambient = 0.72): ShaderMaterial {
   const c = new Color(hex);
   return new ShaderMaterial({
-    name: 'flatDither',
     vertexShader: VERT,
     fragmentShader: FRAG,
     uniforms: {
       uAlbedo: { value: new Vector3(c.r, c.g, c.b) },
-      uLightDir: { value: LIGHT.clone() },
+      uLightDir: { value: LIGHT },
       uAmbient: { value: ambient },
       uDither: { value: 0.07 },
-      uPalette: { value: SIMSTIM_PALETTE_HEX.map((hex) => new Vector3(...hexToRgb01(hex))) },
+      uPalette: { value: PALETTE_VEC },
     },
     toneMapped: false,
-    fog: false,
     side: DoubleSide,
   });
 }
@@ -111,7 +79,6 @@ export function createSimstimRenderer(renderer: Renderer): SimstimRenderer {
   const scene = renderer.scenes.simstim;
   const camera = renderer.cameras.simstim;
   const root = new Group();
-  root.name = 'simstim-root';
   scene.add(root);
 
   const figures = new Map<string, Object3D>();
@@ -124,7 +91,6 @@ export function createSimstimRenderer(renderer: Renderer): SimstimRenderer {
   clock.mesh.position.set(-0.32, -0.2, -0.5);
 
   const vigMat = new ShaderMaterial({
-    name: 'simstimVignette',
     vertexShader: VIGNETTE_VERT,
     fragmentShader: VIGNETTE_FRAG,
     uniforms: {
@@ -166,7 +132,6 @@ export function createSimstimRenderer(renderer: Renderer): SimstimRenderer {
     const mesh = new Mesh(boxGeom, mat);
     mesh.scale.set(w, h, d);
     mesh.position.set(x, y, z);
-    mesh.castShadow = false;
     parent.add(mesh);
     return mesh;
   };
@@ -213,13 +178,12 @@ export function createSimstimRenderer(renderer: Renderer): SimstimRenderer {
   };
 
   const api: SimstimRenderer = {
-    load(def) {
+    load(_def) {
       clearGroup(root);
       figures.clear();
       buildLobby();
-      void def;
     },
-    apply(sample, overlay, meatTime) {
+    apply(sample, overlay, _meatTime) {
       if (overlay.frameHold > 0 && holdLeft > 0 && held) {
         holdLeft -= 1;
         poseCamera(camera, held, lookTarget);
@@ -231,7 +195,6 @@ export function createSimstimRenderer(renderer: Renderer): SimstimRenderer {
       for (const fig of sample.figures) poseFigure(figures.get(fig.id), fig);
       hands.rotation.z = Math.sin(sample.playbackTime * 3.2) * 0.04;
       vigMat.uniforms.uPain!.value = overlay.vignette;
-      void meatTime;
       if (sample.clock !== clockKey) {
         clockKey = sample.clock;
         drawChipClock(clock.ctx, sample.clock);
@@ -303,7 +266,6 @@ function makeHands(geom: BoxGeometry, mats: ShaderMaterial[]): Group {
   r.position.set(0.3, -0.24, -0.5);
   r.rotation.set(0.35, -0.25, -0.1);
   g.add(l, r);
-  g.position.set(0, 0, 0);
   return g;
 }
 
@@ -312,7 +274,7 @@ function makeChipClock(): { mesh: Mesh; ctx: CanvasRenderingContext2D; tex: Canv
   canvas.width = 192;
   canvas.height = 48;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('chip clock canvas');
+  if (!ctx) throw new Error('ctx');
   const tex = new CanvasTexture(canvas);
   tex.colorSpace = LinearSRGBColorSpace;
   tex.minFilter = NearestFilter;
@@ -331,50 +293,12 @@ function makeChipClock(): { mesh: Mesh; ctx: CanvasRenderingContext2D; tex: Canv
   return { mesh, ctx, tex };
 }
 
-export function drawChipClock(ctx: CanvasRenderingContext2D, text: string): void {
-  const w = ctx.canvas.width;
-  const h = ctx.canvas.height;
-  ctx.clearRect(0, 0, w, h);
-  const digitW = 22;
-  const digitH = 36;
-  const gap = 5;
-  const colonW = 8;
-  let x = 8;
-  const y = (h - digitH) / 2;
+function drawChipClock(ctx: CanvasRenderingContext2D, text: string): void {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.fillStyle = '#ff2820';
-  for (const ch of text) {
-    if (ch === ':') {
-      ctx.fillRect(x + 3, y + 10, 3, 3);
-      ctx.fillRect(x + 3, y + 22, 3, 3);
-      x += colonW;
-      continue;
-    }
-    const n = ch.charCodeAt(0) - 48;
-    if (n >= 0 && n <= 9) drawDigit(ctx, x, y, digitW, digitH, SEG7[n]!);
-    x += digitW + gap;
-  }
-}
-
-function drawDigit(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  mask: number,
-): void {
-  const t = 4;
-  const seg = (bit: number, rx: number, ry: number, rw: number, rh: number): void => {
-    if (mask & bit) ctx.fillRect(x + rx, y + ry, rw, rh);
-  };
-  // a b c d e f g
-  seg(1 << 0, t, 0, w - 2 * t, t);
-  seg(1 << 1, w - t, t, t, h / 2 - t);
-  seg(1 << 2, w - t, h / 2, t, h / 2 - t);
-  seg(1 << 3, t, h - t, w - 2 * t, t);
-  seg(1 << 4, 0, h / 2, t, h / 2 - t);
-  seg(1 << 5, 0, t, t, h / 2 - t);
-  seg(1 << 6, t, h / 2 - t / 2, w - 2 * t, t);
+  ctx.font = 'bold 36px ui-monospace,monospace';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 6, ctx.canvas.height / 2);
 }
 
 function clearGroup(root: Group): void {

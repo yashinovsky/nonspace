@@ -32,7 +32,6 @@ export function installSimstimLab(
 
   const simstimMode = createSimstimMode(feed, view);
   let rekeyAcc = 0;
-  let rekeys = 0;
   let ctxRef: ModeContext | null = null;
 
   const cubeGeom = new BoxGeometry(0.6, 0.6, 0.6);
@@ -54,7 +53,6 @@ export function installSimstimLab(
       rekeyAcc += dt;
       if (rekeyAcc >= REKEY_EVERY) {
         rekeyAcc -= REKEY_EVERY;
-        rekeys += 1;
         ctxRef?.events.post({ type: 'iceRekey', iceId: ICE });
       }
       marker.rotation.y += dt * 0.7;
@@ -73,32 +71,17 @@ export function installSimstimLab(
 
   const hint = document.createElement('div');
   hint.dataset.testid = 'simstim-lab';
-  hint.style.cssText = [
-    'position:absolute',
-    'left:12px',
-    'top:12px',
-    'z-index:2',
-    'font:12px/1.45 ui-monospace,monospace',
-    'color:#c8d0d8',
-    'background:rgba(0,0,0,0.58)',
-    'padding:8px 10px',
-    'pointer-events:none',
-    'max-width:360px',
-  ].join(';');
+  hint.style.cssText =
+    'position:absolute;left:8px;top:8px;z-index:2;font:12px monospace;color:#ccc';
   renderer.canvas.parentElement?.appendChild(hint);
 
   const syncHint = (): void => {
     const d = feed.debug;
     const gate = feed.gates.get(LAB_GATE.id);
-    hint.innerHTML =
-      `<div>M6.1 Simstim feed</div>` +
-      `<div style="opacity:.75">T flip/peek · F crack gate · 1 pain</div>` +
-      `<div data-clock="${d.clock}">clock ${d.clock}  meat ${d.meatTime.toFixed(2)}</div>` +
-      `<div>flip ${d.flipped ? 1 : 0} peek ${d.peeking ? 1 : 0} lag ${d.lag.toFixed(2)}</div>` +
-      `<div data-gate="${gate?.state ?? 'idle'}">gate ${gate?.state ?? 'idle'}  exp ${(gate?.exposure ?? 0).toFixed(2)}</div>` +
-      `<div data-rekeys="${d.rekeysWhileFlipped}">rekeys-while-flipped ${d.rekeysWhileFlipped}  (total ${rekeys})</div>` +
-      `<div>pain ${d.pain.toFixed(2)}  neural ${d.neural.toFixed(1)}</div>` +
-      `<div style="opacity:.8">${d.line || '—'}</div>`;
+    hint.dataset.clock = d.clock;
+    hint.dataset.gate = gate?.state ?? 'idle';
+    hint.dataset.rekeys = String(d.rekeysWhileFlipped);
+    hint.textContent = `${d.clock} ${gate?.state ?? 'idle'} rk${d.rekeysWhileFlipped}`;
   };
 
   return {

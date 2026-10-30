@@ -23,9 +23,9 @@ export function labSimstimTimeline(): SimstimTimeline {
       },
     ],
     lines: [
-      { t: 1.2, who: 'molly', text: 'In. Clock is the tell.' },
-      { t: 6.5, who: 'molly', text: 'Door in a few. Do not open it early.' },
-      { t: 11, who: 'molly', text: "I'm exposed. Hit it." },
+      { t: 1.2, who: 'molly', text: 'In.' },
+      { t: 6.5, who: 'molly', text: 'Door.' },
+      { t: 11, who: 'molly', text: 'Now.' },
     ],
     branches: [{ atGate: 'door-1', onLate: { holdUntilOpen: true, exposurePerSec: 0.04 } }],
     clockStart: '02:14:07',

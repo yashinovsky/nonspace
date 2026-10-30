@@ -3,8 +3,6 @@ import type { EventBus } from '../core/events';
 import type { InputFrame } from '../input/Input';
 import type { Action } from '../narrative/schema';
 import type { MissionRunner } from '../narrative/MissionRunner';
-import { RASTER_TRANSITION_DURATION } from '../render/post/rasterCrt';
-import { isRasterCrtPass } from '../render/post/RasterCrtPass';
 import type { Renderer } from '../render/Renderer';
 import { chipClockAt } from './clock';
 import { createGates, type GateDef, type GateSnapshot, type Gates } from './Gates';
@@ -99,12 +97,15 @@ export function createSimstimFeed(opts: SimstimFeedOptions): SimstimFeed {
   const bindCrt = (on: boolean): void => {
     const renderer = opts.renderer;
     if (!renderer) return;
-    const pass = renderer.chain.rasterCrt;
-    if (!isRasterCrtPass(pass)) return;
+    const pass = renderer.chain.rasterCrt as {
+      source?: unknown;
+      playTransition?: (duration?: number) => void;
+    };
+    if (typeof pass.playTransition !== 'function') return;
     if (on) {
       pass.source = renderer.targets.simstim.texture;
       renderer.postMode = 'simstim';
-      pass.playTransition(RASTER_TRANSITION_DURATION);
+      pass.playTransition(0.3);
     } else {
       if (pass.source === renderer.targets.simstim.texture) pass.source = null;
       renderer.postMode = 'matrix';

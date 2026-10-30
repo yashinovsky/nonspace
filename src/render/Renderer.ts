@@ -108,38 +108,15 @@ export interface RendererOptions {
 
 const SIMSTIM_ASPECT = 320 / 240;
 
-const PIP_FRAG = /* glsl */ `
-precision highp float;
-uniform sampler2D tInput;
-in vec2 vUv;
-out vec4 fragColor;
-void main() {
-  float scan = 0.82 + 0.18 * step(0.5, fract(vUv.y * 48.0));
-  vec3 c = texture(tInput, vUv).rgb * scan * 1.05;
-  float edge = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
-  c *= smoothstep(0.0, 0.045, edge);
-  c *= 0.55 + 0.45 * smoothstep(1.1, 0.35, length(vUv * 2.0 - 1.0));
-  fragColor = vec4(c, 1.0);
-}
-`;
+const PIP_FRAG = /* glsl */ `precision highp float;uniform sampler2D tInput;in vec2 vUv;out vec4 fragColor;
+void main(){float scan=0.82+0.18*step(0.5,fract(vUv.y*48.0));vec3 c=texture(tInput,vUv).rgb*scan*1.05;
+float edge=min(min(vUv.x,1.0-vUv.x),min(vUv.y,1.0-vUv.y));c*=smoothstep(0.0,0.045,edge);
+c*=0.55+0.45*smoothstep(1.1,0.35,length(vUv*2.0-1.0));fragColor=vec4(c,1.0);}`;
 
-const BURN_FRAG = /* glsl */ `
-precision highp float;
-uniform float uIters;
-in vec2 vUv;
-out vec4 fragColor;
-void main() {
-  vec2 uv = vUv;
-  float a = 0.0;
-  int n = int(uIters);
-  for (int i = 0; i < 256; i++) {
-    if (i >= n) break;
-    a += fract(sin(dot(uv, vec2(12.9898, 78.233)) * float(i + 1)) * 43758.5453);
-    uv += vec2(a * 0.01);
-  }
-  fragColor = vec4(a * 1e-8, 0.0, 0.0, 0.0);
-}
-`;
+const BURN_FRAG = /* glsl */ `precision highp float;uniform float uIters;in vec2 vUv;out vec4 fragColor;
+void main(){vec2 uv=vUv;float a=0.0;int n=int(uIters);for(int i=0;i<256;i++){if(i>=n)break;
+a+=fract(sin(dot(uv,vec2(12.9898,78.233))*float(i+1))*43758.5453);uv+=vec2(a*0.01);}
+fragColor=vec4(a*1e-8,0.0,0.0,0.0);}`;
 
 export function createRenderer(opts: RendererOptions): Renderer {
   const three = new WebGLRenderer({
