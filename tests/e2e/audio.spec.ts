@@ -69,3 +69,58 @@ test('?lab=audio unlocks on gesture, plays 16 FM voices, ducks, and HRTF-pans a 
 
   expect(errors).toEqual([]);
 });
+
+test('?lab=audio adaptive music states crossfade and expose pulse', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await page.goto('/?lab=audio');
+  await expect(page.locator('#app')).toHaveAttribute('data-status', 'audio-lab');
+
+  await page.getByTestId('audio-unlock').click();
+  await expect(page.locator('#app')).toHaveAttribute('data-unlocked', 'true');
+
+  await page.getByTestId('audio-music-transit').click();
+  await expect
+    .poll(
+      async () =>
+        (
+          await page.evaluate(() => {
+            const d = (
+              window as unknown as {
+                __nonspaceAudio?: {
+                  diagnostics(): { music: { state: string }; pulse: number } | null;
+                };
+              }
+            ).__nonspaceAudio?.diagnostics();
+            return d ? { state: d.music.state, pulse: d.pulse } : null;
+          })
+        )?.state ?? '',
+      { timeout: 3_000 },
+    )
+    .toBe('transit');
+
+  await page.getByTestId('audio-music-approach').click();
+  await expect(page.getByTestId('audio-pulse')).toContainText('pulse');
+  await expect
+    .poll(
+      async () =>
+        (
+          await page.evaluate(() => {
+            const d = (
+              window as unknown as {
+                __nonspaceAudio?: {
+                  diagnostics(): {
+                    music: { state: string };
+                    crossfade: { progress: number } | null;
+                  } | null;
+                };
+              }
+            ).__nonspaceAudio?.diagnostics();
+            return d;
+          })
+        )?.music.state ?? '',
+      { timeout: 3_000 },
+    )
+    .toBe('approach');
+
+  expect(errors).toEqual([]);
+});

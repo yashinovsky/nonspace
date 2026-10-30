@@ -102,6 +102,7 @@ export {
   disposeAudioEngine,
   getAudioDiagnostics,
   getAudioEngineHandle,
+  getTempoClock,
   type AudioDiagnostics,
   type CreateAudioEngineOptions,
   type EngineLabHandle,
@@ -142,3 +143,22 @@ export {
   type Phoneme,
   type Vowel,
 } from './dixieVoice';
+export {
+  barDuration,
+  beatDuration,
+  createTempoClock,
+  DEFAULT_BPM,
+  nearestBeatTime,
+  pulse,
+  type TempoClock,
+} from './music/Sequencer';
+export {
+  degreeToHz,
+  degreeToMidi,
+  hzToMidi,
+  isInKey,
+  midiToHz,
+  phaseLockTones,
+  quantizeHz,
+} from './music/Harmony';
+export { motifDistanceGain, shouldAttachMotif } from './music/motifs';

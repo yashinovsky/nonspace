@@ -4,6 +4,7 @@ import {
   createNoopAudioEngine,
   disposeAudioEngine,
   getAudioDiagnostics,
+  getTempoClock,
   type AudioEngine,
 } from '../../src/audio/AudioEngine';
 import { createRecordingAudioEngine } from '../../src/testing/mocks';
@@ -61,12 +62,16 @@ describe('createAudioEngine (no audio device)', () => {
     await expect(audio.unlock()).resolves.toBeUndefined();
     const diag = getAudioDiagnostics(audio);
     expect(diag?.music).toEqual({ state: 'transit', bpm: 110, root: 57, mode: 'lydian' });
+    expect(getTempoClock(audio)?.bpm).toBe(110);
+    expect(diag?.pulse).toBeGreaterThanOrEqual(0);
+    expect(diag?.clock.bpm).toBe(110);
     disposeAudioEngine(audio);
   });
 
   it('dispose is a no-op on the silent engine', () => {
     const noop = createNoopAudioEngine();
     expect(getAudioDiagnostics(noop)).toBeNull();
+    expect(getTempoClock(noop)).toBeNull();
     disposeAudioEngine(noop);
   });
 });

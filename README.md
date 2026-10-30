@@ -39,7 +39,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?debug` opens a Tweakpane panel with FPS, frame time and GPU time. GPU time needs `EXT_disjoint_timer_query_webgl2` and shows `n/a` without it (e.g. SwiftShader). Tweakpane is lazy-loaded, so it costs nothing without the flag.
 - `?lab=input` overlays live action/axis states, a remap UI, and a text-capture probe. Click the canvas for pointer lock; Esc exits it.
 - `?mission=<id>&checkpoint=<id>` (dev builds, or with `?debug`) loads a mock mission into the runner and optionally seeks a checkpoint. Mocks live in `src/narrative/mocks.ts`; `mock-triggers` exercises every trigger kind. Campaign content is a later task.
-- `?lab=audio` is the M5.1 audio engine lab (click to unlock the AudioContext; 16 FM voices, HRTF motifs, ducking, drum/bass/sub stubs). It does not need WebGL2.
+- `?lab=audio` is the M5.1 / M5.3 audio lab (click to unlock the AudioContext; 16 FM voices, HRTF motifs, ducking, adaptive music states, `pulse(t)` readout). It does not need WebGL2.
 - `?lab=sfx` is the M5.2 SFX catalog (every §7.3 recipe, Bell 103 modem, Dixie barks/laugh, event-driven flatline stub). Click to unlock. It does not need WebGL2.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
@@ -62,6 +62,7 @@ Shared contracts from plan §9 are typed stubs other tasks build against:
 | Audio API + no-op engine         | `src/audio/AudioEngine.ts`                                                                    |
 | Web Audio engine (M5.1)          | `src/audio/{AudioEngine,engine,buses,spatial}.ts`, `src/audio/worklets/`, `src/audio/voices/` |
 | SFX catalog, modem, Dixie (M5.2) | `src/audio/sfx/`, `src/audio/modem.ts`, `src/audio/dixieVoice.ts`                             |
+| Adaptive music (M5.3)            | `src/audio/music/{Sequencer,Harmony,player,motifs}.ts`, `src/audio/music/patterns/`           |
 
 Test doubles (recording beam/point batches, event recorder, recording audio engine) and valid sample data are in `src/testing/`. Notes on how the stubs differ from the plan's literal TypeScript are in plan §9.8.
 
@@ -77,6 +78,6 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Input service (`InputFrame`, remap, pointer lock, gamepad, text capture) | `src/input/Input.ts`                       |
 | Mission runner (triggers, objectives, checkpoints)                       | `src/narrative/MissionRunner.ts`           |
 
-The App flushes posted events after every sim step. Under `?debug` (and `?lab=input`), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.13. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` (and `?lab=input`), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.14. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.

@@ -14,7 +14,11 @@ import { createBusGraph, type AudioBusGraph } from './buses';
 import { bufferFramesOf, createGameAudioContext, getAudioContextCtor } from './context';
 import { createDixieVoice, type DixieVoice } from './dixieVoice';
 import { createModem, type ModemInfo, type ModemVoice } from './modem';
-import { createHrtfPanner, setListenerPose, setPannerPosition } from './spatial';
+import { midiToHz, phaseLockTones } from './music/Harmony';
+import { createMotifVoice, type MotifVoice } from './music/motifs';
+import { createMusicPlayer, type MusicPlayer } from './music/player';
+import { createSequencer, pulse, type Sequencer, type TempoClock } from './music/Sequencer';
+import { setListenerPose, setPannerPosition } from './spatial';
 import { createSfxCatalog, type SfxCatalog } from './sfx/catalog';
 import type { FlatlinePhase } from './sfx/recipes/flatline';
 import { createBassVoice, type BassVoice } from './voices/Bass';
@@ -43,12 +47,16 @@ export interface AudioDiagnostics {
   duckGain: { all: number; music: number };
   panningModel: string | null;
   music: { state: MusicState; bpm: number; root: number; mode: MusicMode };
+  clock: { bpm: number; origin: number; beat: number };
+  crossfade: { from: MusicState; to: MusicState; progress: number } | null;
+  pulse: number;
 }
 
 interface MotifLive {
   landmarkId: string;
   stop: () => void;
   panner: PannerNode;
+  voice?: MotifVoice;
 }
 
 interface MotifPending {
@@ -56,27 +64,6 @@ interface MotifPending {
   pos: Vec3;
   corp: CorpId;
 }
-
-const MOTIF_SPEC: Record<
-  CorpId,
-  {
-    freq: number;
-    type: OscillatorType;
-    amp: number;
-    lfoHz: number;
-    lfoGain: number;
-    lfoPitch: number;
-  }
-> = {
-  tessierAshpool: { freq: 110, type: 'sine', amp: 0.05, lfoHz: 0.12, lfoGain: 0.015, lfoPitch: 2 },
-  mitsubishi: { freq: 660, type: 'triangle', amp: 0.04, lfoHz: 4, lfoGain: 0.02, lfoPitch: 0 },
-  esfa: { freq: 55, type: 'square', amp: 0.06, lfoHz: 1, lfoGain: 0.05, lfoPitch: 0 },
-  senseNet: { freq: 523, type: 'square', amp: 0.035, lfoHz: 2, lfoGain: 0.02, lfoPitch: 0 },
-  hosaka: { freq: 220, type: 'sawtooth', amp: 0.04, lfoHz: 0.3, lfoGain: 0.01, lfoPitch: 4 },
-  turing: { freq: 1760, type: 'sine', amp: 0.03, lfoHz: 0.25, lfoGain: 0.01, lfoPitch: 0 },
-  military: { freq: 80, type: 'sine', amp: 0.05, lfoHz: 0.07, lfoGain: 0.01, lfoPitch: 18 },
-  minor: { freq: 165, type: 'sine', amp: 0.04, lfoHz: 0.2, lfoGain: 0.01, lfoPitch: 1 },
-};
 
 const intern = new WeakMap<AudioEngine, EngineImpl>();
 
@@ -94,6 +81,10 @@ class EngineImpl {
   bpm = 96;
   root = 45;
   mode: MusicMode = 'minor';
+  sequencer: Sequencer = createSequencer();
+  private musicPlayer: MusicPlayer | null = null;
+  private musicTimer: ReturnType<typeof setInterval> | 0 = 0;
+  private duckedForGrip = false;
   private readonly settings?: SettingsStore;
   private unsubSettings?: () => void;
   private unlocking: Promise<void> | null = null;
@@ -166,10 +157,32 @@ class EngineImpl {
     });
     setListenerPose(ctx.listener, this.listenPos, this.listenFwd, this.listenUp);
 
+    this.sequencer = createSequencer({
+      now: () => this.ctx?.currentTime ?? 0,
+      bpm: this.bpm,
+      root: this.root,
+      mode: this.mode,
+    });
+    this.sequencer.align(ctx.currentTime);
+    this.musicPlayer = createMusicPlayer(
+      ctx,
+      graph.input('music'),
+      this.sequencer,
+      { bass: this.bass, drums: this.drums },
+      noise,
+    );
+
     for (const [h, pending] of this.pendingMotifs) {
       this.motifs.set(h, this.startMotif(pending.landmarkId, pending.pos, pending.corp));
     }
     this.pendingMotifs.clear();
+
+    if (this.musicState !== 'silent') this.sequencer.setState(this.musicState, ctx.currentTime);
+    this.applyGripDuck();
+    this.musicPlayer.tick(ctx.currentTime);
+    this.musicTimer = setInterval(() => {
+      if (this.ctx && this.musicPlayer) this.musicPlayer.tick(this.ctx.currentTime);
+    }, 25);
 
     this.unlocked = true;
   }
@@ -214,15 +227,39 @@ class EngineImpl {
 
   setMusicState(s: MusicState): void {
     this.musicState = s;
+    this.sequencer.setState(s, this.ctx?.currentTime ?? 0);
+    this.bpm = this.sequencer.clock.bpm;
+    this.musicPlayer?.setMotifsDominant(s === 'approach');
+    this.applyGripDuck();
   }
 
   setTempo(bpm: number): void {
     this.bpm = bpm;
+    this.sequencer.setTempo(bpm, this.ctx?.currentTime ?? 0);
   }
 
   setKey(root: number, mode: MusicMode): void {
     this.root = root;
     this.mode = mode;
+    this.sequencer.setKey(root, mode);
+    this.applyPhaseLock();
+  }
+
+  setLockMeter(m: number): void {
+    this.sequencer.lockMeter = m;
+  }
+
+  private applyGripDuck(): void {
+    const db = this.sequencer.duckDb();
+    if (db !== undefined) {
+      this.graph?.duck('music', db, 3600);
+      this.duckedForGrip = true;
+      return;
+    }
+    if (this.duckedForGrip) {
+      this.graph?.duck('music', 0, 0);
+      this.duckedForGrip = false;
+    }
   }
 
   attachMotif(landmarkId: string, pos: Vec3, corp: CorpId): Handle {
@@ -247,42 +284,26 @@ class EngineImpl {
   private startMotif(landmarkId: string, pos: Vec3, corp: CorpId): MotifLive {
     const ctx = this.ctx!;
     const dest = this.graph!.input('music');
-    const spec = MOTIF_SPEC[corp] ?? MOTIF_SPEC.minor;
-    const panner = createHrtfPanner(ctx, pos);
-    this.panningModel = panner.panningModel;
-    panner.connect(dest);
-    const osc = ctx.createOscillator();
-    const amp = ctx.createGain();
-    osc.type = spec.type;
-    osc.frequency.value = spec.freq;
-    amp.gain.value = spec.amp;
-    const lfo = ctx.createOscillator();
-    const lfoGain = ctx.createGain();
-    lfo.frequency.value = spec.lfoHz;
-    lfoGain.gain.value = spec.lfoGain;
-    lfo.connect(lfoGain).connect(amp.gain);
-    if (spec.lfoPitch) {
-      const pitch = ctx.createGain();
-      pitch.gain.value = spec.lfoPitch;
-      lfo.connect(pitch).connect(osc.frequency);
-    }
-    osc.connect(amp).connect(panner);
-    const t = ctx.currentTime;
-    osc.start(t);
-    lfo.start(t);
+    const voice = createMotifVoice({
+      ctx,
+      dest,
+      landmarkId,
+      pos,
+      corp,
+      listener: this.listenPos,
+      root: this.root,
+      mode: this.mode,
+      dominant: this.musicState === 'approach',
+    });
+    this.panningModel = voice.panner.panningModel;
+    this.musicPlayer?.addMotif(voice);
     return {
       landmarkId,
-      panner,
-      stop() {
-        const now = ctx.currentTime;
-        amp.gain.setTargetAtTime(0.0001, now, 0.05);
-        try {
-          osc.stop(now + 0.3);
-          lfo.stop(now + 0.3);
-        } catch {
-          /* already stopped */
-        }
-        panner.disconnect();
+      panner: voice.panner,
+      voice,
+      stop: () => {
+        this.musicPlayer?.removeMotif(voice);
+        voice.stop();
       },
     };
   }
@@ -336,10 +357,10 @@ class EngineImpl {
 
   private applyPhaseLock(): void {
     const t = this.ctx?.currentTime ?? 0;
-    const f0 = this.pl.f0;
-    this.pl.iceA?.frequency.setTargetAtTime(this.pl.a * f0, t, 0.02);
-    this.pl.iceB?.frequency.setTargetAtTime(this.pl.b * f0, t, 0.02);
-    this.pl.player?.frequency.setTargetAtTime(Math.min(4000, this.pl.R * this.pl.a * f0), t, 0.01);
+    const tones = phaseLockTones(this.pl.a, this.pl.b, this.pl.f0, this.root, this.mode, this.pl.R);
+    this.pl.iceA?.frequency.setTargetAtTime(tones.iceA, t, 0.02);
+    this.pl.iceB?.frequency.setTargetAtTime(tones.iceB, t, 0.02);
+    this.pl.player?.frequency.setTargetAtTime(tones.player, t, 0.01);
   }
 
   modemStart(): void {
@@ -365,6 +386,7 @@ class EngineImpl {
     this.listenUp.y = up.y;
     this.listenUp.z = up.z;
     if (this.ctx) setListenerPose(this.ctx.listener, this.listenPos, this.listenFwd, this.listenUp);
+    for (const live of this.motifs.values()) live.voice?.setListener(this.listenPos);
   }
 
   diagnostics(): AudioDiagnostics {
@@ -388,6 +410,18 @@ class EngineImpl {
       },
       panningModel: this.panningModel,
       music: { state: this.musicState, bpm: this.bpm, root: this.root, mode: this.mode },
+      clock: {
+        bpm: this.sequencer.clock.bpm,
+        origin: this.sequencer.clock.origin,
+        beat:
+          ((this.ctx?.currentTime ?? 0) - this.sequencer.clock.origin) *
+          (this.sequencer.clock.bpm / 60),
+      },
+      crossfade: (() => {
+        const cf = this.sequencer.crossfadeAt(this.ctx?.currentTime ?? 0);
+        return cf ? { from: cf.fromState, to: cf.toState, progress: cf.progress } : null;
+      })(),
+      pulse: pulse(this.ctx?.currentTime ?? 0, this.sequencer.clock),
     };
   }
 
@@ -453,7 +487,8 @@ class EngineImpl {
 
   moveMotif(h: Handle, pos: Vec3): void {
     const live = this.motifs.get(h);
-    if (live) setPannerPosition(live.panner, pos);
+    if (live?.voice) live.voice.setPosition(pos);
+    else if (live) setPannerPosition(live.panner, pos);
     const pending = this.pendingMotifs.get(h);
     if (pending) {
       pending.pos.x = pos.x;
@@ -493,6 +528,12 @@ class EngineImpl {
   dispose(): void {
     this.unsubSettings?.();
     this.unsubSettings = undefined;
+    if (this.musicTimer) {
+      clearInterval(this.musicTimer);
+      this.musicTimer = 0;
+    }
+    this.musicPlayer?.dispose();
+    this.musicPlayer = null;
     for (const m of this.motifs.values()) m.stop();
     this.motifs.clear();
     this.pendingMotifs.clear();
@@ -515,10 +556,6 @@ class EngineImpl {
     this.unlocking = null;
     if (ctx && ctx.state !== 'closed') void ctx.close();
   }
-}
-
-function midiToHz(midi: number): number {
-  return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
 export function createAudioEngine(opts?: CreateAudioEngineOptions): AudioEngine {
@@ -556,6 +593,11 @@ export function getAudioDiagnostics(engine: AudioEngine): AudioDiagnostics | nul
   return intern.get(engine)?.diagnostics() ?? null;
 }
 
+/** Live tempo clock for renderer `pulse(t)` sync. Null on the no-op engine. */
+export function getTempoClock(engine: AudioEngine): TempoClock | null {
+  return intern.get(engine)?.sequencer.clock ?? null;
+}
+
 export function disposeAudioEngine(engine: AudioEngine): void {
   intern.get(engine)?.dispose();
 }
@@ -577,6 +619,8 @@ export function getAudioEngineHandle(engine: AudioEngine): EngineLabHandle | nul
     dixie: () => impl.dixie(),
     flatlinePhase: () => impl.flatlinePhase(),
     modemInfo: () => impl.modemInfo(),
+    pulse: (t) => pulse(t, impl.sequencer.clock),
+    setLockMeter: (m) => impl.setLockMeter(m),
   };
 }
 
@@ -594,4 +638,6 @@ export interface EngineLabHandle {
   dixie(): DixieVoice | null;
   flatlinePhase(): FlatlinePhase;
   modemInfo(): ModemInfo;
+  pulse(t: number): number;
+  setLockMeter(m: number): void;
 }
