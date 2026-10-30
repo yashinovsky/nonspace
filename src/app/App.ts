@@ -22,7 +22,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -303,6 +303,17 @@ export async function startApp({
       seq: q.get('seq'),
       scene: q.get('scene'),
       first: q.get('first'),
+    });
+  }
+  if (lab === 'ice') {
+    const { installIceLab } = await import('../debug/IceLab');
+    const q = new URLSearchParams(window.location.search);
+    labHandle = installIceLab({
+      renderer,
+      root,
+      scene: q.get('scene'),
+      gray: q.get('gray'),
+      reduceMotion: () => settings.value.reduceMotion,
     });
   }
 
