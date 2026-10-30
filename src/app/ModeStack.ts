@@ -17,6 +17,7 @@ export const MODE_IDS = [
   'matrix',
   'breach',
   'core',
+  'dive',
   'simstim',
   'deckPanel',
   'flatline',

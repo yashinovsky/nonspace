@@ -68,7 +68,7 @@ export const SOFTS: readonly SoftDef[] = [
     name: 'KUANG GRADE MARK ELEVEN',
     effect: { kind: 'kuang' },
     unlock: 'm5',
-  },
+  }, // Story icebreaker: M7.8 owns the rib body + dive; this row is the §9.4 slot.
 ];
 
 export function getSoft(id: string): SoftDef | undefined {
