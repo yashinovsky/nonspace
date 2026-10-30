@@ -1,6 +1,7 @@
 import type { EventBus } from '../core/events';
 import type { SaveStore } from '../core/save';
 import type { SettingsStore } from '../core/settings';
+import type { InputFrame, InputService } from '../input/Input';
 import type { MissionRunner } from '../narrative/MissionRunner';
 
 /** Mode ids from plan §8.2. */
@@ -22,11 +23,10 @@ export const MODE_IDS = [
 export type ModeId = (typeof MODE_IDS)[number];
 
 /**
- * What modes receive in `handleInput`. Placeholder until the Input service
- * (M0.3) lands; then this becomes `InputFrame`. Modes may already declare
- * `handleInput(frame: InputFrame)`: method parameters are checked bivariantly.
+ * What modes receive in `handleInput`. M0.3 replaced the `unknown` placeholder
+ * with `InputFrame`; the alias remains so older call sites still compile.
  */
-export type ModeInputFrame = unknown;
+export type ModeInputFrame = InputFrame;
 
 /** Services available to modes. Later tasks append their services here; the App builds it. */
 export interface ModeContext {
@@ -36,6 +36,8 @@ export interface ModeContext {
   readonly save: SaveStore;
   /** M7.1. Optional so parallel tasks don't have to construct a runner. */
   readonly mission?: MissionRunner;
+  /** M0.3. Optional so parallel tasks don't have to construct an Input service. */
+  readonly input?: InputService;
 }
 
 /** Plan §8.2. Implement as a class or plain object; one instance may be on the stack at a time. */
@@ -50,7 +52,7 @@ export interface Mode {
   /** Once per frame, bottom of the stack first. `alpha` is the loop's interpolation fraction. */
   render(alpha: number): void;
   /** Top mode only, once per sim step before `update`. */
-  handleInput(frame: ModeInputFrame): void;
+  handleInput(frame: InputFrame): void;
   /** Another mode was pushed on top of this one. */
   covered?(by: Mode): void;
   /** This mode is the top again. */
@@ -83,7 +85,7 @@ export interface ModeStack {
   replace(mode: Mode): void;
   /** Exit every mode, top first, then push `mode` if given (e.g. → JackOut). */
   reset(mode?: Mode): void;
-  handleInput(frame: ModeInputFrame): void;
+  handleInput(frame: InputFrame): void;
   update(dt: number): void;
   render(alpha: number): void;
 }

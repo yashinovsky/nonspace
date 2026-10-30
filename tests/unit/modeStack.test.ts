@@ -3,6 +3,7 @@ import { createModeStack, type Mode, type ModeContext, type ModeId } from '../..
 import { createEventBus } from '../../src/core/events';
 import { createMemoryStorage, createSaveStore } from '../../src/core/save';
 import { createSettingsStore } from '../../src/core/settings';
+import { createInput } from '../../src/input/Input';
 import { recordEvents } from '../../src/testing/mocks';
 
 interface TestMode extends Mode {
@@ -16,10 +17,13 @@ function setup() {
   const events = createEventBus();
   const rec = recordEvents(events);
   const log: string[] = [];
+  const settings = createSettingsStore();
+  const input = createInput({ settings, attach: false, storage: createMemoryStorage() });
   const modes = createModeStack({
     events,
-    settings: createSettingsStore(),
+    settings,
     save: createSaveStore({ storage: createMemoryStorage() }),
+    input,
   });
 
   const mode = (id: ModeId, simulatesWhenCovered = false, hooks: Partial<Mode> = {}): TestMode => {
@@ -63,7 +67,7 @@ function setup() {
     return m;
   };
 
-  return { events, rec, log, modes, mode };
+  return { events, rec, log, modes, mode, input };
 }
 
 const changes = (rec: ReturnType<typeof setup>['rec']): string[] =>
@@ -184,13 +188,14 @@ describe('ModeStack', () => {
   });
 
   it('only the top mode receives input', () => {
-    const { modes, mode } = setup();
+    const { modes, mode, input } = setup();
     const matrix = mode('matrix', true);
     const deck = mode('deckPanel');
     modes.push(matrix);
     modes.push(deck);
-    modes.handleInput('frame-1');
-    expect(deck.inputs).toEqual(['frame-1']);
+    const frame = input.sample(1 / 60);
+    modes.handleInput(frame);
+    expect(deck.inputs).toEqual([frame]);
     expect(matrix.inputs).toEqual([]);
   });
 
@@ -240,14 +245,14 @@ describe('ModeStack', () => {
   });
 
   it('lets a mode pop itself from handleInput', () => {
-    const { modes, mode } = setup();
+    const { modes, mode, input } = setup();
     const matrix = mode('matrix', true);
     const deck = mode('deckPanel', false, {
       handleInput: () => deck.ctx!.modes.pop(),
     });
     modes.push(matrix);
     modes.push(deck);
-    modes.handleInput(null);
+    modes.handleInput(input.frame);
     expect(modes.top).toBe(matrix);
   });
 

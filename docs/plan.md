@@ -1097,6 +1097,16 @@ Typed stubs for 9.1–9.7 are committed at the paths above (under `src/`). Where
 - **`sfx` / `modem` / `phaseLock`**: audible stubs so the engine is exercisable; recipes, Bell 103 FSK, and Phase Lock coupling stay M5.2 / M5.4.
 - **Dev route:** `?lab=audio`.
 
+### 9.12 Contract notes from M0.3 (repo copy only)
+
+- **`InputFrame`** (`input/Input.ts`) replaces `Mode.handleInput`'s placeholder. `ModeInputFrame` is now an alias of `InputFrame`. The frame is reused (double-buffered); it is valid until the next `sample()` and must not be retained. Digital actions use `down` / `pressed` / `released` / `held(seconds)`. Analog: `lookX`/`lookY` (right stick, [-1, 1]), `thrust`/`strafe`/`vertical` (keys + triggers/sticks, [-1, 1]), `knobX`/`knobY` (left stick X / right stick Y, [-1, 1]), `mouseDx`/`mouseDy` (pointer-lock pixels this tick × `settings.input.mouseSensitivity`). Invert-Y from `settings.input.invertY` is applied to `lookY`, `knobY`, and `mouseDy` (default off: mouse-up is positive). Gamepad sticks use a radial dead zone from `settings.input.gamepadDeadzone`. Those three live in the save blob; the Input service reads them each tick and does not store copies.
+- **`ModeContext.input`** is the `InputService` (optional on the type so parallel tasks don't have to construct one; the App always supplies it). The App samples once per sim step (`modes.handleInput(input.sample(dt))` then `update`).
+- **Bindings** (`input/bindings.ts`) persist under `nonspace.bindings`, not the save blob. Defaults match §3.9. `rebind(target, source, slot)` steals a colliding physical control. `listenRebind` captures the next key/button/axis (Esc cancels). On the standard mapping, Menu and Start are the same button (index 9): pause is a tap, jack-out is a 1 s hold; keyboard keeps Esc vs J. Shift is boost and fine-adjust; A / LMB is engage (press) and download (hold).
+- **Text capture** (`beginTextCapture` / `endTextCapture`) suspends action and axis bindings and records printable keys, Backspace, Enter, Escape. Pointer lock exits silently when capture starts.
+- **Pointer lock**: click the canvas to enter; Esc exits. The browser swallows that Esc, so an unlock that we didn't request is reported as `pause` pressed for one tick.
+- **`settings.holdToToggle`**: for hold actions (`boost`, `fineAdjust`, `download`, `jackOut`) a press latches `down` until the next press.
+- **Lab**: `?lab=input` is the live action HUD (also exposes `window.__nonspace`). Gamepad-only and mouse-only are both playable from the default map.
+
 ---
 
 ## 10. Milestones and tasks

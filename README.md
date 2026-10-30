@@ -37,6 +37,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 ## Debug
 
 - `?debug` opens a Tweakpane panel with FPS, frame time and GPU time. GPU time needs `EXT_disjoint_timer_query_webgl2` and shows `n/a` without it (e.g. SwiftShader). Tweakpane is lazy-loaded, so it costs nothing without the flag.
+- `?lab=input` overlays live action/axis states, a remap UI, and a text-capture probe. Click the canvas for pointer lock; Esc exits it.
 - `?mission=<id>&checkpoint=<id>` (dev builds, or with `?debug`) loads a mock mission into the runner and optionally seeks a checkpoint. Mocks live in `src/narrative/mocks.ts`; `mock-triggers` exercises every trigger kind. Campaign content is a later task.
 - `?lab=audio` is the M5.1 audio engine lab (click to unlock the AudioContext; 16 FM voices, HRTF motifs, ducking, drum/bass/sub stubs). It does not need WebGL2.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
@@ -64,15 +65,16 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 
 ## Core runtime
 
-| Piece                                                 | File                                       |
-| ----------------------------------------------------- | ------------------------------------------ |
-| Fixed 60 Hz sim loop with render interpolation        | `src/core/loop.ts`                         |
-| Mode stack (`Mode`, `ModeContext`)                    | `src/app/ModeStack.ts`                     |
-| Deferred events (`post` / `flush`)                    | `src/core/events.ts`                       |
-| PCG32 RNG and integer hashing                         | `src/core/rng.ts`, `src/core/hash.ts`      |
-| Versioned localStorage save with migrations; settings | `src/core/save.ts`, `src/core/settings.ts` |
-| Mission runner (triggers, objectives, checkpoints)    | `src/narrative/MissionRunner.ts`           |
+| Piece                                                                    | File                                       |
+| ------------------------------------------------------------------------ | ------------------------------------------ |
+| Fixed 60 Hz sim loop with render interpolation                           | `src/core/loop.ts`                         |
+| Mode stack (`Mode`, `ModeContext`)                                       | `src/app/ModeStack.ts`                     |
+| Deferred events (`post` / `flush`)                                       | `src/core/events.ts`                       |
+| PCG32 RNG and integer hashing                                            | `src/core/rng.ts`, `src/core/hash.ts`      |
+| Versioned localStorage save with migrations; settings                    | `src/core/save.ts`, `src/core/settings.ts` |
+| Input service (`InputFrame`, remap, pointer lock, gamepad, text capture) | `src/input/Input.ts`                       |
+| Mission runner (triggers, objectives, checkpoints)                       | `src/narrative/MissionRunner.ts`           |
 
-The App flushes posted events after every sim step. Under `?debug`, the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.11.
+The App flushes posted events after every sim step. Under `?debug` (and `?lab=input`), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.12. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.

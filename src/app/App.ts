@@ -5,6 +5,7 @@ import { createSaveStore, type SaveStore } from '../core/save';
 import { createSettingsStore, type SettingsStore } from '../core/settings';
 import type { DebugGui } from '../debug/DebugGui';
 import { createGpuTimer, type GpuTimer } from '../debug/gpuTimer';
+import { createInput, type InputService } from '../input/Input';
 import { createMissionRunner, type MissionRunner } from '../narrative/MissionRunner';
 import { getMockMission } from '../narrative/mocks';
 import { createModeStack, type ModeStack } from './ModeStack';
@@ -26,19 +27,20 @@ export interface App {
   readonly save: SaveStore;
   readonly settings: SettingsStore;
   readonly mission: MissionRunner;
+  readonly input: InputService;
   dispose(): void;
 }
 
 declare global {
   interface Window {
-    /** The running App, exposed under `?debug` for e2e tests and console poking. */
+    /** The running App, exposed under `?debug` and `?lab=input` for e2e tests and console poking. */
     __nonspace?: App;
   }
 }
 
 /**
  * Bootstrap: a full-window canvas driving the fixed-step loop, mode stack,
- * event bus, save and settings. The Renderer service replaces the raw
+ * event bus, save, settings and input. The Renderer service replaces the raw
  * WebGLRenderer setup here.
  */
 export async function startApp({ root, debug, missionId, checkpoint }: AppOptions): Promise<App> {
@@ -65,8 +67,14 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
     save.data.settings = s;
     save.commit();
   });
+  const input = createInput({
+    settings,
+    target: renderer.domElement,
+    window,
+    document,
+  });
   const mission = createMissionRunner({ events, save });
-  const modes = createModeStack({ events, settings, save, mission });
+  const modes = createModeStack({ events, settings, save, mission, input });
   const allowMissionRoute = debug || import.meta.env.DEV;
   if (allowMissionRoute && missionId) {
     const def = getMockMission(missionId);
@@ -79,6 +87,7 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
   }
   const loop = createLoop({
     update(dt) {
+      modes.handleInput(input.sample(dt));
       mission.update(dt);
       modes.update(dt);
       events.flush();
@@ -147,6 +156,9 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
   };
   renderer.setAnimationLoop(frame);
 
+  const lab = new URLSearchParams(window.location.search).get('lab');
+  let inputLab: { dispose(): void } | null = null;
+
   const app: App = {
     renderer,
     events,
@@ -155,6 +167,7 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
     save,
     settings,
     mission,
+    input,
     dispose() {
       renderer.setAnimationLoop(null);
       window.removeEventListener('resize', resize);
@@ -162,6 +175,8 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
       modes.reset();
       mission.dispose();
       events.clear();
+      inputLab?.dispose();
+      input.dispose();
       gpuTimer?.dispose();
       gui?.dispose();
       renderer.dispose();
@@ -169,6 +184,10 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
       if (window.__nonspace === app) delete window.__nonspace;
     },
   };
-  if (debug) window.__nonspace = app;
+  if (debug || lab === 'input') window.__nonspace = app;
+  if (lab === 'input') {
+    const { createInputLab } = await import('../input/InputLab');
+    inputLab = createInputLab(input, settings, root);
+  }
   return app;
 }
