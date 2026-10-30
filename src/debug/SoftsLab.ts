@@ -1,8 +1,8 @@
 /**
  * Dev route `?lab=phaselock3d` (alias `?lab=softs`) — M4.4 in-matrix breach
  * test. Each soft's effect is live: PROBE numeral, CLAMP drift freeze, DAMPER
- * feedback, DECOY lure stub, MIMIC converge, KUANG crack. Dixie `H` is a thin
- * companion hook (no-op unless M7.2 is present). Lazy `?lab=` chunk; default
+ * feedback, DECOY lure stub, MIMIC converge, KUANG crack. Dixie `H` forwards
+ * to the M7.2 companion via `SoftsWorld.dixie`. Lazy `?lab=` chunk; default
  * boot never fetches it.
  *
  * Query: `&scene=probe|clamp|damper|decoy|mimic|kuang|dixie|loadout` (or `&soft=`).
@@ -16,6 +16,7 @@ import {
 } from '../breach/BreachController';
 import type { IceDef, IceModel } from '../breach/IceModel';
 import { createIceVisuals, type IceVisuals } from '../breach/IceVisuals';
+import { asDixieReadApi, createDixie } from '../companion/Dixie';
 import { GRAY_ICE } from '../content/ice/gray';
 import { ICE_LAYER_PRESETS } from '../content/ice/presets';
 import { DEFAULT_SOFT_SLOTS, getSoft } from '../content/softs';
@@ -188,6 +189,12 @@ export function installSoftsLab(opts: SoftsLabOptions): SoftsLab {
   });
   softs.unlockAll();
   const watchers = createWatcherLureStub();
+  const dixie = createDixie({
+    events,
+    save,
+    aboard: true,
+    iceRatio: () => breach.ice?.state.current.ratio ?? null,
+  });
 
   const icePos = { x: 0, y: 0, z: 0 };
   let scene = startScene;
@@ -251,6 +258,7 @@ export function installSoftsLab(opts: SoftsLabOptions): SoftsLab {
     player: player(),
     events,
     lure: watchers,
+    dixie: asDixieReadApi(dixie),
   });
 
   const rebuildVisuals = (): void => {
@@ -335,6 +343,8 @@ export function installSoftsLab(opts: SoftsLabOptions): SoftsLab {
 
   const tick = (dt: number): void => {
     const frame = input.sample(dt);
+    if (breach.ice) breach.ice.state.lockDecayScale = dixie.lockDecayScale;
+    dixie.update(dt);
     softs.handleInput((a) => frame.pressed(a), world());
     if (breach.engaged) {
       breach.step(dt, frame, { afterKnobs, iceMods: softs.iceMods });
@@ -545,6 +555,7 @@ export function installSoftsLab(opts: SoftsLabOptions): SoftsLab {
     },
     dispose() {
       overlay.remove();
+      dixie.dispose();
       visuals?.dispose();
       hud.dispose();
       probe.dispose();

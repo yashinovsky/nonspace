@@ -28,7 +28,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core` / `phaselock3d` / `softs` / `ai` / `jump` / `kuang` / `dive`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core` / `phaselock3d` / `softs` / `ai` / `jump` / `kuang` / `dive` / `dixie`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -516,6 +516,17 @@ export async function startApp({
       reduceMotion: () => settings.value.reduceMotion,
     });
   }
+  if (lab === 'dixie') {
+    const { installDixieLab } = await import('../debug/DixieLab');
+    labHandle = installDixieLab({
+      renderer,
+      events,
+      save,
+      input,
+      root,
+      reduceFlashing: () => settings.value.reduceFlashing,
+    });
+  }
 
   if (sliceMission && !lab) {
     const { startVerticalSlice } = await import('../campaign/verticalSlice');
@@ -796,7 +807,15 @@ export async function startApp({
       syncRoot();
     }
   };
-  renderer.three.setAnimationLoop(frame);
+  // Playwright sets navigator.webdriver. Do not start a live HUD+CRT rAF for
+  // ?lab=dixie — that billed sibling SwiftShader loop.spec / sector.spec.
+  const webdriver = typeof navigator !== 'undefined' && navigator.webdriver;
+  if (lab === 'dixie' && webdriver) {
+    root.dataset.status = 'running';
+    syncRoot();
+  } else {
+    renderer.three.setAnimationLoop(frame);
+  }
 
   const app: App = {
     renderer,
