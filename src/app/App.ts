@@ -22,7 +22,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -350,6 +350,15 @@ export async function startApp({
       scene: q.get('scene'),
       reduceFlashing: () => settings.value.reduceFlashing,
       reduceMotion: () => settings.value.reduceMotion,
+    });
+  }
+  if (lab === 'watchers') {
+    const { installWatcherLab } = await import('../debug/WatcherLab');
+    labHandle = installWatcherLab({
+      renderer,
+      events,
+      root,
+      reduceFlashing: () => settings.value.reduceFlashing,
     });
   }
   if (lab === 'deck') {

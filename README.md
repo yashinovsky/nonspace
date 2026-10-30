@@ -64,6 +64,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=hud` is the M3.2 Ono-Sendai overlay (radar, EEG, VFD strip, trace bargraph, 1200-baud terminal, PIP, reticle) composited after the vector CRT so barrel does not warp it. Screenshot: `docs/screenshots/m3-2-hud.png`. Contract notes in plan §9.37.
 - `?lab=breach` is the M4.3 breach controller (Phase Lock knobs, neural/trace, black-ICE grip countdown, flatline sequence, burned jack-out). `&scene=white|gray|black|approach|grip|flatline|burned`. Screenshot: `docs/screenshots/m4-3-breach.png`. Contract notes in plan §9.39.
 - `?lab=deck` is the M3.3 deck panel (COORD / SOFTS / LOG / PING / STATUS), DOM settings and subtitles, and the boot POST / title unlock. `&scene=deck|title|boot|settings`. Screenshot: `docs/screenshots/m3-3-deck.png`. Contract notes in plan §9.40.
+- `?lab=watchers` is the M4.6 Turing / sysop sweep lab (vector fans, detection cones, 6%/s trace, DECOY lure stub, radar blips). Screenshot: `docs/screenshots/m4-6-watchers.png`. Contract notes in plan §9.42.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -94,6 +95,7 @@ Shared contracts from plan §9 are typed stubs other tasks build against:
 | Sky (spiral arms + constellations) | `src/world/sky/{SpiralArms,FarConstellations,Sky}.ts`                                                 |
 | Corp heraldry + landmarks (M2.2)   | `src/content/{corps,landmarks}.ts`                                                                    |
 | Sector streaming (M2.3)            | `src/world/{coords,Sector,SectorStreamer,sectorWorker,densityMap,landmarks}.ts`, `traffic/routing.ts` |
+| Watchers and sweeps (M4.6)         | `src/world/watchers/Watcher.ts`                                                                       |
 | Teletext + Ink interludes (M6.4)   | `src/meat/{Teletext,TeletextPage,Interlude}.ts`, `src/narrative/InkRuntime.ts`                        |
 
 Test doubles (recording beam/point batches, event recorder, recording audio engine) and valid sample data are in `src/testing/`. Notes on how the stubs differ from the plan's literal TypeScript are in plan §9.8.
@@ -114,7 +116,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
 | Simstim feed, flip, gates, pain (M6.1)                                   | `src/simstim/*`, `src/app/modes/Simstim.ts`            |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look, jack, ice, hud, breach, deck), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.41. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look, jack, ice, hud, breach, deck, watchers), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.42. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
@@ -148,10 +150,11 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 - `?lab=beam` — eight palette cubes plus a grid, through the same HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m1-1-beams.png`.
 - `?lab=grid` — infinite ground grid (8/64/1024 u, analytic AA, checker, warp) plus the 64 u local lattice. Screenshot: `docs/screenshots/m1-3-grid.png`.
 - `?lab=text` — Hershey labels (world billboard + 16 px screen), Px437 ASCII, VFD 7/14-seg with 6% ghosts. Screenshot: `docs/screenshots/m3-1-text.png`.
-- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. Sector notes are plan §9.26. Simstim notes are plan §9.27. Teletext notes are plan §9.28. Bloom notes are plan §9.29. Text notes are plan §9.30. Vector CRT notes are plan §9.32. Black ICE notes are plan §9.33. Look Lab notes are plan §9.34. Jack-in / jack-out notes are plan §9.35. ICE model/visuals notes are plan §9.36. HUD notes are plan §9.37. Sense/Net notes are plan §9.38. Breach notes are plan §9.39. Deck panel / DOM menus notes are plan §9.40. Straylight notes are plan §9.41. M1.2 must not edit `render/lines/*`.
+- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. Sector notes are plan §9.26. Simstim notes are plan §9.27. Teletext notes are plan §9.28. Bloom notes are plan §9.29. Text notes are plan §9.30. Vector CRT notes are plan §9.32. Black ICE notes are plan §9.33. Look Lab notes are plan §9.34. Jack-in / jack-out notes are plan §9.35. ICE model/visuals notes are plan §9.36. HUD notes are plan §9.37. Sense/Net notes are plan §9.38. Breach notes are plan §9.39. Deck panel / DOM menus notes are plan §9.40. Straylight notes are plan §9.41. Watchers notes are in plan §9.42. M1.2 must not edit `render/lines/*`.
 - `?lab=hud` — M3.2 deck overlay through `targets.hud`, composited in FinalComposite after the vector CRT. Screenshot: `docs/screenshots/m3-2-hud.png`.
 - `?lab=breach` — M4.3 Phase Lock engage, grip, flatline, burned. Screenshot: `docs/screenshots/m4-3-breach.png`. Contract notes in plan §9.39.
 - `?lab=deck` — M3.3 Ono-Sendai deck panel (DOM CRT), settings (§8.10), subtitles, boot POST and title audio-unlock. Screenshot: `docs/screenshots/m3-3-deck.png`. Contract notes are in plan §9.40.
+- `?lab=watchers` — M4.6 Turing / sysop vector fans, 6%/s trace, DECOY lure. Screenshot: `docs/screenshots/m4-6-watchers.png`. Contract notes in plan §9.42.
 - `?lab=blackice` — black ICE shard in front of a hot construct: the solid is truly black (eats bloom), UV edges crawl, `?scene=grip` grows screen-edge tendrils. Screenshot: `docs/screenshots/m1-8-black-ice.png`.
 - `?lab=look` — M1.9 art scene through the full vector CRT chain. Screenshot: `docs/screenshots/m1-9-look-lab.png`.
 - M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.

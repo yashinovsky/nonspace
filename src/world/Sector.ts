@@ -103,6 +103,8 @@ export interface WatcherInstance {
   y: number;
   z: number;
   kind: 'turing' | 'sysop';
+  /** Patrol phase at t = 0 (radians, 0 = +Z). */
+  yaw0: number;
 }
 
 export interface SectorData {
@@ -135,6 +137,60 @@ function heightFor(rng: Pcg32, region: RegionCode, density: number): number {
   return snapToGrid(rng.float(16, 200), MINOR_GRID);
 }
 
+/**
+ * Watchers near high-value constructs (plan §8.6). Kept local so the sector
+ * worker never imports `watchers/Watcher.ts` (Three / BeamBatch).
+ * Keep rules aligned with `placeWatchers` in that module.
+ */
+function placeWatchers(
+  rng: Pcg32,
+  constructs: ConstructInstance[],
+  region: RegionCode,
+  density: number,
+): WatcherInstance[] {
+  if (region === 'VOID' || constructs.length === 0) return [];
+  const valuable: ConstructInstance[] = [];
+  for (const c of constructs) {
+    if (c.importance >= 0.2 || c.kind === 'geodesic' || c.kind === 'nestedPoly') {
+      valuable.push(c);
+    }
+  }
+  const pool = valuable.length > 0 ? valuable : constructs;
+  const turingLand = region === 'EURO' || region === 'ORBT';
+  const mean = (turingLand ? 1.1 : 0.55) * Math.max(density, 0.12);
+  let n = rng.poisson(mean);
+  if (density > 0.45 && n === 0) n = 1;
+  n = Math.min(n, 4, pool.length);
+  const used = new Uint8Array(pool.length);
+  const out: WatcherInstance[] = [];
+  for (let i = 0; i < n; i++) {
+    let idx = rng.below(pool.length);
+    let guard = 0;
+    while (used[idx] && guard < pool.length) {
+      idx = (idx + 1) % pool.length;
+      guard++;
+    }
+    used[idx] = 1;
+    const c = pool[idx]!;
+    const turingRoll = rng.next();
+    const kind: WatcherInstance['kind'] = turingLand
+      ? turingRoll < 0.8
+        ? 'turing'
+        : 'sysop'
+      : turingRoll < 0.25
+        ? 'turing'
+        : 'sysop';
+    out.push({
+      x: snapToGrid(c.x + rng.float(-32, 32), MINOR_GRID),
+      y: c.y + 12,
+      z: snapToGrid(c.z + rng.float(-32, 32), MINOR_GRID),
+      kind,
+      yaw0: rng.float(0, Math.PI * 2),
+    });
+  }
+  return out;
+}
+
 function hashData(data: SectorData): number {
   let h = hash2i(data.sx, data.sz, data.worldSeed);
   h = hashCombine(h, data.constructs.length);
@@ -148,6 +204,14 @@ function hashData(data: SectorData): number {
   h = hashCombine(h, data.traffic.length);
   for (const t of data.traffic) {
     h = hashCombine(h, t.path.length);
+  }
+  h = hashCombine(h, data.watchers.length);
+  for (const w of data.watchers) {
+    h = hashCombine(h, w.x);
+    h = hashCombine(h, w.y);
+    h = hashCombine(h, w.z);
+    h = hashCombine(h, hashString(w.kind));
+    h = hashCombine(h, Math.round(w.yaw0 * 1000));
   }
   return h >>> 0;
 }
@@ -239,7 +303,7 @@ export function generateSector(req: GenerateSectorRequest): SectorData {
     constructs,
     clusters,
     traffic,
-    watchers: [],
+    watchers: placeWatchers(rng, constructs, region, density),
     contentHash: 0,
   };
   data.contentHash = hashData(data);

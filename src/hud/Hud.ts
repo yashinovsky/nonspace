@@ -189,6 +189,7 @@ export interface Hud {
   setPipLink(on: boolean): void;
   setGrip(remaining: number | null): void;
   setLock(lock: ReticleLock | null): void;
+  setBlips(blips: readonly RadarBlip[]): void;
   print(text: string, opts?: TerminalPrintOpts): void;
   clearTerminal(): void;
   update(dt: number): void;
@@ -420,6 +421,22 @@ export function createHud(opts: CreateHudOptions): Hud {
     },
     setLock(lock) {
       state.lock = lock;
+    },
+    setBlips(blips) {
+      const dst = state.blips;
+      const n = blips.length;
+      for (let i = 0; i < n; i++) {
+        const src = blips[i]!;
+        const slot = dst[i];
+        if (slot) {
+          slot.angle = src.angle;
+          slot.radius = src.radius;
+          slot.kind = src.kind;
+        } else {
+          dst[i] = { angle: src.angle, radius: src.radius, kind: src.kind };
+        }
+      }
+      dst.length = n;
     },
     print(text, printOpts) {
       terminal.print(text, printOpts);

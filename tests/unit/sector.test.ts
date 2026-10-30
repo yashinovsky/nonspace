@@ -126,7 +126,22 @@ describe('generateSector', () => {
   });
 
   it('pins a golden hash for BAMA 148,72 seed 1', () => {
-    expect(gen(148, 72, 1).contentHash).toBe(4291881016);
+    expect(gen(148, 72, 1).contentHash).toBe(1498926561);
+  });
+
+  it('places Turing/sysop watchers near high-value constructs', () => {
+    const bama = gen(148, 72, 1);
+    expect(bama.watchers.length).toBeGreaterThan(0);
+    for (const w of bama.watchers) {
+      expect(w.kind === 'turing' || w.kind === 'sysop').toBe(true);
+      expect(Number.isFinite(w.yaw0)).toBe(true);
+    }
+    const euro = gen(268, 56, 1);
+    expect(euro.region).toBe('EURO');
+    expect(euro.watchers.some((w) => w.kind === 'turing')).toBe(true);
+    const voided = gen(20, 200, 1);
+    expect(voided.region).toBe('VOID');
+    expect(voided.watchers).toHaveLength(0);
   });
 
   it('snaps cluster centers to the 64 u grid and emits Manhattan traffic', () => {
