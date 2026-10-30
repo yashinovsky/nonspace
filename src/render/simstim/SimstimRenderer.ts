@@ -14,10 +14,12 @@ import {
   type Object3D,
   type PerspectiveCamera,
 } from 'three';
+import { buildSimstimScene } from '../../content/simstim/senseNetScene';
 import type { SimstimTimeline } from '../../content/simstim/types';
 import type { PainOverlay } from '../../simstim/Pain';
 import type { FigureSample, TimelineSample } from '../../simstim/MollyTimeline';
 import type { Renderer } from '../Renderer';
+import { createSimstimKit, type ZoneStats, emptyZoneStats } from './kit';
 import { hexToRgb01, SIMSTIM_PALETTE_HEX } from './palette';
 import flatDitherBody from './flatDither.frag';
 
@@ -54,6 +56,7 @@ export interface SimstimRenderer {
   load(def: SimstimTimeline): void;
   apply(sample: TimelineSample, overlay: PainOverlay, meatTime: number): void;
   dispose(): void;
+  readonly stats: ZoneStats;
 }
 
 const PALETTE_VEC = SIMSTIM_PALETTE_HEX.map((h) => new Vector3(...hexToRgb01(h)));
@@ -86,6 +89,8 @@ export function createSimstimRenderer(renderer: Renderer): SimstimRenderer {
   const boxGeom = new BoxGeometry(1, 1, 1);
   const planeGeom = new PlaneGeometry(1, 1);
   const geoms = [boxGeom, planeGeom];
+  const alarms: Mesh[] = [];
+  let stats: ZoneStats = emptyZoneStats();
 
   const clock = makeChipClock();
   clock.mesh.position.set(-0.32, -0.2, -0.5);
@@ -116,74 +121,30 @@ export function createSimstimRenderer(renderer: Renderer): SimstimRenderer {
   let clockKey = '';
   let holdLeft = 0;
   let held: TimelineSample | null = null;
-
-  const box = (
-    hex: number,
-    w: number,
-    h: number,
-    d: number,
-    x: number,
-    y: number,
-    z: number,
-    parent: Object3D = root,
-  ): Mesh => {
-    const mat = createFlatDitherMaterial(hex);
-    mats.push(mat);
-    const mesh = new Mesh(boxGeom, mat);
-    mesh.scale.set(w, h, d);
-    mesh.position.set(x, y, z);
-    parent.add(mesh);
-    return mesh;
-  };
-
-  const plane = (
-    hex: number,
-    w: number,
-    h: number,
-    x: number,
-    y: number,
-    z: number,
-    rotX: number,
-    rotY = 0,
-    parent: Object3D = root,
-  ): Mesh => {
-    const mat = createFlatDitherMaterial(hex, 0.78);
-    mats.push(mat);
-    const mesh = new Mesh(planeGeom, mat);
-    mesh.scale.set(w, h, 1);
-    mesh.position.set(x, y, z);
-    mesh.rotation.x = rotX;
-    mesh.rotation.y = rotY;
-    parent.add(mesh);
-    return mesh;
-  };
-
-  const buildLobby = (): void => {
-    plane(0x7a7680, 24, 16, 0, 0, -4, -Math.PI / 2);
-    plane(0x4a4854, 24, 16, 0, 4.2, -4, Math.PI / 2);
-    plane(0xa0b8c0, 24, 4.2, 0, 2.1, -12, 0);
-    plane(0xa0b8c0, 16, 4.2, -12, 2.1, -4, 0, Math.PI / 2);
-    plane(0xa0b8c0, 16, 4.2, 12, 2.1, -4, 0, -Math.PI / 2);
-    box(0xb88858, 1.2, 1.4, 1.2, -3.4, 0.7, -5.5);
-    box(0xe8b888, 0.8, 0.4, 1.6, 3.2, 0.2, -4.2);
-    box(0x6e6a74, 0.3, 3.6, 0.3, -1.6, 1.8, -9.4);
-    box(0x6e6a74, 0.3, 3.6, 0.3, 1.6, 1.8, -9.4);
-    box(0x1c1a22, 2.2, 3.2, 0.12, 0, 1.6, -9.5);
-    box(0xc03028, 0.35, 0.35, 0.12, 0.85, 2.2, -9.4);
-    const mannequin = makeMannequin(boxGeom, mats);
-    mannequin.position.set(2.1, 0, -6.2);
-    mannequin.rotation.y = Math.PI;
-    root.add(mannequin);
-    figures.set('guard', mannequin);
-  };
-
   const api: SimstimRenderer = {
-    load(_def) {
+    get stats() {
+      return stats;
+    },
+    load(def) {
       clearGroup(root);
       figures.clear();
-      buildLobby();
+      alarms.length = 0;
+      const kit = createSimstimKit({
+        root,
+        figures,
+        boxGeom,
+        planeGeom,
+        material(hex, ambient) {
+          const m = createFlatDitherMaterial(hex, ambient);
+          mats.push(m);
+          return m;
+        },
+      });
+      buildSimstimScene(def.scene, kit);
+      for (const a of kit.alarms) alarms.push(a);
+      stats = { ...kit.stats };
     },
-    apply(sample, overlay, _meatTime) {
+    apply(sample, overlay, meatTime) {
       if (overlay.frameHold > 0 && holdLeft > 0 && held) {
         holdLeft -= 1;
         poseCamera(camera, held, lookTarget);
@@ -195,6 +156,7 @@ export function createSimstimRenderer(renderer: Renderer): SimstimRenderer {
       for (const fig of sample.figures) poseFigure(figures.get(fig.id), fig);
       hands.rotation.z = Math.sin(sample.playbackTime * 3.2) * 0.04;
       vigMat.uniforms.uPain!.value = overlay.vignette;
+      pulseAlarms(alarms, sample, meatTime);
       if (sample.clock !== clockKey) {
         clockKey = sample.clock;
         drawChipClock(clock.ctx, sample.clock);
@@ -215,10 +177,24 @@ export function createSimstimRenderer(renderer: Renderer): SimstimRenderer {
       for (const m of mats) m.dispose();
       for (const g of geoms) g.dispose();
       figures.clear();
+      alarms.length = 0;
     },
   };
 
   return api;
+}
+
+function pulseAlarms(alarms: Mesh[], sample: TimelineSample, meatTime: number): void {
+  if (alarms.length === 0) return;
+  let panic = false;
+  for (const fig of sample.figures) {
+    if (fig.pose === 'run') {
+      panic = true;
+      break;
+    }
+  }
+  const on = !panic || Math.sin(meatTime * Math.PI * 2 * 1.5) > 0;
+  for (const a of alarms) a.visible = on;
 }
 
 function poseCamera(camera: PerspectiveCamera, sample: TimelineSample, look: Vector3): void {
@@ -229,28 +205,10 @@ function poseCamera(camera: PerspectiveCamera, sample: TimelineSample, look: Vec
 
 function poseFigure(obj: Object3D | undefined, fig: FigureSample): void {
   if (!obj) return;
+  obj.visible = fig.pose !== 'hidden';
   obj.position.set(fig.pos.x, fig.pos.y, fig.pos.z);
   obj.rotation.y = fig.yaw;
-  obj.rotation.x = fig.pose === 'wait' ? 0.08 : 0;
-}
-
-function makeMannequin(geom: BoxGeometry, mats: ShaderMaterial[]): Group {
-  const g = new Group();
-  const part = (hex: number, w: number, h: number, d: number, x: number, y: number, z: number) => {
-    const mat = createFlatDitherMaterial(hex);
-    mats.push(mat);
-    const mesh = new Mesh(geom, mat);
-    mesh.scale.set(w, h, d);
-    mesh.position.set(x, y, z);
-    g.add(mesh);
-  };
-  part(0xe8b888, 0.38, 0.42, 0.32, 0, 1.55, 0);
-  part(0x5a7a8c, 0.55, 0.7, 0.28, 0, 1.05, 0);
-  part(0x4a4854, 0.18, 0.55, 0.18, -0.22, 0.4, 0);
-  part(0x4a4854, 0.18, 0.55, 0.18, 0.22, 0.4, 0);
-  part(0x4a6a48, 0.16, 0.55, 0.16, -0.38, 1.05, 0);
-  part(0x4a6a48, 0.16, 0.55, 0.16, 0.38, 1.05, 0);
-  return g;
+  obj.rotation.x = fig.pose === 'wait' ? 0.08 : fig.pose === 'run' ? 0.18 : 0;
 }
 
 function makeHands(geom: BoxGeometry, mats: ShaderMaterial[]): Group {

@@ -35,10 +35,25 @@ test.describe('M1.2 lightpoints and traffic', () => {
     );
     expect(joint).toBeLessThan(1e-4);
 
-    await page.waitForTimeout(500);
+    // Freeze before the snapshot. Live 60k-point frames starve sibling
+    // SwiftShader workers (loop / grid) if Playwright waits for canvas stability.
+    await page.evaluate(() => {
+      const app = (
+        window as unknown as {
+          __nonspace?: {
+            renderer: {
+              three: { setAnimationLoop(fn: null): void };
+              endFrame(dt: number, gpuMs: number | null): void;
+            };
+          };
+        }
+      ).__nonspace;
+      app?.renderer.three.setAnimationLoop(null);
+      app?.renderer.endFrame(1 / 60, null);
+    });
 
     const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot());
+    const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     let maxChannel = 0;
     let lit = 0;
     for (let i = 0; i < png.data.length; i += 4) {

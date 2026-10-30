@@ -62,6 +62,8 @@ export interface SectorLabHandle {
   jumpTo(sx: number, sz: number, y?: number): void;
   setAutofly(on: boolean): void;
   currentHash(): number | null;
+  /** Drive streaming without rAF so e2e can freeze SwiftShader. */
+  update(dt: number): void;
 }
 
 declare global {
@@ -239,6 +241,36 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
     return { sx, sz, at: sampleAuthored(sx, sz) };
   };
 
+  const tick = (dt: number): void => {
+    if (autofly) {
+      const p = flight.pose;
+      flight.setPose({
+        x: p.x + 600 * dt,
+        y: p.y,
+        z: p.z,
+        yaw: Math.PI / 2,
+        vx: 600,
+        vy: 0,
+        vz: 0,
+      });
+    }
+    const p = flight.pose;
+    streamer.update(p.x, p.y, p.z, dt);
+    const keep = new Set(streamer.loadedKeys());
+    for (const [key, obj] of views) {
+      if (!keep.has(key)) {
+        scene.remove(obj);
+        obj.geometry.dispose();
+        (obj.material as LineBasicMaterial).dispose();
+        views.delete(key);
+      }
+    }
+    const { sx, sz, at } = here();
+    root.dataset.loaded = String(streamer.stats.loaded);
+    root.dataset.region = at.region;
+    root.dataset.hash = String(streamer.get(sx, sz)?.contentHash ?? '');
+  };
+
   const handle: SectorLabHandle = {
     get loaded() {
       return streamer.stats.loaded;
@@ -276,6 +308,9 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
       const { sx, sz } = here();
       return streamer.get(sx, sz)?.contentHash ?? null;
     },
+    update(dt) {
+      tick(dt);
+    },
   };
   window.__nonspaceSector = handle;
   root.dataset.lab = 'sector';
@@ -283,35 +318,7 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
   root.dataset.streamRadius = String(STREAM_RADIUS);
 
   const lab: SectorLab = {
-    update(dt) {
-      if (autofly) {
-        const p = flight.pose;
-        flight.setPose({
-          x: p.x + 600 * dt,
-          y: p.y,
-          z: p.z,
-          yaw: Math.PI / 2,
-          vx: 600,
-          vy: 0,
-          vz: 0,
-        });
-      }
-      const p = flight.pose;
-      streamer.update(p.x, p.y, p.z, dt);
-      const keep = new Set(streamer.loadedKeys());
-      for (const [key, obj] of views) {
-        if (!keep.has(key)) {
-          scene.remove(obj);
-          obj.geometry.dispose();
-          (obj.material as LineBasicMaterial).dispose();
-          views.delete(key);
-        }
-      }
-      const { sx, sz, at } = here();
-      root.dataset.loaded = String(streamer.stats.loaded);
-      root.dataset.region = at.region;
-      root.dataset.hash = String(streamer.get(sx, sz)?.contentHash ?? '');
-    },
+    update: tick,
     render(alpha) {
       cameraRig.apply(flight, alpha);
       const t = flight.telemetry;

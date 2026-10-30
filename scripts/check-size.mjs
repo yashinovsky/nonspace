@@ -10,7 +10,7 @@ const dist = new URL('../dist/', import.meta.url).pathname;
 
 /** Lab / debug-only chunks. Default boot never fetches these. */
 const LAB =
-  /(?:^|\/)(?:lab-|grammar-|sectorWorker-|.+Lab-|DebugGui-|teletext|JackIn|JackOut|CrtCollapse|IceVisuals|IceModel|Shatter|iceFacet)/;
+  /(?:^|\/)(?:lab-|grammar-|sectorWorker-|.+Lab-|DebugGui-|teletext|JackIn|JackOut|CrtCollapse|IceVisuals|IceModel|Shatter|iceFacet|senseNet)/;
 
 /** @param {string} dir @returns {{ path: string, size: number }[]} */
 function walk(dir) {
