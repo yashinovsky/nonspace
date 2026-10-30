@@ -22,7 +22,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -81,11 +81,12 @@ export async function startApp({
   const renderer = createRenderer({ parent: root, settings, qualityOverride });
   const collision = createCollisionWorld();
   const flight = createFlightController({ collision });
+  const flyCam = lab === 'sector' || lab === 'look';
   const cameraRig = createCameraRig({
-    camera: lab === 'sector' ? renderer.cameras.matrix : undefined,
+    camera: flyCam ? renderer.cameras.matrix : undefined,
     aspect: window.innerWidth / Math.max(window.innerHeight, 1),
-    near: lab === 'sector' ? 0.5 : undefined,
-    far: lab === 'sector' ? 60_000 : undefined,
+    near: flyCam ? 0.5 : undefined,
+    far: flyCam ? 60_000 : undefined,
   });
   const input = createInput({
     settings,
@@ -141,13 +142,14 @@ export async function startApp({
     update(dt) {
       const frame = input.sample(dt);
       modes.handleInput(frame);
-      if (flightLab || sectorLab || lab === 'sky') {
+      if (flightLab || sectorLab || lookLab || lab === 'sky') {
         flight.step(frame, dt, { reduceMotion: settings.value.reduceMotion });
       }
       mission.update(dt);
       simstim.update(dt);
       labHandle?.update(dt);
       sectorLab?.update(dt);
+      lookLab?.update(dt);
       modes.update(dt);
       events.flush();
     },
@@ -160,6 +162,7 @@ export async function startApp({
         flightLab.render(alpha);
       } else {
         sectorLab?.render(alpha);
+        lookLab?.render(alpha);
         renderer.endFrame(frameDt, gpuTimer?.lastMs ?? null);
       }
     },
@@ -181,6 +184,8 @@ export async function startApp({
 
   let labHandle: { update(dt: number): void; dispose(): void } | null = null;
   let sectorLab: { update(dt: number): void; render(alpha: number): void; dispose(): void } | null =
+    null;
+  let lookLab: { update(dt: number): void; render(alpha: number): void; dispose(): void } | null =
     null;
   if (lab === 'render') {
     const { installRenderLab } = await import('../debug/RenderLab');
@@ -274,6 +279,17 @@ export async function startApp({
       grip: q.get('grip') ?? undefined,
     });
   }
+  if (lab === 'look') {
+    const { installLookLab } = await import('../debug/LookLab');
+    const q = new URLSearchParams(window.location.search);
+    lookLab = installLookLab({
+      renderer,
+      flight,
+      cameraRig,
+      root,
+      gray: q.get('gray'),
+    });
+  }
 
   let inputLab: { dispose(): void } | null = null;
   if (lab === 'input') {
@@ -296,8 +312,10 @@ export async function startApp({
 
   let gui: DebugGui | null = null;
   let gpuTimer: GpuTimer | null = null;
-  if (debug) {
+  if (debug || lab === 'look') {
     gpuTimer = createGpuTimer(renderer.three.getContext() as WebGL2RenderingContext);
+  }
+  if (debug) {
     const { createDebugGui } = await import('../debug/DebugGui');
     gui = createDebugGui({ gpuTimerAvailable: gpuTimer !== null });
     renderer.attachDebug(gui.pane);
@@ -454,6 +472,7 @@ export async function startApp({
     const gpuMs = gpuTimer ? gpuTimer.poll() : null;
 
     if (gui) gui.frame(dt, gpuMs);
+    if (lab === 'look') root.dataset.gpuMs = gpuMs == null ? 'n/a' : gpuMs.toFixed(2);
     if (firstFrame) {
       firstFrame = false;
       root.dataset.status = 'running';
@@ -481,6 +500,7 @@ export async function startApp({
       document.removeEventListener('visibilitychange', onVisibility);
       labHandle?.dispose();
       sectorLab?.dispose();
+      lookLab?.dispose();
       modes.reset();
       simstim.dispose();
       mission.dispose();

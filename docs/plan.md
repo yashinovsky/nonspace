@@ -1318,6 +1318,14 @@ Black ICE mask pipeline. Replaces the bloom-add stub in `BlackIceComposite.ts`. 
 - **CPU** (`render/faces/blackIceMath.ts`): `applyMask`, `tendrilCoverage`, `crawlOffset`. Strength default 1 = truly black, including bloom.
 - **Dev route**: `?lab=blackice` (`debug/BlackIceLab.ts`, lazy `?lab=` chunk). `&scene=shard|grip` or `&grip=1`. Hot amber construct behind a black octahedral shard. `window.__nonspaceBlackIce`. Screenshot: `docs/screenshots/m1-8-black-ice.png`. Dist budget is the default-boot graph (lab chunk excluded).
 
+### 9.34 Contract notes from M1.9 (repo copy only)
+
+Look Lab art-integration scene. Does not edit sibling passes, `PostChain.ts`, `targets.ts`, or M1.1–M1.8 shaders. Composes already-landed systems behind `?lab=look`. Bloom remains M1.5 (§9.29). Vector CRT remains M1.6 (§9.32). Black ICE remains M1.8 (§9.33). Grid remains M1.3 (§9.24). Grammar remains M2.1 (§9.21). Heraldry remains M2.2 (§9.25).
+
+- **`LookLab.ts`** (`debug/LookLab.ts`): lazy `?lab=` chunk (default boot never fetches it). Ground grid + camera-centred lattice, hand-placed ESFA ziggurat / Mitsubishi cube stacks / T-A slabs (near-LOD `generate` + `BeamBatch`), white ICE nested octa, black ICE octahedral shard on `scenes.blackIce` with UV crawl edges, path-texture traffic, 2.4k placeholder spiral-arm MIL points (not M2.4's 40k sky), free-fly via `FlightController` + `CameraRig` on the matrix camera. `?gray=1` remaps the live palette to Rec. 709 luma.
+- **GPU timer.** App starts `createGpuTimer` on this route even without `?debug` (`data-gpu-ms`). HUD also shows an EMA fps.
+- **Dev route:** `?lab=look` (`&quality=medium`, `&gray=1`). `window.__nonspaceLook` exposes `{ stats, iceScreen, setGrayscale, setTime, resetPose }`. Screenshot: `docs/screenshots/m1-9-look-lab.png` (grayscale `m1-9-look-lab-gray.png`). Playwright freezes `setAnimationLoop` before canvas snapshots (SwiftShader). Dist budget is the default-boot graph (lab chunk excluded), same as sector streaming.
+
 ---
 
 ## 10. Milestones and tasks

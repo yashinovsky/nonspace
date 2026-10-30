@@ -58,6 +58,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=teletext` is the M6.4 teletext test card (40×24, 8 colours, mosaics, double height) through the same raster CRT. Keys 1–4 are Ink choices; click to unlock the payphone ring. Screenshot: `docs/screenshots/m6-4-teletext-test.png`. Contract notes in plan §9.28.
 - `?lab=text` is the M3.1 text lab (Hershey simplex/duplex via BeamBatch, Px437 bitmap, 7/14-seg VFD with 6% ghosts). `&scene=all|hershey|bitmap|vfd`. Screenshot: `docs/screenshots/m3-1-text.png`. Font credits: [`docs/CREDITS.md`](docs/CREDITS.md). Contract notes in plan §9.30.
 - `?lab=blackice` is the M1.8 black ICE lab (subtractive shard that eats bloom, crawling ultraviolet edges, screen-edge grip tendrils). `&scene=shard|grip`. Screenshot: `docs/screenshots/m1-8-black-ice.png`. Contract notes in plan §9.33.
+- `?lab=look` is the M1.9 art-integration scene (grid, lattice, ESFA ziggurat, Mitsubishi cubes, T-A slabs, white ICE, black ICE shard, traffic, placeholder spiral arms, free-fly). `?gray=1` for grayscale. Screenshot: `docs/screenshots/m1-9-look-lab.png`. Contract notes in plan §9.34.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -106,7 +107,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
 | Simstim feed, flip, gates, pain (M6.1)                                   | `src/simstim/*`, `src/app/modes/Simstim.ts`            |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.33. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.34. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
@@ -138,8 +139,9 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 - `?lab=beam` — eight palette cubes plus a grid, through the same HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m1-1-beams.png`.
 - `?lab=grid` — infinite ground grid (8/64/1024 u, analytic AA, checker, warp) plus the 64 u local lattice. Screenshot: `docs/screenshots/m1-3-grid.png`.
 - `?lab=text` — Hershey labels (world billboard + 16 px screen), Px437 ASCII, VFD 7/14-seg with 6% ghosts. Screenshot: `docs/screenshots/m3-1-text.png`.
-- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. Sector notes are plan §9.26. Simstim notes are plan §9.27. Teletext notes are plan §9.28. Bloom notes are plan §9.29. Text notes are plan §9.30. Vector CRT notes are plan §9.32. Black ICE notes are plan §9.33. M1.2 must not edit `render/lines/*`.
+- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. Sector notes are plan §9.26. Simstim notes are plan §9.27. Teletext notes are plan §9.28. Bloom notes are plan §9.29. Text notes are plan §9.30. Vector CRT notes are plan §9.32. Black ICE notes are plan §9.33. Look Lab notes are plan §9.34. M1.2 must not edit `render/lines/*`.
 - `?lab=blackice` — black ICE shard in front of a hot construct: the solid is truly black (eats bloom), UV edges crawl, `?scene=grip` grows screen-edge tendrils. Screenshot: `docs/screenshots/m1-8-black-ice.png`.
+- `?lab=look` — M1.9 art scene through the full vector CRT chain. Screenshot: `docs/screenshots/m1-9-look-lab.png`.
 - M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.
 - M6.1 simstim feed (`?lab=simstim`) renders a flat-dithered 320×240 lobby into `targets.simstim`, then through that raster CRT. Flip/peek/lag, gate windows, wait exposure and pain→neural echo live in `src/simstim/`. Contract notes are in plan §9.27.
 - M6.4 hangs a 320×240 teletext `CanvasTexture` on `RasterCrtPass.source` with `postMode = 'interlude'`. Contract notes are in plan §9.28. `npm run build:ink` compiles `ink/*.ink` → `src/content/ink/*.json`.
