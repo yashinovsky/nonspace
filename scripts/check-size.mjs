@@ -10,7 +10,7 @@ const dist = new URL('../dist/', import.meta.url).pathname;
 
 /** Lab / debug-only chunks. Default boot never fetches these. */
 const LAB =
-  /(?:^|\/)(?:lab-|grammar-|sectorWorker-|.+Lab-|DebugGui-|teletext|JackIn|JackOut|CrtCollapse|IceVisuals|IceModel|Shatter|iceFacet|senseNet|straylight|BreachController|PhaseLock|Grip-|NeuralLoad|Trace-|Heat-|Flatline|Breach-|Hud-|BitmapText-|VfdText-|white-|Boot|Title|DeckPanel|Settings|Subtitles|Watcher-|CoreInterior|Core-|softs-|registry-|effects-|Wintermute-|Neuromancer-|Hijack-|Persona-|personaPaths|CoordinateJump|JumpStreak|Kuang-|KuangMaterial-|Dive-|DiveTube-|kuangMath-|kuangSpline-|diveMath-|verticalSlice|tutorialPrompts|chibaScene|construct-|constructScene-|tendril-|p0-|m1-|m2-|m3-|SimstimRenderer|Matrix-|Interlude|missions-|companion|Dixie-|barks-)/;
+  /(?:^|\/)(?:lab-|grammar-|sectorWorker-|.+Lab-|DebugGui-|teletext|JackIn|JackOut|CrtCollapse|IceVisuals|IceModel|Shatter|iceFacet|senseNet|straylight|BreachController|PhaseLock|Grip-|NeuralLoad|Trace-|Heat-|Flatline|Breach-|Hud-|BitmapText-|VfdText-|white-|Boot|Title|DeckPanel|Settings|Subtitles|Watcher-|CoreInterior|Core-|softs-|registry-|effects-|Wintermute-|Neuromancer-|Hijack-|Persona-|personaPaths|CoordinateJump|JumpStreak|Kuang-|KuangMaterial-|Dive-|DiveTube-|kuangMath-|kuangSpline-|diveMath-|verticalSlice|tutorialPrompts|chibaScene|construct-|constructScene-|tendril-|turing-|turingScene-|turingField-|p0-|m1-|m2-|m3-|m4-|SimstimRenderer|Matrix-|Interlude|missions-|companion|Dixie-|barks-)/;
 
 /** @param {string} dir @returns {{ path: string, size: number }[]} */
 function walk(dir) {

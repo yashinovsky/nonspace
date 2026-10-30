@@ -32,7 +32,7 @@ export interface AppOptions {
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
-  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m5/m7 also in preview; p0/m1/m2/m3 always). */
+  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m5/m7 also in preview; p0/m1/m2/m3/m4 always). */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
   checkpoint?: string;
@@ -88,7 +88,11 @@ export async function startApp({
   const collision = createCollisionWorld();
   const flight = createFlightController({ collision });
   const sliceMission =
-    missionId === 'p0' || missionId === 'm1' || missionId === 'm2' || missionId === 'm3';
+    missionId === 'p0' ||
+    missionId === 'm1' ||
+    missionId === 'm2' ||
+    missionId === 'm3' ||
+    missionId === 'm4';
   const flyCam =
     lab === 'sector' || lab === 'look' || lab === 'ai' || lab === 'jump' || sliceMission;
   const cameraRig = createCameraRig({
@@ -560,7 +564,10 @@ export async function startApp({
       const { startSenseNetMission } = await import('../campaign/senseNet');
       sliceHandle = await startSenseNetMission({ ...bootSlice, simstim });
     };
-    if (missionId === 'm3') {
+    if (missionId === 'm4') {
+      const { startTuringMission } = await import('../campaign/turing');
+      sliceHandle = await startTuringMission(bootSlice);
+    } else if (missionId === 'm3') {
       const { startConstructMission } = await import('../campaign/construct');
       sliceHandle = await startConstructMission(bootSlice);
     } else if (missionId === 'm2') {
@@ -836,9 +843,9 @@ export async function startApp({
     }
   };
   // Playwright sets navigator.webdriver. Do not start a live HUD+CRT rAF for
-  // ?lab=dixie / ?mission=m3 — that billed sibling SwiftShader loop.spec / sector.spec.
+  // ?lab=dixie / ?mission=m3|m4 — that billed sibling SwiftShader loop.spec / sector.spec.
   const webdriver = typeof navigator !== 'undefined' && navigator.webdriver;
-  if (webdriver && (lab === 'dixie' || missionId === 'm3')) {
+  if (webdriver && (lab === 'dixie' || missionId === 'm3' || missionId === 'm4')) {
     root.dataset.status = 'running';
     syncRoot();
   } else {

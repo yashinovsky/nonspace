@@ -82,13 +82,14 @@ export function createInterlude(opts: InterludeOptions): Interlude {
 
   const layout = (): void => {
     const id = pageIdOf(ink);
+    const tagged = ink.tag('title');
     page = paintTeletextPage({
       pageId: id,
       clock: now(),
       lines: ink.state.text,
       choices: ink.state.choices,
       phoneSounding: phone.sounding(time),
-      title: id === 'phone' ? 'WINTERMUTE' : 'CHIBA   NITE CITY',
+      title: tagged ?? (id === 'phone' ? 'WINTERMUTE' : 'CHIBA   NITE CITY'),
     });
   };
 
