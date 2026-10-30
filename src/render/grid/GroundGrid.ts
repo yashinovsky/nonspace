@@ -59,6 +59,9 @@ export interface GroundGrid {
   readonly material: ShaderMaterial;
   setWarp(points: readonly WarpPoint[]): void;
   getWarp(): WarpPoint[];
+  /** Race-out radius in world units. `>= 1e8` (default) is infinite. */
+  setRadius(radius: number): void;
+  get radius(): number;
   follow(camera: { x: number; z: number }): void;
   dispose(): void;
 }
@@ -115,6 +118,16 @@ export function checkerNearFade(dist: number, end = CHECKER_FADE_END): number {
   if (dist <= 0) return 1;
   const t = dist / end;
   return 1 - t * t;
+}
+
+/** Jack-in grid race-out (plan §5.9). Infinite when radius ≥ 1e8. */
+export function gridRadiusFade(dist: number, radius: number): number {
+  if (!(radius > 0) || radius >= 1e8) return 1;
+  const edge = radius * 0.82;
+  if (dist <= edge) return 1;
+  if (dist >= radius) return 0;
+  const t = (dist - edge) / (radius - edge);
+  return 1 - t * t * (3 - 2 * t);
 }
 
 /**
@@ -183,6 +196,7 @@ export function createGroundGrid(palette: Palette): GroundGrid {
       uCheckerEnd: { value: CHECKER_FADE_END },
       uFogStart: { value: GRID_FOG_START },
       uFogDensity: { value: GRID_FOG_DENSITY },
+      uRadius: { value: 1e9 },
       logDepthBufFC: { value: logDepthFC(60_000) },
     },
     depthTest: true,
@@ -225,6 +239,7 @@ export function createGroundGrid(palette: Palette): GroundGrid {
   mesh.onBeforeRender = syncFrame;
 
   const stored = emptyWarp();
+  let radius = 1e9;
 
   const grid: GroundGrid = {
     object: mesh,
@@ -238,6 +253,13 @@ export function createGroundGrid(palette: Palette): GroundGrid {
     },
     getWarp() {
       return stored.map((p) => ({ ...p }));
+    },
+    setRadius(next) {
+      radius = next > 0 ? next : 1e9;
+      material.uniforms.uRadius!.value = radius;
+    },
+    get radius() {
+      return radius;
     },
     follow(_camera) {
       // Infinite via ray-plane; nothing to snap.

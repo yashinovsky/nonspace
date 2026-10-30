@@ -16,6 +16,8 @@ import { createDynamicRes, type DynamicRes } from './dynamicRes';
 import {
   createPostChain,
   createBlitter,
+  IDENTITY_CRT_COLLAPSE,
+  type CrtCollapseState,
   type PostChain,
   type PostContext,
   type PostMode,
@@ -84,6 +86,8 @@ export interface Renderer {
   vectorLoad: number;
   /** Extra fullscreen shader iterations (debug / AC GPU load). 0 = off. */
   gpuLoad: number;
+  /** Jack-out CRT squash (M2.7). Identity leaves FinalComposite unchanged. */
+  crtCollapse: CrtCollapseState;
   setQuality(setting: QualitySetting): void;
   resize(cssWidth: number, cssHeight: number, dpr: number): void;
   endFrame(dt: number, gpuMs: number | null): void;
@@ -187,6 +191,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
   let gpuLoad = 0;
   let vectorLoadOverride: number | null = null;
   let time = 0;
+  const crtCollapse: CrtCollapseState = { ...IDENTITY_CRT_COLLAPSE };
 
   const burnTarget = createColorTarget(64, 64, { hdr: false, depth: false });
   const burnMat = createFullscreenMaterial(BURN_FRAG, { uIters: { value: 0 } });
@@ -213,6 +218,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
     exposure: 1,
     vectorLoad: 0,
     blackIceDrawn: false,
+    crtCollapse,
   };
 
   const debugState = {
@@ -325,6 +331,15 @@ export function createRenderer(opts: RendererOptions): Renderer {
     set gpuLoad(v) {
       gpuLoad = Math.max(0, Math.min(256, v));
     },
+    get crtCollapse() {
+      return crtCollapse;
+    },
+    set crtCollapse(v) {
+      crtCollapse.scaleX = v.scaleX;
+      crtCollapse.scaleY = v.scaleY;
+      crtCollapse.glow = v.glow;
+      crtCollapse.fade = v.fade;
+    },
     get vectorLoad() {
       return vectorLoadOverride ?? ctx.vectorLoad;
     },
@@ -352,6 +367,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
       ctx.quality = quality;
       ctx.vectorLoad = vectorLoadOverride ?? 0;
       ctx.blackIceDrawn = false;
+      ctx.crtCollapse = crtCollapse;
 
       cameras.matrix.getWorldQuaternion(scratchQuat);
       ctx.angularVelocity = dt > 1e-6 ? lastQuat.angleTo(scratchQuat) / dt : 0;

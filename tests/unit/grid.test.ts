@@ -14,6 +14,7 @@ import {
   distToLineInCells,
   emptyWarp,
   gridDistanceFade,
+  gridRadiusFade,
   pristineLine,
   warpXZ,
   type WarpPoint,
@@ -84,6 +85,19 @@ describe('distance fade and checker', () => {
     expect(checkerNearFade(0)).toBe(1);
     expect(checkerNearFade(220)).toBe(0);
     expect(checkerNearFade(110)).toBeCloseTo(0.75, 5);
+  });
+
+  it('race-out radius is infinite by default and fades at the rim', () => {
+    expect(gridRadiusFade(100, 1e9)).toBe(1);
+    expect(gridRadiusFade(10, 100)).toBe(1);
+    expect(gridRadiusFade(100, 100)).toBe(0);
+    expect(gridRadiusFade(91, 100)).toBeGreaterThan(0);
+    expect(gridRadiusFade(91, 100)).toBeLessThan(1);
+    const grid = createGroundGrid(createPalette());
+    expect(grid.radius).toBeGreaterThan(1e8);
+    grid.setRadius(64);
+    expect(grid.radius).toBe(64);
+    grid.dispose();
   });
 });
 
