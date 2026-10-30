@@ -6,7 +6,12 @@ import type { MissionRunner } from '../narrative/MissionRunner';
 import type { Renderer } from '../render/Renderer';
 import { chipClockAt } from './clock';
 import { createGates, type GateDef, type GateSnapshot, type Gates } from './Gates';
-import { createMollyTimeline, type MollyTimeline, type TimelineSample } from './MollyTimeline';
+import {
+  createMollyTimeline,
+  type MollyTimeline,
+  type SpokenLine,
+  type TimelineSample,
+} from './MollyTimeline';
 import { createPain, type Pain, type PainOverlay } from './Pain';
 import { FLIP_BACK_LAG_S, idleFlipState, stepFlip, type FlipState } from './flip';
 
@@ -15,6 +20,8 @@ export interface SimstimFeedOptions {
   mission?: MissionRunner;
   renderer?: Renderer;
   onActions?: (actions: Action[]) => void;
+  /** Spoken simstim lines (Molly / 3Jane / …) for DOM subtitles. */
+  onLine?: (line: SpokenLine) => void;
 }
 
 export interface SimstimDebug {
@@ -244,7 +251,10 @@ export function createSimstimFeed(opts: SimstimFeedOptions): SimstimFeed {
       timeline.update(dt, meatTime, gates.waitPlayback);
       pain.update(dt);
       flip.lag = Math.max(0, flip.lag - Math.max(0, dt));
-      for (const line of timeline.firedLines) lastLine = `${line.who}: ${line.text}`;
+      for (const line of timeline.firedLines) {
+        lastLine = `${line.who}: ${line.text}`;
+        opts.onLine?.(line);
+      }
       if (opts.renderer) {
         opts.renderer.pipEnabled = !flip.flipped && timeline.def !== null;
       }

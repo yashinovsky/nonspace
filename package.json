@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "photosensitivity": "node scripts/photosensitivity.mjs",
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "build:ink": "node scripts/build-ink.mjs"

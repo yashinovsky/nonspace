@@ -193,6 +193,40 @@ describe('IceModel', () => {
     expect(seen).toContain('iceLayerCracked');
   });
 
+  it('wider tolerance raises m for an off-ratio knob', () => {
+    const def = sampleIceDef({
+      layers: [{ ...ICE_LAYER_PRESETS['gray-3'], rekeyEvery: undefined, tolRatio: 0.06 }],
+    });
+    const a = createIceModel(def, { seed: 5 });
+    a.engage();
+    const [ra, rb] = a.state.current.ratio;
+    const off = { R: (rb / ra) * 1.08, Phi: a.state.current.phi - a.state.current.roll };
+    a.step(DT, off);
+    const b = createIceModel(def, { seed: 5 });
+    b.engage();
+    b.step(DT, { ...off, tolMul: 1.75 });
+    expect(b.state.current.m).toBeGreaterThan(a.state.current.m);
+  });
+
+  it('slower re-key stretches the first interval', () => {
+    const def = sampleIceDef({
+      class: 'gray',
+      layers: [
+        {
+          ...ICE_LAYER_PRESETS['gray-2'],
+          rekeyEvery: [1, 1],
+          telegraph: 0.2,
+          lockTime: 20,
+        },
+      ],
+    });
+    const a = createIceModel(def, { seed: 4 });
+    a.engage();
+    const t0 = a.state.current.nextRekeyAt!;
+    a.step(DT, { ...perfect(a), rekeyMul: 2 });
+    expect(a.state.current.nextRekeyAt).toBeGreaterThan(t0);
+  });
+
   it('forceTelegraph and forceGrip work for the lab', () => {
     const model = createIceModel(BLACK_ICE, { seed: 1 });
     model.engage();

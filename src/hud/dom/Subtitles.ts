@@ -3,6 +3,7 @@
  * Speech and important SFX cues (`[REKEY]`) land here and in the deck LOG.
  */
 
+import { formatSpeech, SFX_CUES } from '../../a11y/speech';
 import type { EventBus, Unsubscribe } from '../../core/events';
 import type { Settings, SettingsStore, SubtitleSize } from '../../core/settings';
 import { el, ensureCrtStyles } from './theme';
@@ -79,37 +80,54 @@ export function createSubtitles(opts: SubtitlesOptions): Subtitles {
     const bus = opts.events;
     unsubs.push(
       bus.on('dixieSay', (e) => {
-        show(`DIXIE> ${e.lineId}`);
+        show(formatSpeech('dixie', e.lineId));
       }),
     );
     unsubs.push(
       bus.on('wintermute', (e) => {
         if (e.action.kind === 'hijack') show(e.action.text);
+        else if (e.action.kind === 'bargain') show(formatSpeech('wintermute', e.action.offerId));
       }),
     );
     unsubs.push(
       bus.on('iceRekeyTelegraph', () => {
-        show('[REKEY]', true);
+        show(SFX_CUES.rekey, true);
       }),
     );
     unsubs.push(
       bus.on('iceRekey', () => {
-        show('[REKEY]', true);
+        show(SFX_CUES.rekey, true);
+      }),
+    );
+    unsubs.push(
+      bus.on('iceEngaged', () => {
+        show(SFX_CUES.ice, true);
+      }),
+    );
+    unsubs.push(
+      bus.on('iceLayerCracked', () => {
+        show(SFX_CUES.cracked, true);
       }),
     );
     unsubs.push(
       bus.on('mollyPain', () => {
-        show('[PAIN]', true);
+        show(SFX_CUES.pain, true);
       }),
     );
     unsubs.push(
       bus.on('gripStart', () => {
-        show('[GRIP]', true);
+        show(SFX_CUES.grip, true);
       }),
     );
     unsubs.push(
       bus.on('flatline', () => {
-        show('[FLATLINE]', true);
+        show(SFX_CUES.flatline, true);
+      }),
+    );
+    unsubs.push(
+      bus.on('gateWindow', (e) => {
+        if (e.state === 'hit') show(SFX_CUES.gateHit, true);
+        else if (e.state === 'missed' || e.state === 'late') show(SFX_CUES.gateMiss, true);
       }),
     );
   }

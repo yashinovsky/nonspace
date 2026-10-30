@@ -1,7 +1,10 @@
 import type { NeuromancerAction } from '../ai/Neuromancer';
 import type { WintermuteAction } from '../ai/Wintermute';
 import { createEventBus, type EventBus } from '../core/events';
-import { createLoop, type Loop } from '../core/loop';
+import type { A11yOverlay } from '../a11y/overlay';
+import { openSettings } from '../a11y/host';
+import { formatSpeech } from '../a11y/speech';
+import { createLoop, SIM_DT, type Loop } from '../core/loop';
 import { createSaveStore, type SaveStore } from '../core/save';
 import { createSettingsStore, type SettingsStore, type QualitySetting } from '../core/settings';
 import type { DebugGui } from '../debug/DebugGui';
@@ -161,6 +164,7 @@ export async function startApp({
       },
       say(who, line) {
         sliceFx.current?.say?.(who, line);
+        a11y?.say(who, line);
       },
       iceMod(iceId, patch) {
         sliceFx.current?.iceMod?.(iceId, patch);
@@ -186,7 +190,24 @@ export async function startApp({
       },
     },
   });
-  const simstim = createSimstimFeed({ events, mission, renderer });
+  let a11y: A11yOverlay | null = null;
+  // Closed over by ensureA11y before createLoop; assigned on the next line of init.
+  let loop = undefined as unknown as Loop;
+  const ensureA11y = async (): Promise<A11yOverlay> => {
+    if (a11y) return a11y;
+    const { createA11yOverlay } = await import('../a11y/overlay');
+    a11y = createA11yOverlay({ settings, input, events, loop, root });
+    a11y.mount();
+    return a11y;
+  };
+  const simstim = createSimstimFeed({
+    events,
+    mission,
+    renderer,
+    onLine: (line) => {
+      a11y?.subtitles.show(formatSpeech(line.who, line.text));
+    },
+  });
   const modes = createModeStack({
     events,
     settings,
@@ -229,9 +250,18 @@ export async function startApp({
     root.dataset.size = `${renderer.internalWidth}x${renderer.internalHeight}`;
   };
 
-  const loop = createLoop({
+  loop = createLoop({
     update(dt) {
       const frame = input.sample(dt);
+      if (a11y?.open) {
+        a11y.handleInput(frame);
+        return;
+      }
+      const top = modes.top?.id;
+      if (frame.pressed('pause') && top && top !== 'title' && top !== 'boot' && top !== 'jackIn') {
+        openSettings();
+        void ensureA11y();
+      }
       modes.handleInput(frame);
       if (flightLab || sectorLab || lookLab || lab === 'sky' || lab === 'ai') {
         flight.step(frame, dt, { reduceMotion: settings.value.reduceMotion });
@@ -248,6 +278,14 @@ export async function startApp({
       events.flush();
     },
     render(alpha, frameDt) {
+      if (loop.paused) {
+        const frame = input.sample(frameDt > 0 ? frameDt : SIM_DT);
+        a11y?.handleInput(frame);
+        const deck = (
+          window as unknown as { __nonspaceDeck?: { handleSettings?(f: unknown): void } }
+        ).__nonspaceDeck;
+        deck?.handleSettings?.(frame);
+      }
       modes.render(alpha);
       sliceRef.current?.render(alpha);
       if (flightLab) {
@@ -417,6 +455,7 @@ export async function startApp({
       scene: q.get('scene'),
       gray: q.get('gray'),
       reduceMotion: () => settings.value.reduceMotion,
+      reduceFlashing: () => settings.value.reduceFlashing,
     });
   }
   if (lab === 'hud') {
@@ -625,6 +664,8 @@ export async function startApp({
       });
     }
   }
+
+  if (sliceMission || beachMission) void ensureA11y();
 
   let inputLab: { dispose(): void } | null = null;
   if (lab === 'input') {
@@ -937,6 +978,8 @@ export async function startApp({
       jumpLab?.dispose();
       sliceRef.current?.dispose();
       sliceRef.current = null;
+      a11y?.dispose();
+      a11y = null;
       modes.reset();
       simstim.dispose();
       mission.dispose();

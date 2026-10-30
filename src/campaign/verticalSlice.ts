@@ -1,3 +1,4 @@
+import { openSettings } from '../a11y/host';
 import { createBreachMode } from '../app/modes/Breach';
 import { createCoreMode } from '../app/modes/Core';
 import { createDeckPanelMode, DEFAULT_ADDRESS_BOOK } from '../app/modes/DeckPanel';
@@ -199,7 +200,7 @@ export async function startVerticalSlice(opts: VerticalSliceOptions): Promise<Ve
   });
   if (visuals) visuals.object.visible = false;
 
-  const breach = createBreachController({ events, save, audio: audio ?? undefined });
+  const breach = createBreachController({ events, save, settings, audio: audio ?? undefined });
   breach.neural.reset(8);
   breach.trace.reset(4);
   breach.markCheckpoint();
@@ -549,6 +550,7 @@ export async function startVerticalSlice(opts: VerticalSliceOptions): Promise<Ve
         visuals,
         camera: renderer.cameras.matrix,
         reduceMotion: () => settings.value.reduceMotion,
+        reduceFlashing: () => settings.value.reduceFlashing,
         onCracked() {
           visuals?.shatter(7);
           enterCore();
@@ -608,6 +610,7 @@ export async function startVerticalSlice(opts: VerticalSliceOptions): Promise<Ve
           return;
         },
         onError: () => audio?.sfx('deckError'),
+        onSettings: () => openSettings(),
       }),
     );
   };
@@ -839,7 +842,13 @@ export async function startVerticalSlice(opts: VerticalSliceOptions): Promise<Ve
       mission.setPlayerPosition(flight.pose.x, flight.pose.y, flight.pose.z);
       interior?.updateVisuals(dt);
       if (visuals && !modes.has('core')) {
-        visuals.update(dt, liveIce(), renderer.cameras.matrix, settings.value.reduceMotion);
+        visuals.update(
+          dt,
+          liveIce(),
+          renderer.cameras.matrix,
+          settings.value.reduceMotion,
+          settings.value.reduceFlashing,
+        );
       }
       modes.update(dt);
       events.flush();
@@ -878,7 +887,13 @@ export async function startVerticalSlice(opts: VerticalSliceOptions): Promise<Ve
       }
       mission.setPlayerPosition(flight.pose.x, flight.pose.y, flight.pose.z);
       if (visuals && !modes.has('core')) {
-        visuals.update(dt, liveIce(), renderer.cameras.matrix, settings.value.reduceMotion);
+        visuals.update(
+          dt,
+          liveIce(),
+          renderer.cameras.matrix,
+          settings.value.reduceMotion,
+          settings.value.reduceFlashing,
+        );
       }
       interior?.updateVisuals(dt);
       if (audio) {

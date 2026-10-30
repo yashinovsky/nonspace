@@ -178,7 +178,7 @@ export function installSoftsLab(opts: SoftsLabOptions): SoftsLab {
   hud.setSpeed(0);
   hud.setPipLink(false);
 
-  const breach = createBreachController({ events, save });
+  const breach = createBreachController({ events, save, settings });
   breach.neural.reset(18);
   breach.trace.reset(12);
   breach.markCheckpoint();
@@ -186,6 +186,9 @@ export function installSoftsLab(opts: SoftsLabOptions): SoftsLab {
   const softs = createSoftsRuntime({
     slots: DEFAULT_SOFT_SLOTS,
     mimicAlways: settings.value.phaseLock.mimicAlways,
+  });
+  const unsubMimic = settings.onChange((s) => {
+    softs.setMimicAlways(s.phaseLock.mimicAlways);
   });
   softs.unlockAll();
   const watchers = createWatcherLureStub();
@@ -351,7 +354,13 @@ export function installSoftsLab(opts: SoftsLabOptions): SoftsLab {
     }
     softs.step(dt, world());
     if (visuals && breach.ice) {
-      visuals.update(dt, breach.ice, renderer.cameras.matrix, opts.reduceMotion?.() ?? false);
+      visuals.update(
+        dt,
+        breach.ice,
+        renderer.cameras.matrix,
+        opts.reduceMotion?.() ?? false,
+        opts.reduceFlashing?.() ?? settings.value.reduceFlashing,
+      );
     }
     drawFx();
     events.flush();
@@ -534,7 +543,13 @@ export function installSoftsLab(opts: SoftsLabOptions): SoftsLab {
     paint() {
       rig.apply(flight, 1);
       if (visuals && breach.ice) {
-        visuals.update(0, breach.ice, renderer.cameras.matrix, true);
+        visuals.update(
+          0,
+          breach.ice,
+          renderer.cameras.matrix,
+          true,
+          opts.reduceFlashing?.() ?? settings.value.reduceFlashing,
+        );
       }
       drawFx();
       paintHud();
@@ -554,6 +569,7 @@ export function installSoftsLab(opts: SoftsLabOptions): SoftsLab {
       sync();
     },
     dispose() {
+      unsubMimic();
       overlay.remove();
       dixie.dispose();
       visuals?.dispose();

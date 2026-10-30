@@ -7,6 +7,7 @@ import {
   traceBlink,
   traceColor,
   traceLitCount,
+  traceZone,
 } from '../../src/hud/Bargraph';
 import { createTerminal, TERMINAL_CHARS_PER_SEC } from '../../src/hud/Terminal';
 import { padHud3 } from '../../src/hud/VfdStrip';
@@ -108,6 +109,9 @@ describe('M3.2 trace bargraph', () => {
     const off = traceBlink(0.95, 0.3, false);
     expect(on).not.toBe(off);
     expect(traceBlink(0.95, 0.1, true)).toBe(0.7);
+    expect(traceZone(0)).toBe('low');
+    expect(traceZone(5)).toBe('mid');
+    expect(traceZone(9)).toBe('high');
   });
 });
 

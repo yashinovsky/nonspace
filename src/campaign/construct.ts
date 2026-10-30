@@ -1,3 +1,4 @@
+import { openSettings } from '../a11y/host';
 import { createWintermute, type Wintermute } from '../ai/Wintermute';
 import { createBreachMode } from '../app/modes/Breach';
 import { createCoreMode } from '../app/modes/Core';
@@ -219,7 +220,7 @@ export async function startConstructMission(
   });
   if (visuals) visuals.object.visible = false;
 
-  const breach = createBreachController({ events, save, audio: audio ?? undefined });
+  const breach = createBreachController({ events, save, settings, audio: audio ?? undefined });
   breach.neural.reset(8);
   breach.neural.setScars(0);
   breach.trace.reset(4);
@@ -238,6 +239,10 @@ export async function startConstructMission(
   softs.beginRun({
     act: 2,
     slots: ['probe', 'mimic', 'clamp', 'decoy'],
+    mimicAlways: settings.value.phaseLock.mimicAlways,
+  });
+  const unsubMimic = settings.onChange((s) => {
+    softs.setMimicAlways(s.phaseLock.mimicAlways);
   });
 
   const wm: Wintermute = createWintermute({
@@ -609,6 +614,7 @@ export async function startConstructMission(
         visuals,
         camera: renderer.cameras.matrix,
         reduceMotion: () => settings.value.reduceMotion,
+        reduceFlashing: () => settings.value.reduceFlashing,
         onCracked() {
           visuals?.shatter(7);
           enterCore();
@@ -681,6 +687,7 @@ export async function startConstructMission(
           return;
         },
         onError: () => audio?.sfx('deckError'),
+        onSettings: () => openSettings(),
       }),
     );
   };
@@ -974,7 +981,13 @@ export async function startConstructMission(
       mission.setPlayerPosition(flight.pose.x, flight.pose.y, flight.pose.z);
       interior?.updateVisuals(dt);
       if (visuals && !modes.has('core')) {
-        visuals.update(dt, liveIce(), renderer.cameras.matrix, settings.value.reduceMotion);
+        visuals.update(
+          dt,
+          liveIce(),
+          renderer.cameras.matrix,
+          settings.value.reduceMotion,
+          settings.value.reduceFlashing,
+        );
       }
       const ice = liveIce();
       ice.state.lockDecayScale = dixie.lockDecayScale;
@@ -1022,7 +1035,13 @@ export async function startConstructMission(
       }
       mission.setPlayerPosition(flight.pose.x, flight.pose.y, flight.pose.z);
       if (visuals && !modes.has('core')) {
-        visuals.update(dt, liveIce(), renderer.cameras.matrix, settings.value.reduceMotion);
+        visuals.update(
+          dt,
+          liveIce(),
+          renderer.cameras.matrix,
+          settings.value.reduceMotion,
+          settings.value.reduceFlashing,
+        );
       }
       interior?.updateVisuals(dt);
       const ice = liveIce();
@@ -1049,6 +1068,7 @@ export async function startConstructMission(
       disposed = true;
       const w = window as unknown as { __nonspaceMission?: ConstructHandle };
       if (w.__nonspaceMission === handle) delete w.__nonspaceMission;
+      unsubMimic();
       unbindAudio?.();
       dixie.dispose();
       wm.dispose();

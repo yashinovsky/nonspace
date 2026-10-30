@@ -64,10 +64,17 @@ export function traceColor(index: number): Beam {
   return Beam.MITSU;
 }
 
-/** How many of the 10 LEDs are on for a 0..1 trace value. */
+/** How many of the 10 LEDs are on for a 0..1 trace value. Position is the identity, not hue. */
 export function traceLitCount(trace01: number): number {
   const t = trace01 < 0 ? 0 : trace01 > 1 ? 1 : trace01;
   return Math.round(t * TRACE_SEGMENTS);
+}
+
+/** Zone of a cell: left / mid / right. Colorblind-safe even if hues collapse. */
+export function traceZone(index: number): 'low' | 'mid' | 'high' {
+  if (index >= 8) return 'high';
+  if (index >= 5) return 'mid';
+  return 'low';
 }
 
 /** Last LED blinks at 2 Hz when trace ≥ 90%. Returns intensity 0..1 for that cell. */
@@ -88,7 +95,7 @@ export interface Bargraph {
 export function createBargraph(palette: Palette, opts: { z?: number } = {}): Bargraph {
   const z0 = opts.z ?? -1;
   const batch = createBeamBatch(palette, {
-    capacity: TRACE_SEGMENTS * 6,
+    capacity: TRACE_SEGMENTS * 10,
     style: { fogDensity: 0, fogStart: 1e9, sigma: 0.55, dwell: 0 },
   });
   batch.object.name = 'HudBargraph';
@@ -119,7 +126,22 @@ export function createBargraph(palette: Palette, opts: { z?: number } = {}): Bar
         const on = i < lit;
         let intensity = on ? 1.25 : 0.09;
         if (on && i === TRACE_SEGMENTS - 1) intensity *= blink;
-        pushBox(batch, x + i * (cell + gap), y, cell, h, z, traceColor(i), intensity);
+        const cx = x + i * (cell + gap);
+        pushBox(batch, cx, y, cell, h, z, traceColor(i), intensity);
+        // Position hash: 1/2/3 ticks by zone so grayscale still reads the meter.
+        if (on) {
+          const ticks = traceZone(i) === 'high' ? 3 : traceZone(i) === 'mid' ? 2 : 1;
+          for (let k = 0; k < ticks; k++) {
+            const tx = cx + cell * (0.28 + k * 0.22);
+            _a.x = tx;
+            _a.y = y + 2;
+            _b.x = tx;
+            _b.y = y + h - 2;
+            _a.z = z;
+            _b.z = z;
+            batch.push(_a, _b, Beam.GRID, intensity * 0.9, 1.1, BeamFlag.NO_FOG);
+          }
+        }
       }
       batch.endDynamic();
     },

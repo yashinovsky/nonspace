@@ -1,3 +1,4 @@
+import { openSettings } from '../a11y/host';
 import { createBreachMode } from '../app/modes/Breach';
 import { createDeckPanelMode, DEFAULT_ADDRESS_BOOK } from '../app/modes/DeckPanel';
 import { createFlatlineMode, FLATLINE_TIMING, type FlatlineMode } from '../app/modes/Flatline';
@@ -198,7 +199,7 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
   });
   if (visuals) visuals.object.visible = false;
 
-  const breach = createBreachController({ events, save, audio: audio ?? undefined });
+  const breach = createBreachController({ events, save, settings, audio: audio ?? undefined });
   breach.neural.reset(10);
   breach.trace.reset(6);
   breach.markCheckpoint();
@@ -343,7 +344,14 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
     cameraRig.apply(flight, alpha);
     const cam = renderer.cameras.matrix.position;
     scene.follow(cam, renderer.quality.latticeRadius);
-    if (visuals) visuals.update(0, liveIce(), renderer.cameras.matrix, settings.value.reduceMotion);
+    if (visuals)
+      visuals.update(
+        0,
+        liveIce(),
+        renderer.cameras.matrix,
+        settings.value.reduceMotion,
+        settings.value.reduceFlashing,
+      );
     applyFx();
     paintHud();
     if (simstim.flipped) {
@@ -551,6 +559,7 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
         visuals,
         camera: renderer.cameras.matrix,
         reduceMotion: () => settings.value.reduceMotion,
+        reduceFlashing: () => settings.value.reduceFlashing,
         onCracked() {
           /* layers map to gates via iceLayerCracked listener */
         },
@@ -638,6 +647,7 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
           return;
         },
         onError: () => audio?.sfx('deckError'),
+        onSettings: () => openSettings(),
       }),
     );
   };
@@ -891,7 +901,13 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
       }
       mission.setPlayerPosition(flight.pose.x, flight.pose.y, flight.pose.z);
       if (visuals) {
-        visuals.update(dt, liveIce(), renderer.cameras.matrix, settings.value.reduceMotion);
+        visuals.update(
+          dt,
+          liveIce(),
+          renderer.cameras.matrix,
+          settings.value.reduceMotion,
+          settings.value.reduceFlashing,
+        );
       }
       maybeFlip(input.frame);
       modes.update(dt);
@@ -940,7 +956,13 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
       }
       mission.setPlayerPosition(flight.pose.x, flight.pose.y, flight.pose.z);
       if (visuals) {
-        visuals.update(dt, liveIce(), renderer.cameras.matrix, settings.value.reduceMotion);
+        visuals.update(
+          dt,
+          liveIce(),
+          renderer.cameras.matrix,
+          settings.value.reduceMotion,
+          settings.value.reduceFlashing,
+        );
       }
       maybeFlip(input.frame);
       if (audio) {

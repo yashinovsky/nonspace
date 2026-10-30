@@ -4,7 +4,9 @@ import {
   BINDINGS_KEY,
   defaultBindings,
   formatSource,
+  gamepadOnlyPlayable,
   loadBindings,
+  mouseOnlyPlayable,
   parseBindings,
   rebind,
   saveBindings,
@@ -63,6 +65,14 @@ describe('bindings', () => {
     const storage = createMemoryStorage();
     storage.setItem(BINDINGS_KEY, '{not json');
     expect(loadBindings(storage).actions.scan).toEqual(defaultBindings().actions.scan);
+  });
+
+  it('defaults are mouse-only and gamepad-only playable', () => {
+    const set = defaultBindings();
+    expect(mouseOnlyPlayable(set)).toBe(true);
+    expect(gamepadOnlyPlayable(set)).toBe(true);
+    expect(set.axes.thrust.some((s) => s.type === 'mouseWheel')).toBe(true);
+    expect(formatSource({ type: 'mouseWheel' })).toBe('Wheel');
   });
 
   it('formats sources for the lab', () => {

@@ -164,7 +164,7 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
   hud.setSpeed(0);
   hud.setPipLink(false);
 
-  const breach = createBreachController({ events, save });
+  const breach = createBreachController({ events, save, settings });
   breach.neural.reset(12);
   breach.trace.reset(8);
   breach.markCheckpoint();
@@ -215,10 +215,16 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
 
   const liveModel = (): IceModel => breach.ice ?? display;
 
-  const tickIce = (dt: number, reduceMotion: boolean): void => {
+  const tickIce = (dt: number): void => {
     const vis = visuals;
     if (!vis) return;
-    vis.update(dt, liveModel(), renderer.cameras.matrix, reduceMotion);
+    vis.update(
+      dt,
+      liveModel(),
+      renderer.cameras.matrix,
+      opts.reduceMotion?.() ?? false,
+      opts.reduceFlashing?.() ?? settings.value.reduceFlashing,
+    );
   };
 
   const rebuildVisuals = (): void => {
@@ -286,6 +292,7 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
         visuals,
         camera: renderer.cameras.matrix,
         reduceMotion: opts.reduceMotion ?? (() => settings.value.reduceMotion),
+        reduceFlashing: opts.reduceFlashing ?? (() => settings.value.reduceFlashing),
         onCracked() {
           dropModes();
           hud.print('LAYER CRACKED');
@@ -431,7 +438,7 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
     if (out.kind === 'flatline') startFlatline();
     if (out.kind === 'burned') startBurned();
     if (frame.pressed('engage')) doEngage();
-    tickIce(dt, opts.reduceMotion?.() ?? false);
+    tickIce(dt);
   };
 
   const handle: BreachLabHandle = {
@@ -499,7 +506,7 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
       if (breach.ice) breach.ice.state.neural = Math.max(breach.ice.state.neural, 61);
       breach.forceGrip('neural');
       scene = 'grip';
-      tickIce(0, true);
+      tickIce(0);
       paintHud();
       sync();
     },
@@ -553,7 +560,7 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
       }
       rig.apply(flight, 1);
       if (modes.size > 0 && !modes.has('breach')) {
-        tickIce(dt, opts.reduceMotion?.() ?? false);
+        tickIce(dt);
       }
       paintHud();
       sync();
@@ -572,14 +579,14 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
 
   applyScene(startScene);
   rig.apply(flight, 1);
-  tickIce(0, true);
+  tickIce(0);
   paintHud();
   sync();
 
   return {
     update(dt) {
       if (modes.size === 0) stepApproach(dt);
-      else if (!modes.has('breach')) tickIce(dt, opts.reduceMotion?.() ?? false);
+      else if (!modes.has('breach')) tickIce(dt);
       rig.apply(flight, 1);
       paintHud();
       sync();

@@ -65,6 +65,11 @@ describe('ICE class looks', () => {
     expect(telegraphFlicker(0, 0)).toBe(0);
   });
 
+  it('reduceFlashing clamps telegraph amplitude and removes the sine', () => {
+    expect(telegraphFlicker(0, 1, true)).toBeCloseTo(0.22);
+    expect(telegraphFlicker(0.125, 1, true)).toBe(telegraphFlicker(0, 1, true));
+  });
+
   it('shell meshes match the authored kind', () => {
     expect(shellMesh('cube', 1).faces.length).toBe(6);
     expect(shellMesh('octa', 1).faces.length).toBe(8);

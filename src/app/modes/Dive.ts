@@ -1,4 +1,5 @@
 import type { PerspectiveCamera } from 'three';
+import { iceAssistMods } from '../../a11y/assists';
 import type { AudioEngine } from '../../audio/AudioEngine';
 import { stepKnobs } from '../../breach/BreachController';
 import { createIceModel, type IceModel } from '../../breach/IceModel';
@@ -175,7 +176,12 @@ export function createDiveMode(opts: DiveModeOptions): DiveMode {
         knobs.lnR = next.lnR;
         knobs.Phi = next.Phi;
         knobs.R = knobToR(knobs.lnR);
-        const evs = ice.step(dt, { R: knobs.R, Phi: knobs.Phi });
+        const pl = ctx?.settings.value.phaseLock;
+        const evs = ice.step(dt, {
+          R: knobs.R,
+          Phi: knobs.Phi,
+          ...(pl ? iceAssistMods(pl) : {}),
+        });
         const [a, b] = ice.state.current.ratio;
         opts.audio?.phaseLock.setPlayer(knobs.R, knobs.Phi);
         opts.audio?.phaseLock.setTarget(a, b, ice.state.current.phi);

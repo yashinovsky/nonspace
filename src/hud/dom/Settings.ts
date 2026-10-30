@@ -9,9 +9,11 @@ import {
   ACTIONS,
   AXES,
   formatSource,
+  mouseOnlyPlayable,
   type ActionId,
   type AxisId,
   type BindTarget,
+  type InputFrame,
   type InputService,
 } from '../../input/Input';
 import { el, ensureCrtStyles } from './theme';
@@ -35,11 +37,15 @@ export type AccessibilityFieldId = (typeof ACCESSIBILITY_FIELDS)[number];
 export interface SettingsMenu {
   readonly open: boolean;
   readonly pausedSim: boolean;
+  /** Focused `data-field` id (gamepad remap UI). */
+  readonly focusedField: string | null;
   mount(parent: HTMLElement): void;
   show(): void;
   hide(): void;
   toggle(): void;
   sync(): void;
+  /** D-pad navigates, A activates, B/pause closes. Works with gamepad only. */
+  handleInput(frame: InputFrame): void;
   dispose(): void;
   /** Test helper: the live form has this control. */
   hasField(id: string): boolean;
@@ -59,8 +65,33 @@ export function createSettingsMenu(opts: SettingsMenuOptions): SettingsMenu {
   let body: HTMLElement | null = null;
   let mounted = false;
   let open = false;
+  let focusIndex = 0;
   let unsub: (() => void) | null = null;
   let keyHandler: ((ev: KeyboardEvent) => void) | null = null;
+
+  const fields = (): HTMLElement[] => {
+    if (!body) return [];
+    return [...body.querySelectorAll<HTMLElement>('.ns-field')];
+  };
+
+  const focusField = (index: number): void => {
+    const list = fields();
+    if (list.length === 0) return;
+    const n = list.length;
+    focusIndex = ((index % n) + n) % n;
+    for (let i = 0; i < n; i++) {
+      if (i === focusIndex) list[i]!.dataset.focused = '1';
+      else delete list[i]!.dataset.focused;
+      const chip = list[i]!.querySelector<HTMLElement>('.ns-bind');
+      if (chip) {
+        if (i === focusIndex) chip.dataset.focused = '1';
+        else delete chip.dataset.focused;
+      }
+    }
+    list[focusIndex]!.scrollIntoView({ block: 'nearest' });
+  };
+
+  const focusedId = (): string | null => fields()[focusIndex]?.dataset.field ?? null;
 
   const setPaused = (on: boolean): void => {
     if (opts.loop) opts.loop.paused = on;
@@ -210,12 +241,65 @@ export function createSettingsMenu(opts: SettingsMenuOptions): SettingsMenu {
       );
       const hint = el(
         'div',
-        { class: 'ns-muted', 'data-field': 'remap-hint' },
-        'Mouse-only and gamepad-only are playable. Esc cancels a listen.',
+        { class: 'ns-muted' },
+        mouseOnlyPlayable(input.bindings)
+          ? 'Mouse-only and gamepad-only are playable. D-pad moves, A binds, B/Esc closes. Esc cancels a listen.'
+          : 'Remap so mouse-only or gamepad-only is playable. D-pad moves, A binds, B/Esc closes.',
       );
       body.appendChild(hint);
       for (const id of ACTIONS) bindRow(body, input, id, 'action');
       for (const id of AXES) bindRow(body, input, id, 'axis');
+    }
+    if (open) focusField(focusIndex);
+  };
+
+  const activate = (): void => {
+    const row = fields()[focusIndex];
+    if (!row) return;
+    const id = row.dataset.field ?? '';
+    const checkbox = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    if (checkbox) {
+      checkbox.checked = !checkbox.checked;
+      checkbox.dispatchEvent(new Event('change'));
+      return;
+    }
+    const select = row.querySelector<HTMLSelectElement>('select');
+    if (select) {
+      const i = (select.selectedIndex + 1) % select.options.length;
+      select.selectedIndex = i;
+      select.dispatchEvent(new Event('change'));
+      return;
+    }
+    const chip = row.querySelector<HTMLButtonElement>('.ns-bind');
+    if (chip && opts.input) {
+      chip.click();
+      return;
+    }
+    if (id.startsWith('bind.') && opts.input) {
+      const bindId = id.slice(5) as BindTarget;
+      opts.input.listenRebind(bindId, 0);
+      paint();
+    }
+  };
+
+  const nudge = (dir: -1 | 1): void => {
+    const row = fields()[focusIndex];
+    if (!row) return;
+    const select = row.querySelector<HTMLSelectElement>('select');
+    if (select) {
+      const n = select.options.length;
+      select.selectedIndex = (select.selectedIndex + dir + n) % n;
+      select.dispatchEvent(new Event('change'));
+      return;
+    }
+    const range = row.querySelector<HTMLInputElement>('input[type="range"]');
+    if (range) {
+      const min = Number(range.min);
+      const max = Number(range.max);
+      const step = Number(range.step) || 0.05;
+      const next = Math.min(max, Math.max(min, Number(range.value) + dir * step));
+      range.value = String(next);
+      range.dispatchEvent(new Event('input'));
     }
   };
 
@@ -225,6 +309,9 @@ export function createSettingsMenu(opts: SettingsMenuOptions): SettingsMenu {
     },
     get pausedSim() {
       return opts.loop?.paused === true;
+    },
+    get focusedField() {
+      return open ? focusedId() : null;
     },
     mount(parent) {
       if (mounted) return;
@@ -272,6 +359,19 @@ export function createSettingsMenu(opts: SettingsMenuOptions): SettingsMenu {
     },
     sync() {
       if (open) paint();
+    },
+    handleInput(frame) {
+      if (!open) return;
+      if (opts.input?.rebindTarget) return;
+      if (frame.pressed('pause') || frame.pressed('simstim')) {
+        menu.hide();
+        return;
+      }
+      if (frame.pressed('soft1')) focusField(focusIndex - 1);
+      if (frame.pressed('soft3')) focusField(focusIndex + 1);
+      if (frame.pressed('soft2')) nudge(1);
+      if (frame.pressed('soft4')) nudge(-1);
+      if (frame.pressed('engage')) activate();
     },
     dispose() {
       menu.hide();

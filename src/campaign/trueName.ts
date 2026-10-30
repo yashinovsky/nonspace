@@ -1,3 +1,4 @@
+import { openSettings } from '../a11y/host';
 import { createWintermute, type Wintermute } from '../ai/Wintermute';
 import { createNeuromancer, type Neuromancer } from '../ai/Neuromancer';
 import { createPersona, type Persona } from '../ai/Persona';
@@ -350,7 +351,13 @@ export async function startTrueNameMission(opts: TrueNameMissionOptions): Promis
     scene.follow(cam, renderer.quality.latticeRadius);
     scene.paint();
     if (visuals && visuals.object.visible) {
-      visuals.update(0, displayIce, renderer.cameras.matrix, settings.value.reduceMotion);
+      visuals.update(
+        0,
+        displayIce,
+        renderer.cameras.matrix,
+        settings.value.reduceMotion,
+        settings.value.reduceFlashing,
+      );
     }
     if (kuang.object.visible) kuang.paint();
     paintHud();
@@ -490,6 +497,7 @@ export async function startTrueNameMission(opts: TrueNameMissionOptions): Promis
       campaign: () => save.data.campaign,
       onRawSubmit,
       onError: () => audio?.sfx('deckError'),
+      onSettings: () => openSettings(),
     });
     deckMode.panel.setLink(simstim.linkLive);
     deckMode.panel.setInRun(true);
