@@ -22,7 +22,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core` / `phaselock3d` / `softs`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -390,6 +390,22 @@ export async function startApp({
       root,
       scene: q.get('scene'),
       seed: q.get('seed'),
+      reduceFlashing: () => settings.value.reduceFlashing,
+      reduceMotion: () => settings.value.reduceMotion,
+    });
+  }
+  if (lab === 'phaselock3d' || lab === 'softs') {
+    const { installSoftsLab } = await import('../debug/SoftsLab');
+    const q = new URLSearchParams(window.location.search);
+    labHandle = installSoftsLab({
+      renderer,
+      events,
+      save,
+      settings,
+      input,
+      flight,
+      root,
+      scene: q.get('scene') ?? q.get('soft'),
       reduceFlashing: () => settings.value.reduceFlashing,
       reduceMotion: () => settings.value.reduceMotion,
     });

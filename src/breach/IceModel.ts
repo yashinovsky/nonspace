@@ -89,7 +89,17 @@ export interface IceState {
   current: IceLayerState;
 }
 
-export interface IceStepInput {
+/** M4.4 soft modifiers. Optional on `IceModel.step`; Wintermute freeze stays `setFrozen`. */
+export interface IceSoftMods {
+  /** CLAMP: hold phase drift without pausing the re-key clock. */
+  freezeDrift?: boolean;
+  /** DAMPER: multiply `feedbackDps` (0.3 = 70% cut). */
+  feedbackMul?: number;
+  /** DECOY: multiply engaged `traceRate` (0.5 = half gain). */
+  traceMul?: number;
+}
+
+export interface IceStepInput extends IceSoftMods {
   /** Breaker ratio knob R. */
   R: number;
   /** Breaker phase knob (roll is added inside the model). */
@@ -116,6 +126,8 @@ export interface IceModel {
   forceGrip(reason?: GripState['reason']): IceSimEvent[];
   /** Crack the current layer now (lock meter → 1). */
   crack(): IceSimEvent[];
+  /** CLAMP: push the next re-key (and live telegraph) later by `seconds`. */
+  delayRekey(seconds: number): void;
   step(dt: number, input: IceStepInput): IceSimEvent[];
 }
 
@@ -282,19 +294,33 @@ export function createIceModel(def: IceDef, opts: CreateIceModelOptions = {}): I
       crackCurrent(list);
       return list;
     },
+    delayRekey(seconds) {
+      if (!(seconds > 0) || state.status !== 'engaged') return;
+      const cur = state.current;
+      if (cur.nextRekeyAt !== null) cur.nextRekeyAt += seconds;
+      if (cur.telegraph) {
+        cur.telegraph.start += seconds;
+        cur.telegraph.end += seconds;
+      }
+    },
     step(dt, input) {
       const list: IceSimEvent[] = [];
       if (state.status !== 'engaged' || dt <= 0) return list;
       state.t += dt;
       const layer = layerDef();
       const cur = state.current;
+      const freezeDrift = input.freezeDrift === true;
+      const feedbackMul = input.feedbackMul ?? 1;
+      const traceMul = input.traceMul ?? 1;
 
       if (!state.frozen) {
-        if (state.t >= nextDriftFlip) {
-          driftDir = -driftDir;
-          nextDriftFlip = state.t + rng.float(2, 5);
+        if (!freezeDrift) {
+          if (state.t >= nextDriftFlip) {
+            driftDir = -driftDir;
+            nextDriftFlip = state.t + rng.float(2, 5);
+          }
+          cur.phi = wrapPositive(cur.phi + driftDir * layer.phaseDrift * dt);
         }
-        cur.phi = wrapPositive(cur.phi + driftDir * layer.phaseDrift * dt);
 
         if (cur.nextRekeyAt !== null && !cur.telegraph && !state.grip) {
           const warnAt = cur.nextRekeyAt - layer.telegraph;
@@ -333,9 +359,9 @@ export function createIceModel(def: IceDef, opts: CreateIceModelOptions = {}): I
         return list;
       }
 
-      state.trace = Math.min(100, state.trace + layer.traceRate * dt);
+      state.trace = Math.min(100, state.trace + layer.traceRate * traceMul * dt);
       if (cur.m < DISSONANCE_THRESHOLD) {
-        state.neural = Math.min(100, state.neural + layer.feedbackDps * dt);
+        state.neural = Math.min(100, state.neural + layer.feedbackDps * feedbackMul * dt);
       }
       if (layer.grip && !state.grip && state.neural > layer.grip.neuralThreshold) {
         startGrip('neural', list);

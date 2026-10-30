@@ -1,4 +1,4 @@
-/** Softs (plan §9.4). The soft runtime (registry, effects) is M4.4's. */
+/** Softs (plan §9.4). Runtime: `deck/softs/{registry,effects}.ts` (M4.4). */
 export type SoftEffect =
   | { kind: 'revealRatio'; seconds: number }
   | { kind: 'freezeDrift'; seconds: number; delayRekey: number }
@@ -10,13 +10,21 @@ export type SoftEffect =
 export interface SoftDef {
   id: string;
   name: string;
-  /** Uses per run; undefined = unlimited. */
+  /** Uses per run; undefined = unlimited (MIMIC is still 1/layer in the registry). */
   charges?: number;
   /** Seconds between uses. */
   cooldown?: number;
   effect: SoftEffect;
   /** Campaign flag that unlocks the soft; 'start' = available from the first run (provisional). */
   unlock: string;
+}
+
+/** Default 4-slot loadout (plan §3.5 / HUD mock). */
+export const DEFAULT_SOFT_SLOTS: readonly string[] = ['probe', 'clamp', 'damper', 'decoy'];
+
+/** PROBE facet numeral, e.g. `3:2`. Dixie speech of that ratio is M7.2. */
+export function ratioLabel(a: number, b: number): string {
+  return `${a | 0}:${b | 0}`;
 }
 
 /** Starting values from the plan §3.5 softs table. */
