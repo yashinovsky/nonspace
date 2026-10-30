@@ -10,6 +10,7 @@ import {
   SENSE_NET_PANIC_S,
   SENSE_NET_TIMELINE_ID,
 } from '../simstim/senseNet';
+import { scaleRekeyEvery, tuneIce, type TuneOpts } from '../tuning';
 
 /** Sprawl loft, looking toward the Sense/Net broadcast cluster (plan §4.4). */
 export const M2_START = { region: 'BAMA', x: 166.4, z: 98.1, y: 360 } as const;
@@ -33,20 +34,32 @@ export const M2_REKEY_PANIC = {
   vault: panicRekeyEvery(M2_REKEY.vault),
 };
 
+/** Normal-base re-key table, then §12.3 difficulty / heat. */
+export function senseNetRekeyRates(panic: boolean, opts: TuneOpts = {}): [number, number][] {
+  const bases = [M2_REKEY.lobby, M2_REKEY.corridor, M2_REKEY.vault];
+  return bases.map((every) => {
+    const tuned = scaleRekeyEvery(every, opts);
+    return panic ? panicRekeyEvery(tuned) : tuned;
+  });
+}
+
 /** Three nested gray shells; each layer is one Sense/Net lock. */
-export function senseNetIce(): IceDef {
-  return {
-    id: M2_ICE_ID,
-    class: 'gray',
-    shell: 'octa',
-    radius: 14,
-    layers: [
-      { ...structuredClone(ICE_LAYER_PRESETS['gray-2']), rekeyEvery: [...M2_REKEY.lobby] },
-      { ...structuredClone(ICE_LAYER_PRESETS['gray-2']), rekeyEvery: [...M2_REKEY.corridor] },
-      { ...structuredClone(ICE_LAYER_PRESETS['gray-3']), rekeyEvery: [...M2_REKEY.vault] },
-    ],
-    hue: Beam.AMBER,
-  };
+export function senseNetIce(opts: TuneOpts = {}): IceDef {
+  return tuneIce(
+    {
+      id: M2_ICE_ID,
+      class: 'gray',
+      shell: 'octa',
+      radius: 14,
+      layers: [
+        { ...structuredClone(ICE_LAYER_PRESETS['gray-2']), rekeyEvery: [...M2_REKEY.lobby] },
+        { ...structuredClone(ICE_LAYER_PRESETS['gray-2']), rekeyEvery: [...M2_REKEY.corridor] },
+        { ...structuredClone(ICE_LAYER_PRESETS['gray-3']), rekeyEvery: [...M2_REKEY.vault] },
+      ],
+      hue: Beam.AMBER,
+    },
+    opts,
+  );
 }
 
 export function gateIceNode(layer: number): (typeof SENSE_NET_ICE_NODES)[number] | undefined {
@@ -60,10 +73,9 @@ export function applySenseNetRekey(
     state: { t: number; current: { index: number; nextRekeyAt: number | null } };
   },
   panic: boolean,
+  opts: TuneOpts = {},
 ): void {
-  const rates = panic
-    ? [M2_REKEY_PANIC.lobby, M2_REKEY_PANIC.corridor, M2_REKEY_PANIC.vault]
-    : [M2_REKEY.lobby, M2_REKEY.corridor, M2_REKEY.vault];
+  const rates = senseNetRekeyRates(panic, opts);
   for (let i = 0; i < ice.def.layers.length; i++) {
     const layer = ice.def.layers[i]!;
     const prev = layer.rekeyEvery;

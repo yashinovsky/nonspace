@@ -18,6 +18,7 @@ import { createIceModel, type IceModel } from '../breach/IceModel';
 import { barkOccupancy } from '../companion/barks';
 import { asDixieReadApi, createDixie, type Dixie } from '../companion/Dixie';
 import { GRAY_ICE } from '../content/ice/gray';
+import { campaignTuneOpts, tuneIce } from '../content/tuning';
 import { getLandmark, landmarkWorldPos } from '../content/landmarks';
 import { loadCampaignMission } from '../content/missions/load';
 import {
@@ -202,18 +203,19 @@ export async function startConstructMission(
   const bernePos = berneWorld();
   flight.collision.add(sphereHull('m3-ice', 'ice', icePos.x, icePos.y, icePos.z, 14));
 
+  const iceDef = tuneIce(GRAY_ICE, campaignTuneOpts(settings.value, save));
   const iceAnchor = (): IceAnchor => ({
-    def: GRAY_ICE,
+    def: iceDef,
     x: icePos.x,
     y: icePos.y,
     z: icePos.z,
     seed: 11,
   });
 
-  const displayIce: IceModel = createIceModel(GRAY_ICE, { seed: 11 });
+  const displayIce: IceModel = createIceModel(iceDef, { seed: 11 });
   const visuals: IceVisuals | null = createIceVisuals({
     renderer,
-    def: GRAY_ICE,
+    def: iceDef,
     x: icePos.x,
     y: icePos.y,
     z: icePos.z,

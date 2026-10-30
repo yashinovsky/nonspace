@@ -1,10 +1,10 @@
 import type { EventBus } from '../core/events';
 
-/** Plan §3.6: 0–100%. At 100 the deck forces a jack-out (burned). */
+/** Plan §3.6 / §12.3: 0–100%. At 100 the deck forces a jack-out (burned). */
 export const TRACE_MAX = 100;
 /** Heat ticks if a run ends with trace above this (plan §3.6). */
 export const TRACE_HEAT_THRESHOLD = 50;
-/** Hull contact while not engaged (plan §3.3 / §3.6). %/s. */
+/** Hull contact while not engaged (plan §3.3 / §12.3 TRACE_RATES.hullContact). %/s. */
 export const HULL_TRACE_RATE = 2;
 /** Route-out scrubs this fraction (plan §3.2). M4.5 owns the fly-out. */
 export const ROUTE_OUT_TRACE_SCRUB = 0.3;

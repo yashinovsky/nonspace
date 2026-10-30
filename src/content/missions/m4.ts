@@ -1,9 +1,9 @@
 import type { IceDef } from '../../breach/IceModel';
-import { HEAT_REKEY_PER_LEVEL } from '../../deck/Heat';
 import type { Difficulty } from '../../core/settings';
 import { Beam } from '../../render/lines/BeamBatch';
 import type { MissionDef } from '../../narrative/schema';
-import { DIFFICULTY as ICE_DIFF, ICE_LAYER_PRESETS } from '../ice/presets';
+import { ICE_LAYER_PRESETS } from '../ice/presets';
+import { rekeyScale, tuneLayer } from '../tuning';
 
 /** EURO pad looking at the Geneva Registry (plan §4.4 / M7.7). */
 export const M4_START = { region: 'EURO', x: 248.0, z: 71.55, y: 1800 } as const;
@@ -16,18 +16,12 @@ export const M4_NEAR = 280;
 export const M4_HEAT_HARD = 2;
 
 export function turingRekeyScale(heat: number, difficulty: Difficulty = 'normal'): number {
-  const iceMul = ICE_DIFF[difficulty]?.rekeyInterval ?? 1;
-  const heatMul = 1 / (1 + HEAT_REKEY_PER_LEVEL * Math.max(0, heat));
-  return iceMul * heatMul;
+  return rekeyScale(difficulty, heat);
 }
 
-/** One gray layer — light on breaching (≤ 2). Heat shortens re-key. */
+/** One gray layer — light on breaching (≤ 2). Heat + difficulty scale §12.3. */
 export function turingIce(heat = 0, difficulty: Difficulty = 'normal'): IceDef {
-  const layer = structuredClone(ICE_LAYER_PRESETS['gray-2']);
-  const scale = turingRekeyScale(heat, difficulty);
-  if (layer.rekeyEvery) {
-    layer.rekeyEvery = [layer.rekeyEvery[0]! * scale, layer.rekeyEvery[1]! * scale];
-  }
+  const layer = tuneLayer(structuredClone(ICE_LAYER_PRESETS['gray-2']), { difficulty, heat });
   return {
     id: M4_ICE_ID,
     class: 'gray',

@@ -1,5 +1,6 @@
 import type { Action } from '../../narrative/schema';
 import type { GateDef } from '../../simstim/Gates';
+import { GATE_WINDOWS } from '../tuning';
 import type { SimstimTimeline } from './types';
 
 /** M6.3 Straylight villa. Shared procedural scene; two timelines (M5 / M7). */
@@ -69,7 +70,7 @@ export const STRAYLIGHT_M7_GATES: GateDef[] = [
 const hold = (gates: GateDef[]): SimstimTimeline['branches'] =>
   gates.map((g) => ({
     atGate: g.id,
-    onLate: { holdUntilOpen: true, exposurePerSec: 0.04 },
+    onLate: { holdUntilOpen: true, exposurePerSec: GATE_WINDOWS.exposurePerSec },
   }));
 
 /**

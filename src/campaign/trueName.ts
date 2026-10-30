@@ -25,6 +25,7 @@ import {
   wordMatches,
 } from '../content/missions/m7';
 import { STRAYLIGHT_M7_GATES, straylightM7Timeline } from '../content/simstim/straylight';
+import { campaignTuneOpts, tuneGates } from '../content/tuning';
 import type { EventBus } from '../core/events';
 import type { SaveStore } from '../core/save';
 import type { SettingsStore } from '../core/settings';
@@ -204,7 +205,8 @@ export async function startTrueNameMission(opts: TrueNameMissionOptions): Promis
   scene.setVisible(false);
 
   const icePos = clusterWorld();
-  const iceDef = trueNameIce();
+  const tune = campaignTuneOpts(settings.value, save);
+  const iceDef = trueNameIce(tune);
   flight.collision.add(sphereHull('m7-ice', 'ice', icePos.x, icePos.y, icePos.z, 22));
 
   const displayIce: IceModel = createIceModel(iceDef, { seed: 23 });
@@ -219,8 +221,11 @@ export async function startTrueNameMission(opts: TrueNameMissionOptions): Promis
 
   const view = createSimstimRenderer(renderer);
   const timeline = straylightM7Timeline();
-  const wordGates = STRAYLIGHT_M7_GATES.map((g) =>
-    g.id === 'word-window' ? { ...g, late: M7_WORD_WINDOW_S } : { ...g },
+  const wordGates = tuneGates(
+    STRAYLIGHT_M7_GATES.map((g) =>
+      g.id === 'word-window' ? { ...g, late: M7_WORD_WINDOW_S } : { ...g },
+    ),
+    tune.difficulty,
   );
   simstim.load(timeline, wordGates);
   view.load(timeline);

@@ -15,6 +15,7 @@ import { createCoreInterior, type CoreInterior } from '../breach/CoreInterior';
 import { createIceVisuals, type IceVisuals } from '../breach/IceVisuals';
 import { createIceModel, type IceModel } from '../breach/IceModel';
 import { WHITE_ICE } from '../content/ice/white';
+import { campaignTuneOpts, tuneIce } from '../content/tuning';
 import { getLandmark, landmarkWorldPos } from '../content/landmarks';
 import { isCampaignMissionId, loadCampaignMission } from '../content/missions/load';
 import { M1_ICE_ID, M1_LOOK_S, M1_RECORD, M1_START } from '../content/missions/m1';
@@ -182,18 +183,19 @@ export async function startVerticalSlice(opts: VerticalSliceOptions): Promise<Ve
   const icePos = clinicWorld();
   flight.collision.add(sphereHull('m1-ice', 'ice', icePos.x, icePos.y, icePos.z, 14));
 
+  const iceDef = tuneIce(WHITE_ICE, campaignTuneOpts(settings.value, save));
   const iceAnchor = (): IceAnchor => ({
-    def: WHITE_ICE,
+    def: iceDef,
     x: icePos.x,
     y: icePos.y,
     z: icePos.z,
     seed: 7,
   });
 
-  let displayIce: IceModel = createIceModel(WHITE_ICE, { seed: 7 });
+  let displayIce: IceModel = createIceModel(iceDef, { seed: 7 });
   let visuals: IceVisuals | null = createIceVisuals({
     renderer,
-    def: WHITE_ICE,
+    def: iceDef,
     x: icePos.x,
     y: icePos.y,
     z: icePos.z,
@@ -496,11 +498,11 @@ export async function startVerticalSlice(opts: VerticalSliceOptions): Promise<Ve
     if (cp === 'chiba' || cp === 'core' || cp === 'take') poseAtChiba();
     else poseAtStart();
     breach.restoreCheckpoint();
-    displayIce = createIceModel(WHITE_ICE, { seed: 7 });
+    displayIce = createIceModel(iceDef, { seed: 7 });
     visuals?.dispose();
     visuals = createIceVisuals({
       renderer,
-      def: WHITE_ICE,
+      def: iceDef,
       x: icePos.x,
       y: icePos.y,
       z: icePos.z,

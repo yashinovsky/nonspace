@@ -24,6 +24,7 @@ import {
   straylightIce,
 } from '../content/missions/m5';
 import { STRAYLIGHT_M5_GATES, straylightM5Timeline } from '../content/simstim/straylight';
+import { campaignTuneOpts, tuneGates } from '../content/tuning';
 import type { EventBus } from '../core/events';
 import type { SaveStore } from '../core/save';
 import type { SettingsStore } from '../core/settings';
@@ -209,7 +210,8 @@ export async function startKuangGradeMission(
   scene.setVisible(false);
 
   const icePos = clusterWorld();
-  const iceDef = straylightIce();
+  const tune = campaignTuneOpts(settings.value, save);
+  const iceDef = straylightIce(tune);
   flight.collision.add(sphereHull('m5-ice', 'ice', icePos.x, icePos.y, icePos.z, 22));
 
   const displayIce: IceModel = createIceModel(iceDef, { seed: 11 });
@@ -230,7 +232,7 @@ export async function startKuangGradeMission(
 
   const view = createSimstimRenderer(renderer);
   const timeline = straylightM5Timeline();
-  simstim.load(timeline, STRAYLIGHT_M5_GATES);
+  simstim.load(timeline, tuneGates(STRAYLIGHT_M5_GATES, tune.difficulty));
   view.load(timeline);
   const simstimMode = createSimstimMode(simstim, view);
 

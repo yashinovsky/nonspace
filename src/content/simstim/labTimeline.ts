@@ -1,4 +1,5 @@
 import type { Action } from '../../narrative/schema';
+import { GATE_WINDOWS } from '../tuning';
 import type { SimstimTimeline } from './types';
 
 /** Lab / AC timeline: a short corridor walk with one gate branch. */
@@ -27,7 +28,12 @@ export function labSimstimTimeline(): SimstimTimeline {
       { t: 6.5, who: 'molly', text: 'Door.' },
       { t: 11, who: 'molly', text: 'Now.' },
     ],
-    branches: [{ atGate: 'door-1', onLate: { holdUntilOpen: true, exposurePerSec: 0.04 } }],
+    branches: [
+      {
+        atGate: 'door-1',
+        onLate: { holdUntilOpen: true, exposurePerSec: GATE_WINDOWS.exposurePerSec },
+      },
+    ],
     clockStart: '02:14:07',
   };
 }

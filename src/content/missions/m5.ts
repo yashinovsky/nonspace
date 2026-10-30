@@ -3,6 +3,7 @@ import { Beam } from '../../render/lines/BeamBatch';
 import type { MissionDef } from '../../narrative/schema';
 import { TA_ICE } from '../ice/ta';
 import { STRAYLIGHT_M5_GATES, STRAYLIGHT_M5_ID } from '../simstim/straylight';
+import { tuneIce, type TuneOpts } from '../tuning';
 
 /** ORBT pad below the T-A cluster (plan §4.4 / M7.9 Phase A). */
 export const M5_START = { region: 'ORBT', x: 318.4, z: 38.15, y: 2400 } as const;
@@ -15,12 +16,15 @@ export const M5_HIJACK = 'COUNTING.';
 export const M5_PAIN = 0.9;
 
 /** Tessier-Ashpool slab. Kuang-gate tolerance is generous (M7.8). */
-export function straylightIce(): IceDef {
-  return {
-    ...TA_ICE,
-    id: M5_ICE_ID,
-    hue: Beam.TA,
-  };
+export function straylightIce(opts: TuneOpts = {}): IceDef {
+  return tuneIce(
+    {
+      ...TA_ICE,
+      id: M5_ICE_ID,
+      hue: Beam.TA,
+    },
+    opts,
+  );
 }
 
 const stimGates = STRAYLIGHT_M5_GATES.map((g) => ({
