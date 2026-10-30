@@ -17,7 +17,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` = HDR cube; `persist` = M1.4 phosphor; `points` = M1.2 lightpoints. */
+  /** `?lab=` value. `render` HDR cube; `persist` phosphor; `points` lightpoints; `raster` SMPTE. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -150,6 +150,11 @@ export async function startApp({
     const { installPointsLab } = await import('../debug/PointsLab');
     labHandle = installPointsLab(renderer, root);
     root.dataset.lab = 'points';
+  }
+  if (lab === 'raster') {
+    const { installRasterCrtLab } = await import('../debug/RasterCrtLab');
+    labHandle = installRasterCrtLab(renderer);
+    root.dataset.lab = 'raster';
   }
 
   if (lab === 'persist') {

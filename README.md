@@ -45,6 +45,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=render` is the M0.4 HDR cube through the post chain. `?quality=low` (or `auto` / `medium` / `high`) is a session override of `settings.graphics.quality`.
 - `?lab=persist` is the M1.4 P7 phosphor lab (radar sweep + orbiting GRID/ICE bars). Use `&quality=medium` or `high` — SwiftShader `auto` is Low and skips persistence.
 - `?lab=points` is the M1.2 lightpoint / traffic lab (60k static points in one draw, Manhattan path-texture traffic). Screenshot: `docs/screenshots/m1-2-lightpoints.png`. Contract notes in plan §9.18.
+- `?lab=raster` is the M1.7 SMPTE test card through the raster CRT / NTSC pass (chroma bleed, 240 scanlines, aperture grille, barrel). Screenshot: `docs/screenshots/m1-7-smpte-raster-crt.png`.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -85,7 +86,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Flight controller, camera rig, soft hull collision                       | `src/player/{FlightController,CameraRig,Collision}.ts` |
 | Renderer service (HDR targets, PostChain, quality)                       | `src/render/Renderer.ts`                               |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.17. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.19. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
@@ -107,5 +108,6 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 - `?quality=low` (or `auto` / `medium` / `high`) — session override of `settings.graphics.quality` (not persisted).
 - `?debug` adds a graphics folder: quality, internal size, dynres, a GPU-load slider, and inject-20 ms buttons. Persistence tunables live in the `phosphor` folder.
 - M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17.
+- M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.
