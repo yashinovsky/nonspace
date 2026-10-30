@@ -165,8 +165,13 @@ describe('FinalComposite contract', () => {
     const ctx = fakeCtx({
       encoded: 'hdr',
       blit: (material) => {
-        const u = (material as unknown as { uniforms: { uTonemap: { value: number } } }).uniforms;
+        const u = (
+          material as unknown as {
+            uniforms: { uTonemap: { value: number }; tHud?: { value: Texture | null } };
+          }
+        ).uniforms;
         tonemap = u.uTonemap.value;
+        expect(u.tHud).toBeUndefined();
       },
     });
     pass.render(input, ctx);
@@ -175,6 +180,34 @@ describe('FinalComposite contract', () => {
     ctx.encoded = 'ldr';
     pass.render(input, ctx);
     expect(tonemap).toBe(0);
+    pass.dispose();
+  });
+
+  it('overlays hud RT only when hudDrawn is set', () => {
+    const pass = createFinalComposite();
+    const input = tex('in');
+    const hudTex = tex('hud');
+    const bound: Array<Texture | undefined> = [];
+    const ctx = fakeCtx({
+      encoded: 'ldr',
+      hudDrawn: true,
+      targets: {
+        post: fakeCtx().targets.post,
+        hud: { texture: hudTex },
+      } as PostContext['targets'],
+      blit: (material) => {
+        const u = (
+          material as unknown as {
+            uniforms: { tHud?: { value: Texture | null } };
+          }
+        ).uniforms;
+        bound.push(u.tHud?.value ?? undefined);
+      },
+    });
+    pass.render(input, ctx);
+    ctx.hudDrawn = false;
+    pass.render(input, ctx);
+    expect(bound).toEqual([hudTex, undefined]);
     pass.dispose();
   });
 

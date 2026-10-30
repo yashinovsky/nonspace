@@ -169,7 +169,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
   };
   const cameras = {
     matrix: new PerspectiveCamera(75, 1, 0.5, 60_000),
-    hud: new OrthographicCamera(0, 1, 1, 0, -1, 1),
+    hud: new OrthographicCamera(0, 1, 1, 0, 0.1, 10),
     simstim: new PerspectiveCamera(60, SIMSTIM_ASPECT, 0.1, 100),
   };
   cameras.matrix.position.set(0, 0.55, 3.1);
@@ -218,6 +218,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
     exposure: 1,
     vectorLoad: 0,
     blackIceDrawn: false,
+    hudDrawn: false,
     crtCollapse,
   };
 
@@ -262,6 +263,8 @@ export function createRenderer(opts: RendererOptions): Renderer {
     cameras.hud.right = cssWidth;
     cameras.hud.top = cssHeight;
     cameras.hud.bottom = 0;
+    cameras.hud.near = 0.1;
+    cameras.hud.far = 10;
     cameras.hud.updateProjectionMatrix();
     debugState.scale = scale;
     debugState.dyn = dynamicRes.scale;
@@ -367,6 +370,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
       ctx.quality = quality;
       ctx.vectorLoad = vectorLoadOverride ?? 0;
       ctx.blackIceDrawn = false;
+      ctx.hudDrawn = false;
       ctx.crtCollapse = crtCollapse;
 
       cameras.matrix.getWorldQuaternion(scratchQuat);
@@ -411,6 +415,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
           three.setRenderTarget(targets.hud);
           three.clear(true, true, false);
           three.render(scenes.hud, cameras.hud);
+          ctx.hudDrawn = true;
         }
       }
 

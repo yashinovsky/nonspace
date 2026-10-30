@@ -113,7 +113,7 @@ export interface RenderTargets {
   readonly hdrScene: WebGLRenderTarget;
   /** Black ICE coverage (R8). M1.8 writes this. */
   readonly blackIceMask: WebGLRenderTarget;
-  /** Vector HUD. M3 writes this; FinalComposite will overlay it. */
+  /** Vector HUD. M3.2 writes this; FinalComposite overlays it after CRT. */
   readonly hud: WebGLRenderTarget;
   /** 320×240 simstim / raster source. */
   readonly simstim: WebGLRenderTarget;

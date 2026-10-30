@@ -1345,6 +1345,17 @@ ICE model and visuals. Does not implement M4.3 (`BreachController`, `Grip.ts` as
 - **Content**: `content/ice/{white,gray,black}.ts` (`WHITE_ICE`, `GRAY_ICE`, `BLACK_ICE`) plus existing `presets.ts`.
 - **Dev route**: `?lab=ice` (`debug/IceLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `&scene=trio|white|gray|black|shatter|telegraph|grip`, `&gray=1`. Mock sfx `rekeyTelegraph` / `shatter` (click unlocks the real engine). `window.__nonspaceIce`. Playwright freezes `setAnimationLoop` before canvas snapshots (no live warmup). Screenshots: `docs/screenshots/m4-2-ice.png` (grayscale `m4-2-ice-gray.png`). Dist budget is the default-boot graph (lab chunk excluded). Gunzip `.gz` only when gzip magic is still present (unchanged Hershey helper; this lab does not fetch fonts).
 
+### 9.37 Contract notes from M3.2 (repo copy only)
+
+HUD overlay. Edits `FinalComposite.ts` to sample `targets.hud` after the CRT pass (plan §6.1 / §8.4). Does not edit sibling passes, `PostChain.ts`, or `targets.ts`. Text remains M3.1 (§9.30). Vector CRT remains M1.6 (§9.32). Look Lab remains M1.9 (§9.34). Jack-in remains M2.7 (§9.35). ICE model/visuals remain M4.2 (§9.36). Deck panel / DOM menus remain M3.3. Breach HUD wiring remains M4.3.
+
+- **Widgets** (`hud/{Hud,Radar,EegTrace,VfdStrip,Bargraph,Terminal,Pip,Reticle}.ts`): 1984 vector / VFD deck chrome in the HUD ortho camera (pixel units, geometry at z = −1, camera near 0.1 / far 10 so BeamBatch near-clip sees the overlay). Periscope brackets, PPI radar (0.5 Hz sweep + P7 afterglow), scrolling EEG, 10-segment trace LED bargraph, VFD strip (coords / mode / 7-seg speed / four soft slots with cooldown wipe), Px437 terminal, Molly PIP quad, center reticle. Layout anchors hold at 16:9, 21:9 and 4:3 (`layoutHud`).
+- **EEG.** `eegSample(t, neural01, flatline, scars)` morphs calm 10 Hz alpha → ragged high-amp irregular across neural 0–100, then a literal flat line on flatline. Scars add a permanent tiny tick. No `Math.random`.
+- **Terminal.** 1200 baud (8N1 → 120 chars/s). `print(text, { wintermute: true })` replaces the line instantly (Wintermute hijack). Px437 atlas bit order is font8x8 LSB-left (a one-line fix in `BitmapText.createPx437Texture`).
+- **Trace bargraph.** 10 segments, green → amber → red. Last LED blinks at 2 Hz when trace ≥ 90% (Reduce flashing holds it dim).
+- **Composite.** `Renderer.endFrame` draws `scenes.hud` into `targets.hud` and sets `ctx.hudDrawn`. `FinalComposite` keeps the original identity and collapse shaders (no `tHud` sampler) and swaps to a HUD overlay material (`c += hud * 1.12`, identity UVs so CRT collapse does not warp chrome) only when `hudDrawn` is set, so SwiftShader default boot does not pay an extra fullscreen sample. Barrel / jitter never sample the HUD.
+- **Dev route:** `?lab=hud` (`debug/HudLab.ts`, lazy `?lab=` chunk; default boot never fetches it). Mocks drive every widget; a matrix lattice sits behind so CRT barrel is visible against unwarped chrome. `window.__nonspaceHud`. Screenshot: `docs/screenshots/m3-2-hud.png`. Playwright freezes `setAnimationLoop` before canvas snapshots (SwiftShader). Dist budget is the default-boot graph (lab chunk excluded).
+
 ---
 
 ## 10. Milestones and tasks
