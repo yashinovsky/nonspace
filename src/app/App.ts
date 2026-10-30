@@ -22,7 +22,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -330,6 +330,23 @@ export async function startApp({
       events,
       root,
       reduceFlashing: () => settings.value.reduceFlashing,
+    });
+  }
+  if (lab === 'breach') {
+    const { installBreachLab } = await import('../debug/BreachLab');
+    const q = new URLSearchParams(window.location.search);
+    labHandle = installBreachLab({
+      renderer,
+      events,
+      save,
+      settings,
+      input,
+      flight,
+      modes,
+      root,
+      scene: q.get('scene'),
+      reduceFlashing: () => settings.value.reduceFlashing,
+      reduceMotion: () => settings.value.reduceMotion,
     });
   }
 

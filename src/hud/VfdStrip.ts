@@ -16,6 +16,8 @@ export interface VfdStripState {
   speed: number;
   neural: number;
   softs: readonly SoftSlot[];
+  /** Seconds left on black-ICE grip; `null` hides the countdown. */
+  gripRemaining?: number | null;
 }
 
 export interface VfdStripLayout {
@@ -128,13 +130,27 @@ export function createVfdStrip(palette: Palette, opts: { z?: number } = {}): Vfd
         intensity: 1.05,
       });
       write(coords, state.coords, pos.coords, { intensity: 1.15 });
-      write(mode, `MODE ${state.mode}`, pos.mode, { color: Beam.AMBER, intensity: 1.05 });
-      write(speed, `SPD ${padHud3(state.speed)}`, pos.speed, {
-        color: Beam.AMBER,
-        intensity: 1.2,
-        mode: 7,
-        size: pos.size * 1.05,
+      const gripping = state.gripRemaining != null;
+      write(mode, gripping ? 'MODE GRIP' : `MODE ${state.mode}`, pos.mode, {
+        color: gripping ? Beam.ESFA : Beam.AMBER,
+        intensity: 1.05,
       });
+      if (gripping) {
+        const g = Math.max(0, state.gripRemaining ?? 0);
+        write(speed, g.toFixed(1).padStart(3, '0'), pos.speed, {
+          color: Beam.ESFA,
+          intensity: 1.35,
+          mode: 7,
+          size: pos.size * 1.15,
+        });
+      } else {
+        write(speed, `SPD ${padHud3(state.speed)}`, pos.speed, {
+          color: Beam.AMBER,
+          intensity: 1.2,
+          mode: 7,
+          size: pos.size * 1.05,
+        });
+      }
       const slots = [0, 1, 2, 3].map((i) => state.softs[i] ?? EMPTY_SOFT);
       const parts = slots.map((s, i) => `${i + 1}:${s.label.toUpperCase()}`);
       write(softs, parts.join(' '), pos.softs, { intensity: 0.95, size: pos.size * 0.92 });
