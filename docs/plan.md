@@ -1126,6 +1126,17 @@ Typed stubs for 9.1–9.7 are committed at the paths above (under `src/`). Where
 - **Motifs**: corp patterns in `audio/music/motifs.ts` (HRTF + inverse-distance gain). `motifDistanceGain` / `shouldAttachMotif` are the renderer hook for attach/detach with distance. Approach boosts attached motifs.
 - **Diagnostics** (lab / e2e only): `clock`, `crossfade`, `pulse` alongside the existing `music` object.
 
+### 9.15 Contract notes from M2.5 (repo copy only)
+
+- **`FlightController`** (`player/FlightController.ts`) is a factory. `step(frame, dt, opts?)` is the only way the sim advances; it is pure (no DOM, no Three, no clock). `params` is a mutable copy of the §3.3 table (plus look/spring extras) so Tweakpane can bind it. `pose` is the end of the last step; `prev` is the start, for render interpolation. `telemetry` is a live readout object (also Tweakpane-bound). Defaults: cruise 80 u/s, boost 600, accel 120/900, drag half-life 0.6 s, pitch ±85°, visual bank 6°, auto-level 0.3 s, FOV 75° +12° with speed.
+- **Who steps it.** The App constructs the controller (and an empty `CollisionWorld`) and puts it on `App.flight` / `ModeContext.flight?`. `?lab=flight` is what currently calls `step`. The future matrix mode MUST call `step` once per sim tick and MUST NOT also let the App step it (the lab flag is the gate today).
+- **Input.** Look = `mouseDx/Dy` (already sensitivity-scaled) + `lookX/Y` stick, pitch-clamped. Thrust/strafe are look-relative; `vertical` is world-up. `down('boost')` switches accel and max speed. `opts.reduceMotion` forces banking and FOV kick off (§8.10).
+- **Grid assist** (on by default): when the look heading is within `gridAssistConeDeg` (15°) of a world axis, yaw/pitch slerp toward that axis at `gridAssistRateDeg` (30°/s). Disable with `params.gridAssist` (lab checkbox + debug GUI).
+- **Ceiling.** Above 12,000 u a spring pushes down and `controlScale = 1 / (1 + over / ceilingSluggish)` scales look and thrust. Soft: the player can overshoot; they are not teleported onto the line.
+- **Collision** (`player/Collision.ts`): spheres and AABBs, `kind: 'construct' | 'ice'`. Within 20 u a spring pushes out and `telemetry.flare` / `iceContact` report the closest hull. The player point cannot stay inside: a just-entered frame is fully corrected, a deep spawn is pushed at `hullPushMax` u/s. Trace accrual is not applied here (Trace does not exist yet); poll `telemetry.iceContact`.
+- **`CameraRig`** (`player/CameraRig.ts`) writes an interpolated pose onto a `THREE.PerspectiveCamera` (`rotation.order = 'YXZ'`). Banking is visual-only roll. It does not use the M0.4 Renderer service — pass `renderer` (today a `WebGLRenderer`) into `?lab=flight`.
+- **Lab:** `?lab=flight`. Click the canvas for pointer lock. Debug GUI folder `flight` is the §3.3 table.
+
 ---
 
 ## 10. Milestones and tasks
