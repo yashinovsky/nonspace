@@ -1,5 +1,9 @@
 import type { MissionDef } from '../../narrative/schema';
 
+/** Campaign ids (P0 + M1–M7). Lazy modules — default boot never imports them. */
+export const CAMPAIGN_MISSION_IDS = ['p0', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7'] as const;
+export type CampaignMissionId = (typeof CAMPAIGN_MISSION_IDS)[number];
+
 /** Lazy campaign missions (M7.4–M7.11). Default boot never imports these modules. */
 export async function loadCampaignMission(id: string): Promise<MissionDef | null> {
   if (id === 'p0') {
@@ -37,17 +41,6 @@ export async function loadCampaignMission(id: string): Promise<MissionDef | null
   return null;
 }
 
-export function isCampaignMissionId(
-  id: string | null | undefined,
-): id is 'p0' | 'm1' | 'm2' | 'm3' | 'm4' | 'm5' | 'm6' | 'm7' {
-  return (
-    id === 'p0' ||
-    id === 'm1' ||
-    id === 'm2' ||
-    id === 'm3' ||
-    id === 'm4' ||
-    id === 'm5' ||
-    id === 'm6' ||
-    id === 'm7'
-  );
+export function isCampaignMissionId(id: string | null | undefined): id is CampaignMissionId {
+  return (CAMPAIGN_MISSION_IDS as readonly string[]).includes(id ?? '');
 }

@@ -19,7 +19,8 @@ export type Migration = (data: Record<string, unknown>) => Record<string, unknow
 
 /**
  * `MIGRATIONS[n]` upgrades version n to n + 1. When bumping `SAVE_VERSION`,
- * add the step here and a fixture of the old shape to `tests/unit/save.test.ts`.
+ * add the step here and a fixture of the old shape to `tests/unit/fixtures/saves/`
+ * (`tests/unit/saveMigration.test.ts`).
  */
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {};
 

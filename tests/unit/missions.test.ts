@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { TUTORIAL_LABELS } from '../../src/campaign/tutorialPrompts';
 import { CHIBA_CLUSTER_IDS, getLandmark, landmarkWorldPos } from '../../src/content/landmarks';
 import { createIceModel } from '../../src/breach/IceModel';
-import { isCampaignMissionId, loadCampaignMission } from '../../src/content/missions/load';
+import {
+  CAMPAIGN_MISSION_IDS,
+  isCampaignMissionId,
+  loadCampaignMission,
+} from '../../src/content/missions/load';
 import { m1Mission, M1_ICE_ID, M1_LOOK_S, M1_START } from '../../src/content/missions/m1';
 import {
   applySenseNetRekey,
@@ -89,30 +93,11 @@ describe('M7.4 campaign missions', () => {
   });
 
   it('lazy-loads campaign missions by id', async () => {
-    expect(isCampaignMissionId('p0')).toBe(true);
-    expect(isCampaignMissionId('m1')).toBe(true);
-    expect(isCampaignMissionId('m2')).toBe(true);
-    expect(isCampaignMissionId('m3')).toBe(true);
-    expect(isCampaignMissionId('m4')).toBe(true);
-    expect(isCampaignMissionId('m5')).toBe(true);
-    expect(isCampaignMissionId('m6')).toBe(true);
-    expect(isCampaignMissionId('m7')).toBe(true);
-    const p0 = await loadCampaignMission('p0');
-    const m1 = await loadCampaignMission('m1');
-    const m2 = await loadCampaignMission('m2');
-    const m3 = await loadCampaignMission('m3');
-    const m4 = await loadCampaignMission('m4');
-    const m5 = await loadCampaignMission('m5');
-    const m6 = await loadCampaignMission('m6');
-    const m7 = await loadCampaignMission('m7');
-    expect(p0?.id).toBe('p0');
-    expect(m1?.id).toBe('m1');
-    expect(m2?.id).toBe('m2');
-    expect(m3?.id).toBe('m3');
-    expect(m4?.id).toBe('m4');
-    expect(m5?.id).toBe('m5');
-    expect(m6?.id).toBe('m6');
-    expect(m7?.id).toBe('m7');
+    expect([...CAMPAIGN_MISSION_IDS]).toEqual(['p0', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7']);
+    for (const id of CAMPAIGN_MISSION_IDS) {
+      expect(isCampaignMissionId(id)).toBe(true);
+      expect((await loadCampaignMission(id))?.id).toBe(id);
+    }
     expect(await loadCampaignMission('nope')).toBeNull();
   });
 

@@ -58,7 +58,7 @@ export interface App {
 
 declare global {
   interface Window {
-    /** The running App, exposed under `?debug` and `?lab=` for e2e tests and console poking. */
+    /** The running App, exposed for e2e freeze / dropPage (default boot included). */
     __nonspace?: App;
   }
 }
@@ -951,6 +951,7 @@ export async function startApp({
       if (window.__nonspace === app) delete window.__nonspace;
     },
   };
-  if (debug || lab || missionId) window.__nonspace = app;
+  // Always expose for e2e freeze / dropPage, including default boot (M8.4).
+  window.__nonspace = app;
   return app;
 }

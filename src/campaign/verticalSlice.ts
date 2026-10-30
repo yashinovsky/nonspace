@@ -55,6 +55,7 @@ export interface SliceHandle {
   ended: boolean;
   won: boolean;
   scanned: boolean;
+  looked: boolean;
   engaged: boolean;
   downloaded: boolean;
   neural: number;
@@ -747,6 +748,9 @@ export async function startVerticalSlice(opts: VerticalSliceOptions): Promise<Ve
     },
     get scanned() {
       return scanned || mission.flag('scanned');
+    },
+    get looked() {
+      return mission.flag('looked') || mission.time >= M1_LOOK_S;
     },
     get engaged() {
       return breach.engaged;

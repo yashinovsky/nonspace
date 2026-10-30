@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "campaign": {
+    "act": 2,
+    "missionId": "m3",
+    "flags": { "onboarded": true }
+  },
+  "settings": {
+    "audio": { "music": 0.15 },
+    "difficulty": "story"
+  }
+}

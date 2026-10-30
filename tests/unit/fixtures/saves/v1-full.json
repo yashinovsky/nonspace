@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "campaign": {
+    "act": 5,
+    "missionId": "m7",
+    "checkpoint": "merge",
+    "heat": 42.5,
+    "scars": 2,
+    "flatlines": 3,
+    "softsOwned": ["probe", "clamp", "kuang"],
+    "softsSlotted": ["probe", "kuang"],
+    "wintermuteDebt": 1,
+    "dixieErased": true,
+    "flags": {
+      "endingA": true,
+      "complete": true,
+      "beachLeft": true,
+      "metFinn": true
+    }
+  },
+  "settings": {
+    "reduceFlashing": false,
+    "flashingPromptAnswered": true,
+    "reduceMotion": true,
+    "holdToToggle": true,
+    "difficulty": "hard",
+    "subtitles": {
+      "enabled": true,
+      "size": "large",
+      "background": 0.4
+    },
+    "phaseLock": {
+      "visualOnly": true,
+      "widerTolerance": true,
+      "mimicAlways": false,
+      "slowerRekey": true,
+      "purist": false
+    },
+    "audio": {
+      "master": 0.5,
+      "music": 0.2,
+      "sfx": 0.7,
+      "voice": 0.9,
+      "pain": 0.1
+    },
+    "input": {
+      "mouseSensitivity": 1.5,
+      "invertY": true,
+      "gamepadDeadzone": 0.2
+    },
+    "graphics": {
+      "quality": "medium",
+      "dynamicResolution": false
+    }
+  }
+}
