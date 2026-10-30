@@ -87,17 +87,35 @@ export interface EventBus {
   onAny(listener: AnyListener): Unsubscribe;
   offAny(listener: AnyListener): void;
   emit(event: GameEvent): void;
+  /**
+   * Queue an event for the next `flush()`. Sim code posts during a step and the
+   * loop flushes once per step, so listeners always run at the same point.
+   */
+  post(event: GameEvent): void;
+  /**
+   * Emit queued events in order, including ones posted by listeners during the
+   * flush. A nested `flush()` is a no-op. Listener errors don't stop the drain;
+   * the first one is rethrown at the end.
+   */
+  flush(): void;
+  pendingCount(): number;
   listenerCount(type?: GameEventType): number;
+  /** Remove all listeners and drop queued events. */
   clear(): void;
 }
+
+/** A flush that keeps re-posting more than this many events is a feedback loop. */
+export const MAX_EVENTS_PER_FLUSH = 10_000;
 
 type Slot = AnyListener | null;
 
 export function createEventBus(): EventBus {
   const byType = new Map<GameEventType, Slot[]>();
   const any: Slot[] = [];
+  const queue: GameEvent[] = [];
   let depth = 0;
   let dirty = false;
+  let flushing = false;
 
   const listFor = (type: GameEventType): Slot[] => {
     let list = byType.get(type);
@@ -203,6 +221,39 @@ export function createEventBus(): EventBus {
       }
       if (failed) throw error;
     },
+    post(event) {
+      queue.push(event);
+    },
+    flush() {
+      if (flushing) return;
+      flushing = true;
+      let error: unknown = undefined;
+      let failed = false;
+      try {
+        for (let i = 0; i < queue.length; i++) {
+          if (i >= MAX_EVENTS_PER_FLUSH) {
+            throw new Error(
+              `event flush exceeded ${MAX_EVENTS_PER_FLUSH} events; a listener is re-posting in a loop`,
+            );
+          }
+          try {
+            bus.emit(queue[i]!);
+          } catch (err) {
+            if (!failed) {
+              failed = true;
+              error = err;
+            }
+          }
+        }
+      } finally {
+        queue.length = 0;
+        flushing = false;
+      }
+      if (failed) throw error;
+    },
+    pendingCount() {
+      return queue.length;
+    },
     listenerCount(type) {
       if (type) return count(byType.get(type));
       let n = count(any);
@@ -210,6 +261,7 @@ export function createEventBus(): EventBus {
       return n;
     },
     clear() {
+      queue.length = 0;
       if (depth > 0) {
         for (const l of byType.values()) l.fill(null);
         any.fill(null);
