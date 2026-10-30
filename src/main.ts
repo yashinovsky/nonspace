@@ -10,6 +10,11 @@ async function main(): Promise<void> {
     await startAudioLab(root);
     return;
   }
+  if (params.get('lab') === 'sfx') {
+    const { startSfxLab } = await import('./audio/sfx/lab');
+    await startSfxLab(root);
+    return;
+  }
 
   if (!hasWebGL2()) {
     showUnsupported(root);

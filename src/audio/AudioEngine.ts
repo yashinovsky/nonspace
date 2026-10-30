@@ -106,3 +106,39 @@ export {
   type CreateAudioEngineOptions,
   type EngineLabHandle,
 } from './engine';
+
+export { bindSfxToEvents, SFX_BOUND_EVENTS } from './sfx/bind';
+export {
+  createSfxCatalog,
+  EXTRA_SFX_IDS,
+  FLATLINE_TIMING,
+  SFX_PALETTE,
+  extraSfxCount,
+  flatlinePhaseAt,
+  paletteCoversEveryRecipe,
+  type FlatlinePhase,
+  type PaletteEntry,
+  type PaletteId,
+  type SfxCatalog,
+} from './sfx/catalog';
+export {
+  BELL103,
+  bitDuration,
+  createModem,
+  fillBits,
+  fskFreq,
+  handshakeTimeline,
+  type ModemInfo,
+  type ModemVoice,
+} from './modem';
+export {
+  FORMANTS,
+  VOWELS,
+  barkPlan,
+  createDixieVoice,
+  laughPlan,
+  type DixieVoice,
+  type LaughBurst,
+  type Phoneme,
+  type Vowel,
+} from './dixieVoice';

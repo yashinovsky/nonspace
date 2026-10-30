@@ -12,7 +12,11 @@ import type {
 } from './AudioEngine';
 import { createBusGraph, type AudioBusGraph } from './buses';
 import { bufferFramesOf, createGameAudioContext, getAudioContextCtor } from './context';
+import { createDixieVoice, type DixieVoice } from './dixieVoice';
+import { createModem, type ModemInfo, type ModemVoice } from './modem';
 import { createHrtfPanner, setListenerPose, setPannerPosition } from './spatial';
+import { createSfxCatalog, type SfxCatalog } from './sfx/catalog';
+import type { FlatlinePhase } from './sfx/recipes/flatline';
 import { createBassVoice, type BassVoice } from './voices/Bass';
 import { createDrumVoice, createNoiseBuffer, type DrumVoice } from './voices/Drums';
 import { createFmVoicePool, type FmVoicePool } from './voices/FmVoice';
@@ -52,30 +56,6 @@ interface MotifPending {
   pos: Vec3;
   corp: CorpId;
 }
-
-const SFX_FREQ: Record<SfxId, number> = {
-  jackIn: 220,
-  jackOut: 110,
-  boost: 80,
-  gridTick: 2000,
-  jump: 400,
-  jumpArrive: 330,
-  scan: 880,
-  hullContact: 90,
-  lockStep: 660,
-  rekeyTelegraph: 1320,
-  shatter: 1760,
-  traceTick: 2400,
-  burned: 1400,
-  flatline: 1000,
-  simstimFlip: 300,
-  kuang: 520,
-  kuangSting: 780,
-  wintermuteHijack: 440,
-  neuromancerSoften: 200,
-  deckError: 180,
-  uiClick: 1200,
-};
 
 const MOTIF_SPEC: Record<
   CorpId,
@@ -124,6 +104,9 @@ class EngineImpl {
   private readonly listenFwd = { x: 0, y: 0, z: -1 };
   private readonly listenUp = { x: 0, y: 1, z: 0 };
   private noiseKeepalive: AudioNode | null = null;
+  private sfxCatalog: SfxCatalog | null = null;
+  private modemVoice: ModemVoice | null = null;
+  private dixieVoice: DixieVoice | null = null;
   private pl = {
     a: 2,
     b: 3,
@@ -132,11 +115,6 @@ class EngineImpl {
     iceA: null as OscillatorNode | null,
     iceB: null as OscillatorNode | null,
     player: null as OscillatorNode | null,
-    gain: null as GainNode | null,
-  };
-  private modem = {
-    osc: null as OscillatorNode | null,
-    lfo: null as OscillatorNode | null,
     gain: null as GainNode | null,
   };
 
@@ -167,7 +145,8 @@ class EngineImpl {
     this.worklets.fm = await loadWorklet(ctx, FM_WORKLET_NAME, fmWorkletSource());
     this.worklets.noise = await loadWorklet(ctx, NOISE_WORKLET_NAME, noiseWorkletSource());
 
-    this.fm = createFmVoicePool(ctx, graph.input('sfx'), this.worklets.fm);
+    const fm = createFmVoicePool(ctx, graph.input('sfx'), this.worklets.fm);
+    this.fm = fm;
     this.sub = createSubVoicePool(ctx, graph.input('music'));
     this.bass = createBassVoice(ctx, graph.input('music'));
 
@@ -175,7 +154,16 @@ class EngineImpl {
     this.drums = createDrumVoice(ctx, graph.input('sfx'), noise);
 
     this.buildPhaseLock(ctx, graph.input('sfx'));
-    this.buildModem(ctx, graph.input('sfx'));
+    this.modemVoice = createModem(ctx, graph.input('sfx'));
+    this.dixieVoice = createDixieVoice(ctx, graph.input('voice'), noise);
+    this.sfxCatalog = createSfxCatalog({
+      ctx,
+      graph,
+      fm,
+      noise,
+      duck: (bus, db, seconds) => this.duck(bus, db, seconds),
+      key: () => ({ root: this.root, mode: this.mode }),
+    });
     setListenerPose(ctx.listener, this.listenPos, this.listenFwd, this.listenUp);
 
     for (const [h, pending] of this.pendingMotifs) {
@@ -221,59 +209,7 @@ class EngineImpl {
   }
 
   sfx(id: SfxId, opts?: SfxOptions): void {
-    if (!this.unlocked || !this.ctx || !this.graph || !this.fm) return;
-    const pitch = opts?.pitch ?? 1;
-    const amp = opts?.gain ?? 0.12;
-    const freq = (SFX_FREQ[id] ?? 440) * pitch;
-    if (opts?.pos) {
-      this.blipAt(opts.pos, freq, amp);
-      return;
-    }
-    if (id === 'shatter') {
-      for (let i = 0; i < 8; i++) {
-        this.fm.noteOn({
-          freq: freq * Math.pow(0.92, i),
-          amp: amp * 0.45,
-          pan: (i % 2 === 0 ? -1 : 1) * 0.4,
-          sustain: 0,
-          decay: 0.12,
-          ratio: 3.5,
-          index: 2.2,
-        });
-      }
-      return;
-    }
-    if (id === 'uiClick' || id === 'traceTick' || id === 'gridTick') {
-      this.drums?.hat(amp * 0.6, false);
-      this.fm.noteOn({ freq, amp: amp * 0.5, sustain: 0, decay: 0.04, index: 0.4 });
-      return;
-    }
-    this.fm.noteOn({
-      freq,
-      amp,
-      pan: 0,
-      sustain: 0,
-      decay: id === 'flatline' ? 0.8 : 0.14,
-      ratio: id === 'hullContact' ? 1.4 : 2,
-    });
-  }
-
-  private blipAt(pos: Vec3, freq: number, amp: number): void {
-    const ctx = this.ctx;
-    const graph = this.graph;
-    if (!ctx || !graph) return;
-    const t = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    const panner = createHrtfPanner(ctx, pos);
-    this.panningModel = panner.panningModel;
-    osc.frequency.value = freq;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(amp, t + 0.005);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
-    osc.connect(g).connect(panner).connect(graph.input('sfx'));
-    osc.start(t);
-    osc.stop(t + 0.22);
+    this.sfxCatalog?.play(id, opts);
   }
 
   setMusicState(s: MusicState): void {
@@ -406,31 +342,12 @@ class EngineImpl {
     this.pl.player?.frequency.setTargetAtTime(Math.min(4000, this.pl.R * this.pl.a * f0), t, 0.01);
   }
 
-  private buildModem(ctx: AudioContext, dest: AudioNode): void {
-    const gain = ctx.createGain();
-    gain.gain.value = 0;
-    const osc = ctx.createOscillator();
-    const lfo = ctx.createOscillator();
-    const lfoGain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = 1170;
-    lfo.frequency.value = 20;
-    lfoGain.gain.value = 100;
-    lfo.connect(lfoGain).connect(osc.frequency);
-    osc.connect(gain).connect(dest);
-    osc.start();
-    lfo.start();
-    this.modem = { osc, lfo, gain };
-  }
-
   modemStart(): void {
-    const t = this.ctx?.currentTime ?? 0;
-    this.modem.gain?.gain.setTargetAtTime(0.05, t, 0.05);
+    this.modemVoice?.start();
   }
 
   modemStop(): void {
-    const t = this.ctx?.currentTime ?? 0;
-    this.modem.gain?.gain.setTargetAtTime(0.0001, t, 0.05);
+    this.modemVoice?.stop();
   }
 
   duck(bus: AudioBus, db: number, seconds: number): void {
@@ -545,12 +462,46 @@ class EngineImpl {
     }
   }
 
+  setFlight(speed: number): void {
+    this.sfxCatalog?.setFlight(speed);
+  }
+
+  flightSpeed(): number {
+    return this.sfxCatalog?.flightSpeed() ?? 0;
+  }
+
+  dixie(): DixieVoice | null {
+    return this.dixieVoice;
+  }
+
+  flatlinePhase(): FlatlinePhase {
+    return this.sfxCatalog?.flatline.phase() ?? 'idle';
+  }
+
+  modemInfo(): ModemInfo {
+    return (
+      this.modemVoice?.info() ?? {
+        running: false,
+        baud: 300,
+        originate: [1070, 1270],
+        answer: [2025, 2225],
+        live: { originate: 1270, answer: 2225 },
+      }
+    );
+  }
+
   dispose(): void {
     this.unsubSettings?.();
     this.unsubSettings = undefined;
     for (const m of this.motifs.values()) m.stop();
     this.motifs.clear();
     this.pendingMotifs.clear();
+    this.sfxCatalog?.dispose();
+    this.sfxCatalog = null;
+    this.modemVoice?.dispose();
+    this.modemVoice = null;
+    this.dixieVoice?.dispose();
+    this.dixieVoice = null;
     this.fm?.dispose();
     this.sub?.dispose();
     this.drums?.dispose();
@@ -621,6 +572,11 @@ export function getAudioEngineHandle(engine: AudioEngine): EngineLabHandle | nul
     noteDrum: (k) => impl.noteDrum(k),
     moveMotif: (h, pos) => impl.moveMotif(h, pos),
     diagnostics: () => impl.diagnostics(),
+    setFlight: (speed) => impl.setFlight(speed),
+    flightSpeed: () => impl.flightSpeed(),
+    dixie: () => impl.dixie(),
+    flatlinePhase: () => impl.flatlinePhase(),
+    modemInfo: () => impl.modemInfo(),
   };
 }
 
@@ -632,4 +588,10 @@ export interface EngineLabHandle {
   noteDrum(kind: 'kick' | 'snare' | 'hat'): void;
   moveMotif(h: Handle, pos: Vec3): void;
   diagnostics(): AudioDiagnostics;
+  /** M5.2: beam-hiss level (0 = off). */
+  setFlight(speed: number): void;
+  flightSpeed(): number;
+  dixie(): DixieVoice | null;
+  flatlinePhase(): FlatlinePhase;
+  modemInfo(): ModemInfo;
 }
