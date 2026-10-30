@@ -1,8 +1,7 @@
-import { WebGLRenderer } from 'three';
 import { createEventBus, type EventBus } from '../core/events';
 import { createLoop, type Loop } from '../core/loop';
 import { createSaveStore, type SaveStore } from '../core/save';
-import { createSettingsStore, type SettingsStore } from '../core/settings';
+import { createSettingsStore, type SettingsStore, type QualitySetting } from '../core/settings';
 import type { DebugGui } from '../debug/DebugGui';
 import { createGpuTimer, type GpuTimer } from '../debug/gpuTimer';
 import { createInput, type InputService } from '../input/Input';
@@ -11,11 +10,16 @@ import { getMockMission } from '../narrative/mocks';
 import { createCameraRig, type CameraRig } from '../player/CameraRig';
 import { createCollisionWorld, type CollisionWorld } from '../player/Collision';
 import { createFlightController, type FlightController } from '../player/FlightController';
+import { createRenderer, type Renderer } from '../render/Renderer';
 import { createModeStack, type ModeStack } from './ModeStack';
 
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
+  /** `?lab=` value. `render` installs the M0.4 HDR cube scene. */
+  lab?: string | null;
+  /** `?quality=` session override; does not write the save. */
+  qualityOverride?: QualitySetting;
   /** `?mission=` — mock id, loaded only in dev or with `?debug`. */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
@@ -23,7 +27,7 @@ export interface AppOptions {
 }
 
 export interface App {
-  readonly renderer: WebGLRenderer;
+  readonly renderer: Renderer;
   readonly events: EventBus;
   readonly loop: Loop;
   readonly modes: ModeStack;
@@ -39,40 +43,24 @@ export interface App {
 
 declare global {
   interface Window {
-    /** The running App, exposed under `?debug`, `?lab=input` and `?lab=flight`. */
+    /** The running App, exposed under `?debug` and `?lab=` for e2e tests and console poking. */
     __nonspace?: App;
   }
 }
 
 /**
  * Bootstrap: a full-window canvas driving the fixed-step loop, mode stack,
- * event bus, save, settings and input. The Renderer service replaces the raw
- * WebGLRenderer setup here.
+ * event bus, save, settings, input, mission runner, flight and the Renderer
+ * service (HDR targets + PostChain).
  */
-export async function startApp({ root, debug, missionId, checkpoint }: AppOptions): Promise<App> {
-  const renderer = new WebGLRenderer({
-    antialias: false,
-    alpha: false,
-    powerPreference: 'high-performance',
-  });
-  renderer.setClearColor(0x000000, 1);
-  renderer.autoClear = false;
-  root.appendChild(renderer.domElement);
-
-  const collision = createCollisionWorld();
-  const flight = createFlightController({ collision });
-  const cameraRig = createCameraRig({
-    aspect: window.innerWidth / Math.max(window.innerHeight, 1),
-  });
-
-  const resize = (): void => {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    cameraRig.setAspect(window.innerWidth / Math.max(window.innerHeight, 1));
-  };
-  resize();
-  window.addEventListener('resize', resize);
-
+export async function startApp({
+  root,
+  debug,
+  lab,
+  qualityOverride,
+  missionId,
+  checkpoint,
+}: AppOptions): Promise<App> {
   const events = createEventBus();
   const save = createSaveStore();
   save.load();
@@ -80,14 +68,22 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
     save.data.settings = s;
     save.commit();
   });
+
+  const renderer = createRenderer({ parent: root, settings, qualityOverride });
+  const collision = createCollisionWorld();
+  const flight = createFlightController({ collision });
+  const cameraRig = createCameraRig({
+    aspect: window.innerWidth / Math.max(window.innerHeight, 1),
+  });
   const input = createInput({
     settings,
-    target: renderer.domElement,
+    target: renderer.canvas,
     window,
     document,
   });
   const mission = createMissionRunner({ events, save });
-  const modes = createModeStack({ events, settings, save, mission, input, flight });
+  const modes = createModeStack({ events, settings, save, renderer, mission, input, flight });
+
   const allowMissionRoute = debug || import.meta.env.DEV;
   if (allowMissionRoute && missionId) {
     const def = getMockMission(missionId);
@@ -98,7 +94,13 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
       mission.start(checkpoint ? { checkpoint } : undefined);
     }
   }
-  let flightLab: { render(alpha: number): void; dispose(): void } | null = null;
+
+  const syncRoot = (): void => {
+    root.dataset.tier = renderer.quality.tier;
+    root.dataset.hdr = renderer.quality.hdr ? '1' : '0';
+    root.dataset.scale = renderer.effectiveScale.toFixed(3);
+    root.dataset.size = `${renderer.internalWidth}x${renderer.internalHeight}`;
+  };
 
   const loop = createLoop({
     update(dt) {
@@ -106,26 +108,63 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
       modes.handleInput(frame);
       if (flightLab) flight.step(frame, dt, { reduceMotion: settings.value.reduceMotion });
       mission.update(dt);
+      labHandle?.update(dt);
       modes.update(dt);
       events.flush();
     },
-    render(alpha) {
-      flightLab?.render(alpha);
+    render(alpha, frameDt) {
       modes.render(alpha);
+      if (flightLab) {
+        // Flight lab draws with the raw WebGLRenderer and does not use PostChain.
+        renderer.three.setRenderTarget(null);
+        renderer.three.clear(true, true, false);
+        flightLab.render(alpha);
+      } else {
+        renderer.endFrame(frameDt, gpuTimer?.lastMs ?? null);
+      }
     },
   });
+
+  const resize = (): void => {
+    renderer.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+    cameraRig.setAspect(window.innerWidth / Math.max(window.innerHeight, 1));
+    syncRoot();
+  };
+  resize();
+  window.addEventListener('resize', resize);
+
   // rAF stops in background tabs; don't count the hidden time as dropped.
   const onVisibility = (): void => {
     if (document.visibilityState === 'visible') loop.resetClock();
   };
   document.addEventListener('visibilitychange', onVisibility);
 
+  let labHandle: { update(dt: number): void; dispose(): void } | null = null;
+  if (lab === 'render') {
+    const { installRenderLab } = await import('../debug/RenderLab');
+    labHandle = installRenderLab(renderer);
+    root.dataset.lab = 'render';
+  }
+
+  let inputLab: { dispose(): void } | null = null;
+  if (lab === 'input') {
+    const { createInputLab } = await import('../input/InputLab');
+    inputLab = createInputLab(input, settings, root);
+  }
+
+  let flightLab: { render(alpha: number): void; dispose(): void } | null = null;
+  if (lab === 'flight') {
+    const { createFlightLab } = await import('../player/FlightLab');
+    flightLab = createFlightLab({ renderer: renderer.three, flight, cameraRig, root });
+  }
+
   let gui: DebugGui | null = null;
   let gpuTimer: GpuTimer | null = null;
   if (debug) {
-    gpuTimer = createGpuTimer(renderer.getContext() as WebGL2RenderingContext);
+    gpuTimer = createGpuTimer(renderer.three.getContext() as WebGL2RenderingContext);
     const { createDebugGui } = await import('../debug/DebugGui');
     gui = createDebugGui({ gpuTimerAvailable: gpuTimer !== null });
+    renderer.attachDebug(gui.pane);
     const sim = gui.pane.addFolder({ title: 'sim' });
     const int = (v: number): string => v.toFixed(0);
     sim.addBinding(loop.stats, 'ticks', { readonly: true, format: int });
@@ -192,20 +231,18 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
     last = now;
 
     gpuTimer?.begin();
-    renderer.clear();
     loop.frame(now);
     gpuTimer?.end();
+    const gpuMs = gpuTimer ? gpuTimer.poll() : null;
 
-    if (gui) gui.frame(dt, gpuTimer ? gpuTimer.poll() : null);
+    if (gui) gui.frame(dt, gpuMs);
     if (firstFrame) {
       firstFrame = false;
       root.dataset.status = 'running';
+      syncRoot();
     }
   };
-  renderer.setAnimationLoop(frame);
-
-  const lab = new URLSearchParams(window.location.search).get('lab');
-  let inputLab: { dispose(): void } | null = null;
+  renderer.three.setAnimationLoop(frame);
 
   const app: App = {
     renderer,
@@ -220,9 +257,10 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
     cameraRig,
     collision,
     dispose() {
-      renderer.setAnimationLoop(null);
+      renderer.three.setAnimationLoop(null);
       window.removeEventListener('resize', resize);
       document.removeEventListener('visibilitychange', onVisibility);
+      labHandle?.dispose();
       modes.reset();
       mission.dispose();
       events.clear();
@@ -233,18 +271,9 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
       gpuTimer?.dispose();
       gui?.dispose();
       renderer.dispose();
-      renderer.domElement.remove();
       if (window.__nonspace === app) delete window.__nonspace;
     },
   };
-  if (debug || lab === 'input' || lab === 'flight') window.__nonspace = app;
-  if (lab === 'input') {
-    const { createInputLab } = await import('../input/InputLab');
-    inputLab = createInputLab(input, settings, root);
-  }
-  if (lab === 'flight') {
-    const { createFlightLab } = await import('../player/FlightLab');
-    flightLab = createFlightLab({ renderer, flight, cameraRig, root });
-  }
+  if (debug || lab) window.__nonspace = app;
   return app;
 }

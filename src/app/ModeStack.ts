@@ -4,6 +4,7 @@ import type { SettingsStore } from '../core/settings';
 import type { InputFrame, InputService } from '../input/Input';
 import type { MissionRunner } from '../narrative/MissionRunner';
 import type { FlightController } from '../player/FlightController';
+import type { Renderer } from '../render/Renderer';
 
 /** Mode ids from plan §8.2. */
 export const MODE_IDS = [
@@ -41,6 +42,8 @@ export interface ModeContext {
   readonly input?: InputService;
   /** M2.5. Optional so parallel tasks don't have to construct a flight controller. */
   readonly flight?: FlightController;
+  /** M0.4. Optional so unit tests stay light; the App always provides it. */
+  readonly renderer?: Renderer;
 }
 
 /** Plan §8.2. Implement as a class or plain object; one instance may be on the stack at a time. */
