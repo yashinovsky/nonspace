@@ -29,6 +29,36 @@ interface SectorHandle {
   stats: { maxMainMs: number; hitchesOver4ms: number };
   jumpTo(sx: number, sz: number, y?: number): void;
   currentHash(): number | null;
+  update(dt: number): void;
+}
+
+interface AppHandle {
+  renderer: {
+    three: { setAnimationLoop(fn: null): void };
+    endFrame(dt: number, gpuMs: number | null): void;
+  };
+}
+
+const sector = (): SectorHandle | undefined =>
+  (window as unknown as { __nonspaceSector?: SectorHandle }).__nonspaceSector;
+
+const app = (): AppHandle | undefined =>
+  (window as unknown as { __nonspace?: AppHandle }).__nonspace;
+
+async function freezeLoop(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const h = (window as unknown as { __nonspace?: AppHandle }).__nonspace;
+    h?.renderer.three.setAnimationLoop(null);
+  });
+}
+
+async function drawOnce(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const h = (window as unknown as { __nonspace?: AppHandle }).__nonspace;
+    const s = (window as unknown as { __nonspaceSector?: SectorHandle }).__nonspaceSector;
+    s?.update(1 / 60);
+    h?.renderer.endFrame(1 / 60, null);
+  });
 }
 
 test.describe('M2.3 sector streaming lab', () => {
@@ -41,45 +71,60 @@ test.describe('M2.3 sector streaming lab', () => {
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
     await expect(page.locator('#app')).toHaveAttribute('data-lab', 'sector');
     await expect(page.getByTestId('sector-lab')).toContainText('SECTOR');
+    await page.waitForFunction(app);
+    await page.waitForFunction(sector);
 
-    await page.waitForFunction(() => {
-      const h = (window as unknown as { __nonspaceSector?: SectorHandle }).__nonspaceSector;
-      return (h?.loaded ?? 0) >= 1;
-    });
+    // Freeze before any canvas snapshot. Live sector frames + a SwiftShader
+    // sibling (render GPU inject) billed one upload slice over 4 ms.
+    await freezeLoop(page);
+    await drawOnce(page);
+
     await expect
-      .poll(async () =>
-        page.evaluate(() => {
-          const h = (window as unknown as { __nonspaceSector?: SectorHandle }).__nonspaceSector;
-          return h?.landmarkCount ?? 0;
-        }),
-      )
-      .toBeGreaterThan(0);
-    await expect
-      .poll(async () =>
-        page.evaluate(() => {
+      .poll(async () => {
+        await drawOnce(page);
+        return page.evaluate(() => {
           const h = (window as unknown as { __nonspaceSector?: SectorHandle }).__nonspaceSector;
           return h?.loaded ?? 0;
-        }),
-      )
+        });
+      })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () => {
+        await drawOnce(page);
+        return page.evaluate(() => {
+          const h = (window as unknown as { __nonspaceSector?: SectorHandle }).__nonspaceSector;
+          return h?.landmarkCount ?? 0;
+        });
+      })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () => {
+        await drawOnce(page);
+        return page.evaluate(() => {
+          const h = (window as unknown as { __nonspaceSector?: SectorHandle }).__nonspaceSector;
+          return h?.loaded ?? 0;
+        });
+      })
       .toBeGreaterThan(8);
     await expect
-      .poll(async () =>
-        page.evaluate(() => {
+      .poll(async () => {
+        await drawOnce(page);
+        return page.evaluate(() => {
           const h = (window as unknown as { __nonspaceSector?: SectorHandle }).__nonspaceSector;
           return h?.region ?? '';
-        }),
-      )
+        });
+      })
       .toBe('BAMA');
     await expect
-      .poll(async () =>
-        page.evaluate(() => {
+      .poll(async () => {
+        await drawOnce(page);
+        return page.evaluate(() => {
           const h = (window as unknown as { __nonspaceSector?: SectorHandle }).__nonspaceSector;
           return h?.trafficManhattan ?? false;
-        }),
-      )
+        });
+      })
       .toBe(true);
 
-    await page.waitForTimeout(400);
     const canvas = page.locator('#app > canvas');
     const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     let maxChannel = 0;
@@ -107,7 +152,7 @@ test.describe('M2.3 sector streaming lab', () => {
         80,
       );
     });
-    await page.waitForTimeout(200);
+    await drawOnce(page);
     await page.evaluate(() => {
       (window as unknown as { __nonspaceSector: SectorHandle }).__nonspaceSector.jumpTo(
         148,
@@ -116,12 +161,13 @@ test.describe('M2.3 sector streaming lab', () => {
       );
     });
     await expect
-      .poll(async () =>
-        page.evaluate(() => {
+      .poll(async () => {
+        await drawOnce(page);
+        return page.evaluate(() => {
           const h = (window as unknown as { __nonspaceSector: SectorHandle }).__nonspaceSector;
           return h.currentHash();
-        }),
-      )
+        });
+      })
       .toBe(first.hash);
 
     const hitch = await page.evaluate(() => {
