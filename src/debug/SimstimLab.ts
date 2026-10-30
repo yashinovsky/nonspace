@@ -30,7 +30,11 @@ export interface SimstimLabHandle {
   scene: SimstimLabScene;
   stats: ZoneStats;
   panic: boolean;
+  gates: string;
+  line: string;
   seek(t: number): void;
+  /** Apply a cracked ICE node and refresh HUD without spinning rAF. */
+  sync(): void;
 }
 
 declare global {
@@ -114,20 +118,43 @@ export function installSimstimLab(
     scene,
     stats: view.stats,
     panic: false,
+    gates: '',
+    line: '',
     seek(t) {
       seekMeat(feed, t, opts.mission);
-      const sample = feed.sample();
-      view.apply(sample, feed.overlay, feed.meatTime);
-      handle.panic = sample.figures.some((f) => f.pose === 'run');
-      const root = renderer.canvas.parentElement;
-      if (root) root.dataset.panic = handle.panic ? '1' : '0';
+      paint();
+    },
+    sync() {
+      feed.update(0);
+      paint();
     },
   };
-  window.__nonspaceSenseNet = handle;
 
-  if (opts.seek && opts.seek > 0) handle.seek(opts.seek);
-
-  const syncHint = (): void => {
+  const paint = (): void => {
+    const sample = feed.sample();
+    view.apply(sample, feed.overlay, feed.meatTime);
+    handle.stats = view.stats;
+    handle.panic = sample.figures.some((f) => f.pose === 'run');
+    handle.gates = feed.gates.snapshots.map((s) => s.state).join(',');
+    handle.line = feed.debug.line;
+    const root = renderer.canvas.parentElement;
+    if (root) {
+      root.dataset.flipped = feed.flipped ? '1' : '0';
+      root.dataset.clock = feed.debug.clock;
+      root.dataset.scene = scene;
+      root.dataset.gate = feed.gates.get(pack.gates[0]?.id ?? '')?.state ?? 'idle';
+      root.dataset.gates = handle.gates;
+      root.dataset.rekeys = String(feed.debug.rekeysWhileFlipped);
+      root.dataset.meat = feed.debug.meatTime.toFixed(2);
+      root.dataset.exposure = String(
+        feed.gates.snapshots.reduce((n, s) => Math.max(n, s.exposure), 0).toFixed(3),
+      );
+      root.dataset.pain = feed.debug.pain.toFixed(2);
+      root.dataset.waiting = feed.debug.waiting ? '1' : '0';
+      root.dataset.panic = handle.panic ? '1' : '0';
+      root.dataset.tris = String(zoneTotal(view.stats));
+      root.dataset.line = handle.line;
+    }
     const d = feed.debug;
     const gate = feed.gates.snapshots.map((s) => `${s.id}:${s.state}`).join(',');
     hint.dataset.clock = d.clock;
@@ -140,31 +167,12 @@ export function installSimstimLab(
     hint.textContent = `${scene} ${d.clock} ${gate || 'idle'} rk${d.rekeysWhileFlipped}`;
   };
 
+  window.__nonspaceSenseNet = handle;
+  if (opts.seek && opts.seek > 0) handle.seek(opts.seek);
+
   return {
     update() {
-      const sample = feed.sample();
-      view.apply(sample, feed.overlay, feed.meatTime);
-      handle.stats = view.stats;
-      handle.panic = sample.figures.some((f) => f.pose === 'run');
-      const root = renderer.canvas.parentElement;
-      if (root) {
-        root.dataset.flipped = feed.flipped ? '1' : '0';
-        root.dataset.clock = feed.debug.clock;
-        root.dataset.scene = scene;
-        root.dataset.gate = feed.gates.get(pack.gates[0]?.id ?? '')?.state ?? 'idle';
-        root.dataset.gates = feed.gates.snapshots.map((s) => s.state).join(',');
-        root.dataset.rekeys = String(feed.debug.rekeysWhileFlipped);
-        root.dataset.meat = feed.debug.meatTime.toFixed(2);
-        root.dataset.exposure = String(
-          feed.gates.snapshots.reduce((n, s) => Math.max(n, s.exposure), 0).toFixed(3),
-        );
-        root.dataset.pain = feed.debug.pain.toFixed(2);
-        root.dataset.waiting = feed.debug.waiting ? '1' : '0';
-        root.dataset.panic = handle.panic ? '1' : '0';
-        root.dataset.tris = String(zoneTotal(view.stats));
-        root.dataset.line = feed.debug.line;
-      }
-      syncHint();
+      paint();
     },
     dispose() {
       view.dispose();

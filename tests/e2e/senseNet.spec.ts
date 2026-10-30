@@ -36,8 +36,11 @@ interface StimHandle {
 interface SenseHandle {
   scene: string;
   panic: boolean;
+  gates: string;
+  line: string;
   stats: { lobby: number; corridor: number; vault: number };
   seek(t: number): void;
+  sync(): void;
 }
 
 const handle = (): StimHandle | undefined =>
@@ -154,25 +157,24 @@ test.describe('M6.2 Sense/Net simstim content', () => {
     await page.waitForFunction(sense);
     await freezeLoop(page);
 
-    await page.evaluate(() => {
+    const walked = await page.evaluate(() => {
       const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
       const s = (window as unknown as { __nonspaceSenseNet: SenseHandle }).__nonspaceSenseNet;
       app.simstim.setFlipped(true);
       s.seek(2.5);
       app.simstim.crack('sense-net-lobby');
+      s.sync();
       s.seek(7.5);
       app.simstim.crack('sense-net-corridor');
+      s.sync();
       s.seek(12.5);
       app.simstim.crack('sense-net-vault');
       s.seek(12.6);
+      s.sync();
+      return { gates: s.gates, line: s.line };
     });
-
-    await expect(page.locator('#app')).toHaveAttribute('data-gates', 'hit,hit,hit');
-
-    const line = await page.evaluate(
-      () => (document.getElementById('app') as HTMLElement).dataset.line ?? '',
-    );
-    expect(line.toLowerCase()).toContain('molly');
+    expect(walked.gates).toBe('hit,hit,hit');
+    expect(walked.line.toLowerCase()).toContain('molly');
 
     expect(errors).toEqual([]);
   });
@@ -186,19 +188,15 @@ test.describe('M6.2 Sense/Net simstim content', () => {
     await page.waitForFunction(sense);
     await freezeLoop(page);
 
-    await page.evaluate(() => {
+    const panic = await page.evaluate(() => {
       const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
+      const s = (window as unknown as { __nonspaceSenseNet: SenseHandle }).__nonspaceSenseNet;
       app.simstim.setFlipped(true);
       app.simstim.crack('sense-net-lobby');
       app.simstim.crack('sense-net-corridor');
       app.simstim.crack('sense-net-vault');
-      const s = (window as unknown as { __nonspaceSenseNet: SenseHandle }).__nonspaceSenseNet;
       s.seek(10);
-    });
-    await expect(page.locator('#app')).toHaveAttribute('data-panic', '1');
-
-    const panic = await page.evaluate(() => {
-      const s = (window as unknown as { __nonspaceSenseNet: SenseHandle }).__nonspaceSenseNet;
+      s.sync();
       return s.panic;
     });
     expect(panic).toBe(true);
