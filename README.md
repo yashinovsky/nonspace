@@ -38,6 +38,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 
 - `?debug` opens a Tweakpane panel with FPS, frame time and GPU time. GPU time needs `EXT_disjoint_timer_query_webgl2` and shows `n/a` without it (e.g. SwiftShader). Tweakpane is lazy-loaded, so it costs nothing without the flag.
 - `?mission=<id>&checkpoint=<id>` (dev builds, or with `?debug`) loads a mock mission into the runner and optionally seeks a checkpoint. Mocks live in `src/narrative/mocks.ts`; `mock-triggers` exercises every trigger kind. Campaign content is a later task.
+- `?lab=audio` is the M5.1 audio engine lab (click to unlock the AudioContext; 16 FM voices, HRTF motifs, ducking, drum/bass/sub stubs). It does not need WebGL2.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -47,16 +48,17 @@ The folder skeleton follows plan §8.11. Empty directories hold a `.gitkeep` unt
 
 Shared contracts from plan §9 are typed stubs other tasks build against:
 
-| Contract                    | File                                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------- |
-| Events + typed event bus    | `src/core/events.ts`                                                                        |
-| Beam lines, points, palette | `src/render/lines/BeamBatch.ts`, `src/render/points/PointBatch.ts`, `src/render/palette.ts` |
-| ICE + Phase Lock metric     | `src/breach/IceModel.ts`, `src/breach/PhaseLock.ts`, `src/content/ice/presets.ts`           |
-| Softs                       | `src/content/softs.ts`                                                                      |
-| Missions (zod)              | `src/narrative/schema.ts`                                                                   |
-| Mission runner + triggers   | `src/narrative/MissionRunner.ts`, `src/narrative/triggers.ts`                               |
-| Simstim timelines           | `src/content/simstim/types.ts`                                                              |
-| Audio API + no-op engine    | `src/audio/AudioEngine.ts`                                                                  |
+| Contract                    | File                                                                                          |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| Events + typed event bus    | `src/core/events.ts`                                                                          |
+| Beam lines, points, palette | `src/render/lines/BeamBatch.ts`, `src/render/points/PointBatch.ts`, `src/render/palette.ts`   |
+| ICE + Phase Lock metric     | `src/breach/IceModel.ts`, `src/breach/PhaseLock.ts`, `src/content/ice/presets.ts`             |
+| Softs                       | `src/content/softs.ts`                                                                        |
+| Missions (zod)              | `src/narrative/schema.ts`                                                                     |
+| Mission runner + triggers   | `src/narrative/MissionRunner.ts`, `src/narrative/triggers.ts`                                 |
+| Simstim timelines           | `src/content/simstim/types.ts`                                                                |
+| Audio API + no-op engine    | `src/audio/AudioEngine.ts`                                                                    |
+| Web Audio engine (M5.1)     | `src/audio/{AudioEngine,engine,buses,spatial}.ts`, `src/audio/worklets/`, `src/audio/voices/` |
 
 Test doubles (recording beam/point batches, event recorder, recording audio engine) and valid sample data are in `src/testing/`. Notes on how the stubs differ from the plan's literal TypeScript are in plan §9.8.
 
@@ -71,6 +73,6 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Versioned localStorage save with migrations; settings | `src/core/save.ts`, `src/core/settings.ts` |
 | Mission runner (triggers, objectives, checkpoints)    | `src/narrative/MissionRunner.ts`           |
 
-The App flushes posted events after every sim step. Under `?debug`, the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.10.
+The App flushes posted events after every sim step. Under `?debug`, the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.11.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.
