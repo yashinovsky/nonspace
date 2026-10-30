@@ -1172,6 +1172,16 @@ Lightpoints and traffic. Does not edit `BeamBatch`, `palette.ts`, `Renderer.ts`,
 - **Helpers** (CPU, unit-tested): `packPaths`, `samplePath`, `maxJointError`, `projectPointSize` in `render/points/path.ts` / `PointBatch.ts`.
 - **Dev route:** `?lab=points`. 60k static points (one draw) + path-texture traffic. `data-point-count`, `data-point-draws`, `data-joint-error` on `#app`.
 
+### 9.19 Contract notes from M1.7 (repo copy only)
+
+Raster CRT / NTSC pass. Sibling look-lane tasks keep their own files; this one replaces `RasterCrtPass.ts` and adds `rasterCrt.frag`.
+
+- **`createRasterCrtPass()`** (`render/post/RasterCrtPass.ts`) is a real `PostPass` (`name: 'rasterCrt'`, `slot: 'crt'`, `kind: 'raster'`). Extra fields: mutable `params` (barrel, scanlines, grille, vignette, blackLift, chroma/luma px, bloom, interlace, plus the three transition knobs), `source` (optional texture; lab hangs the SMPTE card here), `playTransition(duration?)` / `stopTransition()`, `transition`. Pure helpers live in `render/post/rasterCrt.ts` (YIQ, 1D chroma-bleed kernel, 0.3 s envelope).
+- **Sampling.** `source ?? input`, treated as a **320×240** NTSC raster (texel snap). RGB→YIQ, horizontal I/Q blur ≈ 4 px > Y ≈ 1 px, reconstruct RGB. Then 240 scanlines, Trinitron aperture grille, interlace field jitter (off when Reduce Flashing), stronger barrel than the vector CRT, raised black lift, vignette, cheap neighbour bloom, Reinhard. Writes LDR to `targets.post.write` and sets `ctx.encoded = 'ldr'`.
+- **Transition params** (plan §5.9 simstim flip, 0.3 s): `hHold` (horizontal-hold roll + wrap), `staticAmount` (low-contrast snow), `tracking` (tear-band jitter). Envelope is one soft burst, not a strobe: peak extra luma is low, and a 60 Hz sample of 1 s contains ≤ 1 flash (the §5.9 cap is 3/s). Reduce Flashing zeros flicker / interlace jitter and scales static ×0.25; Reduce Motion scales H-hold.
+- **Identity stub compatibility.** If `targets.post.write` has no `.texture` (unit-test doubles), the pass still sets `encoded = 'ldr'` and returns `input`.
+- **Dev route:** `?lab=raster` (`debug/RasterCrtLab.ts`) draws a 320×240 SMPTE 75% card + `NONSPACE` / `NTSC 320x240` text through the pass with `postMode = 'simstim'`. Screenshot: `docs/screenshots/m1-7-smpte-raster-crt.png`.
+
 ---
 
 ## 10. Milestones and tasks
