@@ -26,7 +26,9 @@ import {
   SKY_SPIN_RAD_PER_SEC,
   skyApparentRange,
   skyFollow,
+  skySplit,
 } from '../../src/world/sky/Sky';
+import { skyPointBudget } from '../../src/render/quality';
 
 describe('logarithmic spiral', () => {
   it('hits inner and outer radius at the ends of a turn', () => {
@@ -113,6 +115,18 @@ describe('generateSkyPoints', () => {
     const copy = set.color.slice(0, 16);
     fillSpiralArms(set, 0, 0, 1);
     expect(Array.from(set.color.slice(0, 16))).toEqual(Array.from(copy));
+  });
+
+  it('scales to the Low / Medium quality budgets without dropping the 9:1 arm ratio', () => {
+    const lowN = skyPointBudget('low');
+    const split = skySplit(lowN);
+    expect(split.arms + split.clusters).toBe(lowN);
+    expect(split.arms % SKY_ARM_COUNT).toBe(0);
+    expect(split.arms / split.clusters).toBeCloseTo(SKY_ARM_POINTS / SKY_CONSTELLATION_POINTS, 5);
+    const low = generateSkyPoints(SKY_SEED, lowN);
+    expect(pointSetCount(low)).toBe(lowN);
+    expect(low.color[0]).toBe(Beam.MIL);
+    expect(low.color[split.arms]!).not.toBe(Beam.MIL);
   });
 });
 

@@ -23,7 +23,13 @@ import {
   type PostMode,
 } from './post/PostChain';
 import { createFullscreenMaterial } from './post/pass';
-import { MAX_PIXEL_RATIO, resolveQuality, type GpuCaps, type QualityConfig } from './quality';
+import {
+  DRAW_CALL_CAP,
+  MAX_PIXEL_RATIO,
+  resolveQuality,
+  type GpuCaps,
+  type QualityConfig,
+} from './quality';
 import {
   createColorTarget,
   createRenderTargets,
@@ -37,6 +43,8 @@ export interface RendererInfo {
   geometries: number;
   programs: number;
   calls: number;
+  /** Plan §8.7 draw-call cap (150). */
+  drawCallCap: number;
   width: number;
   height: number;
 }
@@ -118,6 +126,11 @@ export interface RendererOptions {
   settings: SettingsStore;
   /** Session override (URL `?quality=` or tests). Does not persist. */
   qualityOverride?: QualitySetting;
+  /**
+   * No-float-RT config (`?hdr=0` / tests). Caps report no HDR so auto is Low
+   * and internals stay RGBA8.
+   */
+  forceRgba8?: boolean;
 }
 
 const SIMSTIM_ASPECT = 320 / 240;
@@ -144,11 +157,12 @@ export function createRenderer(opts: RendererOptions): Renderer {
   three.autoClear = false;
   three.toneMapping = NoToneMapping;
   three.outputColorSpace = SRGBColorSpace;
+  three.info.autoReset = false;
   opts.parent.appendChild(three.domElement);
 
   const gl = three.getContext() as WebGL2RenderingContext;
   const caps: GpuCaps = {
-    hdr: probeHdr(three),
+    hdr: opts.forceRgba8 ? false : probeHdr(three),
     renderer: readGpuRendererName(gl),
   };
 
@@ -156,6 +170,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
   const settingOf = (): QualitySetting => override ?? opts.settings.value.graphics.quality;
   let quality = resolveQuality(settingOf(), caps, {
     reduceMotion: opts.settings.value.reduceMotion,
+    forceRgba8: opts.forceRgba8,
   });
 
   const targets = createRenderTargets(1, 1, quality.hdr);
@@ -241,6 +256,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
   const applyQuality = (): void => {
     quality = resolveQuality(settingOf(), caps, {
       reduceMotion: opts.settings.value.reduceMotion,
+      forceRgba8: opts.forceRgba8,
     });
     ctx.quality = quality;
     ctx.reduceMotion = opts.settings.value.reduceMotion;
@@ -373,6 +389,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
       applySize();
     },
     endFrame(dt, gpuMs) {
+      three.info.reset();
       if (dt > 0 && dynamicRes.sample(gpuMs)) applySize();
       time += Math.max(0, dt);
       ctx.dt = dt;
@@ -462,6 +479,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
         geometries: three.info.memory.geometries,
         programs: three.info.programs?.length ?? 0,
         calls: three.info.render.calls,
+        drawCallCap: DRAW_CALL_CAP,
         width: targets.width,
         height: targets.height,
       };

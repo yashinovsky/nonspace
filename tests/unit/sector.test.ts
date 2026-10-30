@@ -28,6 +28,7 @@ import { sampleMinorSpec } from '../../src/world/sampleSpec';
 import {
   createDeferredBackend,
   createSectorStreamer,
+  fillNeededSectors,
   HITCH_LIMIT_MS,
   neededSectors,
 } from '../../src/world/SectorStreamer';
@@ -184,6 +185,10 @@ describe('SectorStreamer', () => {
       streamer.update(start.x, start.y, start.z);
     }
     expect(neededSectors(148, 72).length).toBe((STREAM_RADIUS * 2 + 1) ** 2);
+    const reused: { sx: number; sz: number }[] = [{ sx: 0, sz: 0 }];
+    expect(fillNeededSectors(reused, 148, 72)).toBe(25);
+    expect(reused.length).toBe(25);
+    expect(reused[0]).toEqual({ sx: 146, sz: 70 });
     expect(streamer.stats.loaded).toBe(25);
     expect(streamer.landmarks.length).toBe(FALLBACK_LANDMARKS.length);
     const hash = streamer.get(148, 72)?.contentHash;

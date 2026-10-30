@@ -13,8 +13,8 @@ import {
   type GpuPointBatch,
   type PointSet,
 } from '../../render/points/PointBatch';
-import { fillFarConstellations, SKY_CONSTELLATION_POINTS } from './FarConstellations';
-import { fillSpiralArms, SKY_ALTITUDE, SKY_ARM_POINTS } from './SpiralArms';
+import { fillFarConstellations } from './FarConstellations';
+import { fillSpiralArms, SKY_ALTITUDE, SKY_ARM_COUNT, SKY_ARM_POINTS } from './SpiralArms';
 
 export const SKY_POINT_COUNT = 40_000;
 export const SKY_PARALLAX = 0.1;
@@ -36,10 +36,24 @@ export {
 } from './SpiralArms';
 export { SKY_CONSTELLATION_MIN_Y, SKY_CONSTELLATION_POINTS } from './FarConstellations';
 
-export function generateSkyPoints(seed: number = SKY_SEED): PointSet {
-  const set = createPointSet(SKY_POINT_COUNT, { size: true });
-  fillSpiralArms(set, 0, SKY_ARM_POINTS, seed);
-  fillFarConstellations(set, SKY_ARM_POINTS, SKY_CONSTELLATION_POINTS, seed);
+/**
+ * Split a total sky budget into MIL arms (multiple of 3) + far clusters,
+ * keeping the High 36k/4k ratio.
+ */
+export function skySplit(count: number): { arms: number; clusters: number } {
+  const n = Math.max(0, count | 0);
+  const arms = Math.floor((n * SKY_ARM_POINTS) / SKY_POINT_COUNT / SKY_ARM_COUNT) * SKY_ARM_COUNT;
+  return { arms, clusters: Math.max(0, n - arms) };
+}
+
+export function generateSkyPoints(
+  seed: number = SKY_SEED,
+  count: number = SKY_POINT_COUNT,
+): PointSet {
+  const { arms, clusters } = skySplit(count);
+  const set = createPointSet(arms + clusters, { size: true });
+  fillSpiralArms(set, 0, arms, seed);
+  fillFarConstellations(set, arms, clusters, seed);
   return set;
 }
 
@@ -83,12 +97,15 @@ export interface SkyOptions {
   palette: Palette;
   parent: Object3D;
   seed?: number;
+  /** Point count (plan §8.7 High = 40k). Lower quality tiers pass `skyPointBudget`. */
+  count?: number;
 }
 
 export function createSky(opts: SkyOptions): Sky {
-  const points = generateSkyPoints(opts.seed ?? SKY_SEED);
+  const count = opts.count ?? SKY_POINT_COUNT;
+  const points = generateSkyPoints(opts.seed ?? SKY_SEED, count);
   const batch = createPointBatch({
-    capacity: SKY_POINT_COUNT,
+    capacity: Math.max(count, 8),
     palette: opts.palette,
     fogDensity: 0,
     refDistance: SKY_REF_DISTANCE,
@@ -145,8 +162,8 @@ export function createSky(opts: SkyOptions): Sky {
     },
   };
 
-  if (pointSetCount(points) !== SKY_POINT_COUNT) {
-    throw new Error(`sky point count ${pointSetCount(points)} != ${SKY_POINT_COUNT}`);
+  if (pointSetCount(points) !== count) {
+    throw new Error(`sky point count ${pointSetCount(points)} != ${count}`);
   }
 
   return sky;

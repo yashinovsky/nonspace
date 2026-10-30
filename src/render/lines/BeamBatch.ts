@@ -138,6 +138,24 @@ export function lineSetCount(set: LineSet): number {
   return set.color.length;
 }
 
+/**
+ * View of the first `cap` segments. Uses `subarray` so it does not copy.
+ * Callers that exceed the §8.7 line budget clip before `setStatic`.
+ */
+export function clipLineSet(set: LineSet, cap: number): LineSet {
+  const n = lineSetCount(set);
+  const keep = cap < 0 ? 0 : cap < n ? cap | 0 : n;
+  if (keep === n) return set;
+  const out: LineSet = {
+    positions: set.positions.subarray(0, keep * 6),
+    color: set.color.subarray(0, keep),
+    intensity: set.intensity.subarray(0, keep),
+  };
+  if (set.width) out.width = set.width.subarray(0, keep);
+  if (set.flags) out.flags = set.flags.subarray(0, keep);
+  return out;
+}
+
 /** Split each segment into `parts` colinear pieces (Neuromancer softening). */
 export function subdivideLineSet(set: LineSet, parts: number): LineSet {
   const n = Math.max(1, parts | 0);

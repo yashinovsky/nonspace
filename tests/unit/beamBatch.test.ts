@@ -3,6 +3,7 @@ import { Vector3 } from 'three';
 import {
   Beam,
   BeamFlag,
+  clipLineSet,
   clipSegmentNear,
   conserveWidth,
   createBeamBatch,
@@ -61,6 +62,19 @@ describe('fogFactor', () => {
     expect(fogFactor(80, 80, 0.001)).toBe(1);
     expect(fogFactor(180, 80, 0.001)).toBeCloseTo(Math.exp(-0.1), 8);
     expect(fogFactor(1000, 0, 0)).toBe(1);
+  });
+});
+
+describe('clipLineSet', () => {
+  it('returns a subarray view of the first N segments without copying', () => {
+    const set = createLineSet(8, { width: true, flags: true });
+    set.color[0] = Beam.GRID;
+    set.color[3] = Beam.AMBER;
+    const clipped = clipLineSet(set, 4);
+    expect(lineSetCount(clipped)).toBe(4);
+    expect(clipped.positions.buffer).toBe(set.positions.buffer);
+    expect(clipLineSet(set, 8)).toBe(set);
+    expect(lineSetCount(clipLineSet(set, 0))).toBe(0);
   });
 });
 

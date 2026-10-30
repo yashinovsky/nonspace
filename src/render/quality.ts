@@ -11,6 +11,15 @@ export type QualityTier = (typeof QUALITY_TIERS)[number];
 
 export const MAX_PIXEL_RATIO = 2;
 
+/** Plan §8.7 draw-call budget (batch per material / LOD; instancing). */
+export const DRAW_CALL_CAP = 150;
+/** Lattice window cap (also `LocalLattice` LATTICE_MAX_SEGMENTS). */
+export const LATTICE_SEGMENT_CAP = 6_000;
+/** HUD line-segment cap. */
+export const HUD_SEGMENT_CAP = 5_000;
+/** Authored High sky (one PointBatch draw). Lower tiers scale this. */
+export const SKY_POINT_BUDGET_HIGH = 40_000;
+
 export interface GpuCaps {
   /** Half-float (or float) color render targets are usable. */
   hdr: boolean;
@@ -39,6 +48,11 @@ export interface QualityConfig {
 
 export interface QualityOpts {
   reduceMotion?: boolean;
+  /**
+   * Pretend half-float color RTs are missing (no-float-RT browser / `?hdr=0`).
+   * Forces RGBA8 and, with `auto`, the Low tier.
+   */
+  forceRgba8?: boolean;
 }
 
 const SOFTWARE_GPU = /swiftshader|llvmpipe|softpipe|microsoft basic render|gdi generic/i;
@@ -88,12 +102,38 @@ export function pickAutoTier(caps: GpuCaps): QualityTier {
   return 'medium';
 }
 
+/**
+ * Sky lightpoints for a tier (plan §8.7: High sky is 40k in one draw).
+ * Scaled so sky + constructs stay inside `maxPoints`. Arm count stays a
+ * multiple of 3.
+ */
+export function skyPointBudget(tier: QualityTier): number {
+  if (tier === 'low') return 12_000;
+  if (tier === 'medium') return 24_000;
+  return SKY_POINT_BUDGET_HIGH;
+}
+
+/** Near/mid LOD distances track lattice radius (Low 120, High 200). */
+export function lodDistancesFor(tier: QualityTier): { near: number; mid: number } {
+  const near = PRESETS[tier].latticeRadius;
+  return { near, mid: near * 10 };
+}
+
+export function clampVisible(count: number, cap: number): number {
+  const n = count | 0;
+  const c = cap | 0;
+  if (n <= 0 || c <= 0) return 0;
+  return n < c ? n : c;
+}
+
 export function resolveQuality(
   setting: QualitySetting,
   caps: GpuCaps,
   opts: QualityOpts = {},
 ): QualityConfig {
-  const tier = setting === 'auto' ? pickAutoTier(caps) : setting;
+  const hdr = caps.hdr && !opts.forceRgba8;
+  const resolved: GpuCaps = hdr === caps.hdr ? caps : { ...caps, hdr };
+  const tier = setting === 'auto' ? pickAutoTier(resolved) : setting;
   const preset = PRESETS[tier];
   return {
     setting,
@@ -102,7 +142,7 @@ export function resolveQuality(
     persistence: preset.persistence && !opts.reduceMotion,
     // Use 16F whenever the probe succeeded. Low *allows* RGBA8 as a fallback
     // when HDR is missing; it does not force 8-bit on capable GPUs.
-    hdr: caps.hdr,
+    hdr,
   };
 }
 

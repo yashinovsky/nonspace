@@ -35,6 +35,8 @@ export interface AppOptions {
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
+  /** `?hdr=0` / no-float-RT tests. Forces RGBA8 internals. */
+  forceRgba8?: boolean;
   /** `?mission=` — mock id, loaded only in dev or with `?debug` (p0–m7 campaign always). */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
@@ -76,6 +78,7 @@ export async function startApp({
   debug,
   lab,
   qualityOverride,
+  forceRgba8,
   missionId,
   checkpoint,
 }: AppOptions): Promise<App> {
@@ -87,7 +90,7 @@ export async function startApp({
     save.commit();
   });
 
-  const renderer = createRenderer({ parent: root, settings, qualityOverride });
+  const renderer = createRenderer({ parent: root, settings, qualityOverride, forceRgba8 });
   const collision = createCollisionWorld();
   const flight = createFlightController({ collision });
   const sliceMission =
@@ -248,6 +251,8 @@ export async function startApp({
     root.dataset.hdr = renderer.quality.hdr ? '1' : '0';
     root.dataset.scale = renderer.effectiveScale.toFixed(3);
     root.dataset.size = `${renderer.internalWidth}x${renderer.internalHeight}`;
+    root.dataset.dyn = renderer.dynamicRes.scale.toFixed(1);
+    root.dataset.calls = String(renderer.info().calls);
   };
 
   loop = createLoop({
@@ -688,10 +693,11 @@ export async function startApp({
   }
 
   let gui: DebugGui | null = null;
-  let gpuTimer: GpuTimer | null = null;
-  if (debug || lab === 'look') {
-    gpuTimer = createGpuTimer(renderer.three.getContext() as WebGL2RenderingContext);
-  }
+  // Always attach the GPU timer so dynamic resolution sees real frame times
+  // outside `?debug` / Look Lab. Null on SwiftShader (no timer query).
+  const gpuTimer: GpuTimer | null = createGpuTimer(
+    renderer.three.getContext() as WebGL2RenderingContext,
+  );
   if (debug) {
     const { createDebugGui } = await import('../debug/DebugGui');
     gui = createDebugGui({ gpuTimerAvailable: gpuTimer !== null });
