@@ -1365,6 +1365,17 @@ Sense/Net simstim content. Does not rewrite the M6.1 feed or `SimstimRenderer` s
 - **Renderer hook.** `SimstimRenderer.load` still builds via the M6.1 material factory; it dispatches `buildSimstimScene(def.scene)` and poses `hidden` / `run`. PIP, flip, chip clock, and 320×240 raster CRT are unchanged.
 - **Dev routes:** `?lab=simstim` plays Sense/Net (lazy `SimstimLab` chunk; default boot does not fetch it). `&scene=lab` is the M6.1 one-gate lobby. `&t=` seeks meat time. `?mission=m2` is a structural stub (`narrative/mocks.ts` `mockM2Mission`) allowed in the production preview so e2e can hit it; campaign M2 remains M7.5. `F` cracks the open gate. Screenshot: `docs/screenshots/m6-2-sensenet-crt.png`. Dist budget is the default-boot graph (lab / `senseNet` chunks excluded).
 
+### 9.39 Contract notes from M4.3 (repo copy only)
+
+Breach controller and consequences. Does not implement M4.4 softs or M4.5 core interior. Does not own `hud/DeckPanel.ts` or DOM menus (M3.3). Phase Lock math remains M4.1 / #5 (`breach/PhaseLock.ts`). ICE model/visuals remain M4.2 (§9.36). HUD widgets remain M3.2 (§9.37) with breach-only wiring (lock reticle, grip countdown). Jack-in/out remain M2.7 (§9.35). Sense/Net remains M6.2 (§9.38).
+
+- **`deck/{NeuralLoad,Trace,Heat}.ts`**: §3.6 meters. Neural regenerates **4/s after a 3 s delay** when not engaged; each scar reduces max by 5 (floor 5). Trace is %; **100 = burned**. Heat 0–3 ticks when a run ends with trace > 50% or burned. Unit tests feed a simulated `dt` (no wall clock). Integer `neuralChanged` / `traceChanged` posts so the HUD SFX binder does not tick every step.
+- **`breach/Grip.ts`**: 8 s countdown, `jackOutBlocked`. IceModel still decides *when* grip starts (neural > 60 or failed re-key below 30% lock). Burned still forces jack-out through the grip.
+- **`breach/BreachController.ts`**: engage from **≤ 60 u facing a facet** (`canEngageFrom`); knobs per §3.9 (mouse X/Y = ratio/phase, sticks `knobX`/`knobY`, Shift = fine 0.15×). Disengage on crack / flatline / burned / player jack-out. Checkpoint snapshot of neural+trace; non-scripted flatline adds a scar and the flatline tally.
+- **`modes/Breach.ts`**, **`modes/Flatline.ts`**: Breach parks flight and consumes knobs. Flatline is locked to `FLATLINE_TIMING` (beeps → CRT dot + 2 s linger → silence with a dim AFTERGLOW green line) then `restoreCheckpoint`.
+- **HUD.** Reticle becomes lock-meter ring + ratio arc + phase dial (vector ticks, not a hex grid). VFD shows `MODE GRIP` and a 7-seg countdown while gripped. `hud.update(0)` paints without rAF.
+- **Dev route:** `?lab=breach` (`debug/BreachLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `&scene=white|gray|black|approach|grip|flatline|burned`. `window.__nonspaceBreach`. Screenshot: `docs/screenshots/m4-3-breach.png`. Playwright **freezes `setAnimationLoop` before any canvas snapshot** and paints with `paint()` (`hud.update(0)`) + `endFrame` — live rAF hung SwiftShader teardown on sibling `grid` / `loop` / `points` specs. Dist budget is the default-boot graph (lab chunk excluded).
+
 ---
 
 ## 10. Milestones and tasks

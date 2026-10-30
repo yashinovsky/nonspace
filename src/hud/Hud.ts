@@ -12,7 +12,7 @@ import { createBargraph } from './Bargraph';
 import { createEegTrace, eegVariance } from './EegTrace';
 import { createPip } from './Pip';
 import { createRadar, type RadarBlip } from './Radar';
-import { createReticle } from './Reticle';
+import { createReticle, type ReticleLock } from './Reticle';
 import { createTerminal, type TerminalPrintOpts } from './Terminal';
 import { createVfdStrip, type SoftSlot } from './VfdStrip';
 
@@ -68,6 +68,8 @@ export interface HudState {
   coords: string;
   softs: SoftSlot[];
   blips: RadarBlip[];
+  gripRemaining: number | null;
+  lock: ReticleLock | null;
 }
 
 const DEFAULT_SOFTS: SoftSlot[] = [
@@ -179,11 +181,14 @@ export interface Hud {
   setNeural(value: number): void;
   setTrace(value: number): void;
   setFlatline(on: boolean): void;
+  setScars(n: number): void;
   setMode(mode: string): void;
   setSpeed(speed: number): void;
   setCoords(coords: string): void;
   setPain(amount: number): void;
   setPipLink(on: boolean): void;
+  setGrip(remaining: number | null): void;
+  setLock(lock: ReticleLock | null): void;
   print(text: string, opts?: TerminalPrintOpts): void;
   clearTerminal(): void;
   update(dt: number): void;
@@ -275,6 +280,8 @@ export function createHud(opts: CreateHudOptions): Hud {
     coords: 'BAMA 0412.77 / 1180.03 / 0250',
     softs: DEFAULT_SOFTS.map((s) => ({ ...s })),
     blips: DEFAULT_BLIPS.map((b) => ({ ...b })),
+    gripRemaining: null,
+    lock: null,
   };
 
   let layout = layoutHud(renderer.cssWidth, renderer.cssHeight);
@@ -389,6 +396,9 @@ export function createHud(opts: CreateHudOptions): Hud {
       state.flatline = on;
       if (on) state.mode = 'FLAT';
     },
+    setScars(n) {
+      state.scars = Math.max(0, n | 0);
+    },
     setMode(mode) {
       state.mode = mode;
     },
@@ -403,6 +413,13 @@ export function createHud(opts: CreateHudOptions): Hud {
     },
     setPipLink(on) {
       pip.link = on;
+    },
+    setGrip(remaining) {
+      state.gripRemaining = remaining;
+      if (remaining != null) state.mode = 'GRIP';
+    },
+    setLock(lock) {
+      state.lock = lock;
     },
     print(text, printOpts) {
       terminal.print(text, printOpts);
@@ -425,10 +442,11 @@ export function createHud(opts: CreateHudOptions): Hud {
         speed: state.speed,
         neural: state.neural,
         softs: state.softs,
+        gripRemaining: state.gripRemaining,
       });
       pip.setFeed(renderer.targets.simstim.texture);
       pip.update(time);
-      reticle.update();
+      reticle.update(state.lock);
     },
     dispose() {
       for (const u of unsubs) u();
