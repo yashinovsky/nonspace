@@ -82,6 +82,12 @@ export interface PostContext {
   bloomRadius?: number;
   /** Vector-load metric for CRT flicker (M1.6). */
   vectorLoad: number;
+  /**
+   * True this frame if `scenes.blackIce` had children and wrote the mask.
+   * The mask RT always exists, so BlackIceComposite uses this to skip the
+   * extra blit on default boot (SwiftShader cannot afford it).
+   */
+  blackIceDrawn?: boolean;
 }
 
 export interface PostPass {
