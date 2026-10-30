@@ -4,6 +4,8 @@ export interface BassNote {
   type?: OscillatorType;
   cutoff?: number;
   decay?: number;
+  /** AudioContext time; defaults to now. */
+  when?: number;
 }
 
 export interface BassVoice {
@@ -27,7 +29,7 @@ export function createBassVoice(ctx: AudioContext, destination: AudioNode): Bass
 
   return {
     noteOn(note) {
-      const t = ctx.currentTime;
+      const t = note.when ?? ctx.currentTime;
       const ampLevel = note.amp ?? 0.18;
       const cutoff = note.cutoff ?? 180;
       const decay = note.decay ?? 0.22;

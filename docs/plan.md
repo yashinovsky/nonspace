@@ -1116,6 +1116,16 @@ Typed stubs for 9.1–9.7 are committed at the paths above (under `src/`). Where
 - **`createNoopAudioEngine()` / `createRecordingAudioEngine()`**: unchanged.
 - **Dev route:** `?lab=sfx`. Does not need WebGL2.
 
+### 9.14 Contract notes from M5.3 (repo copy only)
+
+- **§9.7 unchanged.** `createNoopAudioEngine` / `createRecordingAudioEngine` unchanged. SFX recipes stay M5.2; Phase Lock coupling beyond in-key tones stays M5.4.
+- **`pulse(t, bpmOrClock?)`** (`audio/music/Sequencer.ts`, re-exported from `audio/AudioEngine.ts`): 0..1 raised-cosine envelope, **1 on each quarter-note beat**. Default 96 BPM / origin 0. Pass a live `TempoClock` (from `getTempoClock(engine)`) so constructs stay in sync with the sequencer (±10 ms).
+- **`getTempoClock(engine)`**: `{ bpm, origin, beatsPerBar, stepsPerBar }` for the Web Audio engine; `null` on the no-op. `origin` is AudioContext time of beat 0 after `unlock()`.
+- **`music.setState`**: crossfades layer gains over **1 bar** at the current tempo. `kuangDive` sets 128 BPM unless `setTempo` was already called. `grip` ducks the music bus −24 dB for the duration of the state.
+- **`music.setKey(root, mode)`**: adaptive layers and Phase Lock stub tones (`a·f0`, `b·f0`) quantize onto the mission scale (`phaseLockTones` in `audio/music/Harmony.ts`).
+- **Motifs**: corp patterns in `audio/music/motifs.ts` (HRTF + inverse-distance gain). `motifDistanceGain` / `shouldAttachMotif` are the renderer hook for attach/detach with distance. Approach boosts attached motifs.
+- **Diagnostics** (lab / e2e only): `clock`, `crossfade`, `pulse` alongside the existing `music` object.
+
 ---
 
 ## 10. Milestones and tasks

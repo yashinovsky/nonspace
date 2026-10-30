@@ -46,7 +46,7 @@ export async function startAudioLab(root: HTMLElement): Promise<AudioLabHandle> 
   page.className = 'audio-lab';
   page.innerHTML = `
     <h1>NONSPACE</h1>
-    <p class="sub">Audio engine lab · M5.1 · <kbd>?lab=audio</kbd></p>
+    <p class="sub">Audio engine lab · M5.1 / M5.3 · <kbd>?lab=audio</kbd></p>
     <p class="gate" data-testid="audio-gate">Click anywhere (or Unlock) to start the AudioContext.</p>
     <section>
       <h2>ENGINE</h2>
@@ -77,6 +77,21 @@ export async function startAudioLab(root: HTMLElement): Promise<AudioLabHandle> 
       </div>
     </section>
     <section>
+      <h2>MUSIC (M5.3)</h2>
+      <div class="row">
+        <button type="button" data-testid="audio-music-transit">Transit</button>
+        <button type="button" data-testid="audio-music-approach">Approach</button>
+        <button type="button" data-testid="audio-music-breach">Breach</button>
+        <button type="button" data-testid="audio-music-grip">Grip</button>
+        <button type="button" data-testid="audio-music-core">Core</button>
+        <button type="button" data-testid="audio-music-simstim">Simstim</button>
+        <button type="button" data-testid="audio-music-kuang">Kuang dive</button>
+        <button type="button" data-testid="audio-music-beach">Beach</button>
+        <button type="button" data-testid="audio-music-silent">Silent</button>
+      </div>
+      <p class="sub" data-testid="audio-pulse">pulse —</p>
+    </section>
+    <section>
       <h2>STUBS (M5.2–M5.4)</h2>
       <div class="row">
         <button type="button" data-testid="audio-sfx">SFX shatter</button>
@@ -99,15 +114,18 @@ export async function startAudioLab(root: HTMLElement): Promise<AudioLabHandle> 
   let orbitTimer = 0;
   let orbitT = 0;
 
+  const pulseEl = page.querySelector('[data-testid="audio-pulse"]') as HTMLElement;
   const paint = (): void => {
     const d = lab.diagnostics();
     diagEl.textContent = JSON.stringify(d, null, 2);
+    const t = d?.clock ? d.clock.origin + (d.clock.beat * 60) / Math.max(1, d.clock.bpm) : 0;
+    pulseEl.textContent = `pulse ${lab.pulse(t).toFixed(3)} · ${d?.music.state ?? 'silent'} @ ${d?.clock.bpm ?? 96} BPM`;
   };
 
   const afterUnlock = (): void => {
     root.dataset.unlocked = 'true';
     gateEl.textContent =
-      'AudioContext running. Buses, worklets, 16 FM voices, HRTF motifs, ducking.';
+      'AudioContext running. Buses, worklets, 16 FM voices, HRTF motifs, ducking, adaptive music.';
     paint();
   };
 
@@ -185,6 +203,23 @@ export async function startAudioLab(root: HTMLElement): Promise<AudioLabHandle> 
       }, 50);
     });
   });
+  const setMusic = (state: Parameters<AudioEngine['music']['setState']>[0]): void => {
+    void unlock().then(() => engine.music.setState(state));
+  };
+  on('audio-music-transit', () => setMusic('transit'));
+  on('audio-music-approach', () => setMusic('approach'));
+  on('audio-music-breach', () => {
+    void unlock().then(() => {
+      lab.setLockMeter(0.7);
+      engine.music.setState('breach');
+    });
+  });
+  on('audio-music-grip', () => setMusic('grip'));
+  on('audio-music-core', () => setMusic('core'));
+  on('audio-music-simstim', () => setMusic('simstim'));
+  on('audio-music-kuang', () => setMusic('kuangDive'));
+  on('audio-music-beach', () => setMusic('beach'));
+  on('audio-music-silent', () => setMusic('silent'));
   on('audio-motif-detach', () => {
     if (orbitTimer) {
       window.clearInterval(orbitTimer);

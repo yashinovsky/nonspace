@@ -1,9 +1,9 @@
 import { createNoiseState, expSweep, tickNoise } from '../dsp/noise';
 
 export interface DrumVoice {
-  kick(amp?: number): void;
-  snare(amp?: number): void;
-  hat(amp?: number, open?: boolean): void;
+  kick(amp?: number, when?: number): void;
+  snare(amp?: number, when?: number): void;
+  hat(amp?: number, open?: boolean, when?: number): void;
   dispose(): void;
 }
 
@@ -64,20 +64,20 @@ export function createDrumVoice(
   noise.connect(hatHp).connect(hatAmp).connect(destination);
 
   return {
-    kick(amp = 0.4) {
-      const t = ctx.currentTime;
+    kick(amp = 0.4, when?: number) {
+      const t = when ?? ctx.currentTime;
       kickOsc.frequency.cancelScheduledValues(t);
       kickOsc.frequency.setValueAtTime(150, t);
       kickOsc.frequency.exponentialRampToValueAtTime(38, t + 0.15);
       env(kickAmp, t, amp, 0.004, 0.18);
     },
-    snare(amp = 0.25) {
-      const t = ctx.currentTime;
+    snare(amp = 0.25, when?: number) {
+      const t = when ?? ctx.currentTime;
       env(snareAmp, t, amp, 0.002, 0.12);
       env(snareToneAmp, t, amp * 0.35, 0.002, 0.08);
     },
-    hat(amp = 0.12, open = false) {
-      const t = ctx.currentTime;
+    hat(amp = 0.12, open = false, when?: number) {
+      const t = when ?? ctx.currentTime;
       env(hatAmp, t, amp, 0.001, open ? 0.18 : 0.04);
     },
     dispose() {
