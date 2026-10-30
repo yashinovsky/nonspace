@@ -1,0 +1,41 @@
+{
+  "title": "m3",
+  "initial": "brief",
+  "variables": {},
+  "knots": {
+    "brief": {
+      "name": "brief",
+      "lines": [
+        "Dixie Flatline is in the Hosaka. Gray ice, then Berne. Don't touch the cube."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "JACK IN",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "debrief": {
+      "name": "debrief",
+      "lines": [
+        "The cube of white light looked back. Dixie talked you home. Wintermute knows the name."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "DONE",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    }
+  }
+}

@@ -32,7 +32,7 @@ export interface AppOptions {
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
-  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m5/m7 also in preview; p0/m1/m2 always). */
+  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m5/m7 also in preview; p0/m1/m2/m3 always). */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
   checkpoint?: string;
@@ -87,7 +87,8 @@ export async function startApp({
   const renderer = createRenderer({ parent: root, settings, qualityOverride });
   const collision = createCollisionWorld();
   const flight = createFlightController({ collision });
-  const sliceMission = missionId === 'p0' || missionId === 'm1' || missionId === 'm2';
+  const sliceMission =
+    missionId === 'p0' || missionId === 'm1' || missionId === 'm2' || missionId === 'm3';
   const flyCam =
     lab === 'sector' || lab === 'look' || lab === 'ai' || lab === 'jump' || sliceMission;
   const cameraRig = createCameraRig({
@@ -142,6 +143,10 @@ export async function startApp({
         sliceFx.current?.sfx?.(id);
       },
       wintermute(action) {
+        if (sliceFx.current?.wintermute) {
+          sliceFx.current.wintermute(action);
+          return;
+        }
         void ensureAi().then((p) => p.applyWintermute(action));
       },
       neuromancer(action) {
@@ -555,7 +560,10 @@ export async function startApp({
       const { startSenseNetMission } = await import('../campaign/senseNet');
       sliceHandle = await startSenseNetMission({ ...bootSlice, simstim });
     };
-    if (missionId === 'm2') {
+    if (missionId === 'm3') {
+      const { startConstructMission } = await import('../campaign/construct');
+      sliceHandle = await startConstructMission(bootSlice);
+    } else if (missionId === 'm2') {
       await startM2();
     } else {
       const { startVerticalSlice } = await import('../campaign/verticalSlice');
@@ -828,9 +836,9 @@ export async function startApp({
     }
   };
   // Playwright sets navigator.webdriver. Do not start a live HUD+CRT rAF for
-  // ?lab=dixie — that billed sibling SwiftShader loop.spec / sector.spec.
+  // ?lab=dixie / ?mission=m3 — that billed sibling SwiftShader loop.spec / sector.spec.
   const webdriver = typeof navigator !== 'undefined' && navigator.webdriver;
-  if (lab === 'dixie' && webdriver) {
+  if (webdriver && (lab === 'dixie' || missionId === 'm3')) {
     root.dataset.status = 'running';
     syncRoot();
   } else {
