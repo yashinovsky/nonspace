@@ -1404,6 +1404,15 @@ Watchers and sweeps. Does not rewrite `BreachController` (M4.3, §9.39). Does no
 - **Placement.** `generateSector` plants watchers near high-value constructs (EURO/ORBT → Turing-heavy). Placement stays in `Sector.ts` so the sector worker never imports this module (Three / BeamBatch).
 - **Dev route:** `?lab=watchers` (`debug/WatcherLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `window.__nonspaceWatchers`. Screenshot: `docs/screenshots/m4-6-watchers.png`. Playwright **freezes `setAnimationLoop` before any canvas snapshot** and paints with `paint()` (`hud.update(0)`) + `endFrame` — live rAF starves sibling SwiftShader `grid` / `sector` specs. Dist budget is the default-boot graph (lab chunk excluded).
 
+### 9.46 Contract notes from M4.5 (repo copy only)
+
+Core interior and download. Does not rewrite `breach/BreachController.ts` or `breach/IceVisuals.ts`. Does not implement M4.4 softs or M4.6 watchers. Deck panel / DOM menus remain M3.3 (§9.40). Straylight simstim remains M6.3 (§9.41). Watchers remain M4.6 (§9.42). Softs remain M4.4 (§9.43, #38). Phase Lock audio remains M5.4 (§9.44, #39). Coordinate jump remains M2.6 (§9.45, #40). Breach remains M4.3 (§9.39). ICE model/visuals remain M4.2 (§9.36). HUD widgets remain M3.2 (§9.37). Construct grammar remains M2.1 (§9.21). Lightpoints remain M1.2 (§9.18).
+
+- **`breach/CoreInterior.ts`**: seeded cathedral (6–12 hatched strata, record lightpoints, Hershey catalog codes in the lab). `generateCore(def)` is a pure function of `seed` (+ optional `strata` / `targetRecord`). Target constellation uses `constellationPulse(t)` (on-beat, Sequencer `pulse` at 96 BPM); decoys use the same envelope shifted half a beat. Download is hold-`E` within `DOWNLOAD_RADIUS` of the target centroid (`DOWNLOAD_HOLD_S` 3 s). Integer `downloadProgress` posts (`targetId`, `value` 0..1). Trace inside the core is `CORE_TRACE_RATE * CORE_TRACE_MUL` (0.4 × 1.5). After the take: hold-`J` jacks out (heat if trace > 50%); `engage` starts route-out, which **scrubs 30%** (`ROUTE_OUT_TRACE_SCRUB`) and re-freezes cracked layers over the configured `refreeze` window (default 30 s, clamped 20–40). Sequential `layerFreeze(elapsed, duration, i, n)`.
+- **`modes/Core.ts`**: `id: 'core'`. Flight stays live. HUD `MODE CORE` / `EXFIL`. `hud.update(0)` paints without rAF.
+- **Dev route:** `?lab=core` (`debug/CoreLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `&scene=cathedral|download|exfil|route`, `&seed=`. `window.__nonspaceCore`. Screenshot: `docs/screenshots/m4-5-core.png`. Playwright **freezes `setAnimationLoop` before any canvas snapshot** and paints with `paint()` (`interior.paint()` + `hud.update(0)`) + `endFrame` — live rAF hung SwiftShader teardown on sibling `grid` / `loop` / `points` specs. Dist budget is the default-boot graph (lab chunk excluded).
+
+
 ---
 
 ## 10. Milestones and tasks
