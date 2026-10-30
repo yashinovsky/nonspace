@@ -20,7 +20,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -237,6 +237,12 @@ export async function startApp({
       reduceMotion: () => settings.value.reduceMotion,
     });
     root.dataset.lab = 'sky';
+  }
+
+  if (lab === 'teletext') {
+    const { installTeletextLab } = await import('../debug/TeletextLab');
+    labHandle = installTeletextLab({ renderer, modes, root });
+    root.dataset.lab = 'teletext';
   }
 
   if (lab === 'persist') {

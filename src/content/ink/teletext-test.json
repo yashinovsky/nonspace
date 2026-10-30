@@ -1,0 +1,4 @@
+{
+  "title": "teletext-test",
+  "source": "// M6.4 lab story. Short original lines; no long novel quotes.\n=== start ===\n# page:test\nNite City. Port sky: a dead channel.\n* [THE STREET] -> street\n* [A PAYPHONE] -> phone\n* [THE CLINIC] -> clinic\n* [JACK IN] -> jack\n\n=== street ===\n# page:text\nCapsules stacked over Chiba. Neon kanji as mosaic blocks.\n* [BACK] -> start\n\n=== phone ===\n# page:phone\n# ring\nA payphone rings as you pass. Wintermute.\n* [PICK UP] -> pickup\n* [WALK ON] -> start\n\n=== pickup ===\n# page:text\nA chip voice. Then the dial tone.\n* [BACK] -> start\n\n=== clinic ===\n# page:text\nThe black clinic. Cheap, and they know your name.\n* [BACK] -> start\n\n=== jack ===\n# page:text\nTrodes. The deck warms. Ready to jack in.\n* [BACK] -> start\n"
+}

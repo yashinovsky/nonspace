@@ -1267,6 +1267,17 @@ Simstim renderer and feed. Uses M1.7 `RasterCrtPass` as-is (does not edit siblin
 - **Renderer** (`render/simstim/SimstimRenderer.ts`, `flatDither.frag`): 320×240 scene into `targets.simstim` (Renderer.endFrame, whenever the simstim scene has children). Flat Lambert via face derivatives, 16-color palette, 4×4 Bayer. Chip clock is a camera-parented red `fillText` canvas (lower-left). Silvered-lens vignette + pain reddening on a near-plane quad. Hands in frame. On flip, `postMode = 'simstim'` and `RasterCrtPass.source = simstimRT`. PIP: `renderer.pipEnabled` blits the 320×240 feed to the top-right after the chain (matrix mode only).
 - **Dev route:** `?lab=simstim`. Procedural lobby (no glTF; M6.2 owns content). `T` flip/peek, `F` crack the lab gate, `1` pain. Matrix stub re-keys every 1.6 s. Screenshot: `docs/screenshots/m6-1-simstim-crt.png`.
 
+### 9.28 Contract notes from M6.4 (repo copy only)
+
+Teletext / videotex interludes. Pages are Canvas2D 40×24 at NTSC 320×240, then `RasterCrtPass.source` with `postMode = 'interlude'` (same raster slots as simstim, plan §8.4).
+
+- **`TeletextPage`** (`meat/TeletextPage.ts`): 40×24 cells, WST 8 colours, 2×3 mosaic (bits 0,1,2,3,4,6), separated mosaics, double-height pairs, 1 Hz flash (never full-page, under the §5.9 3 Hz cap). Header row is Ceefax-style white-on-red with a yellow `HH:MM:SS` clock. Glyphs are a 5×7 videotex stand-in; M3.1 swaps in Px437 IBM CGA.
+- **`blitPage` / `createTeletext`** (`meat/Teletext.ts`): pure RGBA blit into a reused 320×240 buffer; the browser wrapper is a `CanvasTexture` (nearest mag, no mips) hung on the raster CRT. Lighter CRT settings stay M1.7's defaults.
+- **`InkRuntime`** (`narrative/InkRuntime.ts`): inkle subset (`=== knot ===`, text, `* [label] -> knot` numbered 1–4, `->` / `END`, `VAR` / `~`, `{name}` / `{cond:then|else}`, `# tags`). `scripts/build-ink.mjs` compiles `ink/*.ink` → `src/content/ink/*.json` as an `InkStory` (`title`, `initial`, `knots`) so the lab chunk does not ship the compiler or raw source. Full inkjs + inklecate remain a M7.0 option if campaign Ink outgrows the subset.
+- **`Interlude`** (`meat/Interlude.ts`, `app/modes/Interlude.ts`): maps the current knot onto a page (`# page:test|phone|text`), binds `soft1`–`soft4` to choices 1–4, plays the 0.3 s raster flip on enter. `# ring` (and the test/phone pages) start the payphone.
+- **Phone hook** (`meat/phoneRing.ts`): UK cadence 0.4 / 0.2 / 0.4 / 2.0 s, dual-tone 400+450 Hz after `unlock(AudioContext)`. Visual flash follows `phoneSounding(t)` (2 bursts / 3 s ≈ 0.67 Hz). No new `SfxId` — later SFX can replace the oscillators.
+- **Dev route:** `?lab=teletext` (lazy `?lab=` chunk; default boot does not fetch Teletext / Ink). Screenshot: `docs/screenshots/m6-4-teletext-test.png`.
+
 ---
 
 ## 10. Milestones and tasks
