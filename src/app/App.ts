@@ -32,7 +32,7 @@ export interface AppOptions {
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
-  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m5/m7 also in preview; p0/m1/m2/m3/m4 always). */
+  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m7 also in preview; p0–m5 always). */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
   checkpoint?: string;
@@ -92,7 +92,8 @@ export async function startApp({
     missionId === 'm1' ||
     missionId === 'm2' ||
     missionId === 'm3' ||
-    missionId === 'm4';
+    missionId === 'm4' ||
+    missionId === 'm5';
   const flyCam =
     lab === 'sector' || lab === 'look' || lab === 'ai' || lab === 'jump' || sliceMission;
   const cameraRig = createCameraRig({
@@ -183,7 +184,7 @@ export async function startApp({
     return aiPresence;
   };
 
-  const stimMission = missionId === 'm5' || missionId === 'm7';
+  const stimMission = missionId === 'm7';
   const allowMissionRoute = debug || import.meta.env.DEV || stimMission || sliceMission;
   if (allowMissionRoute && missionId && !sliceMission) {
     const def = getMockMission(missionId);
@@ -314,8 +315,7 @@ export async function startApp({
     const { installSimstimLab } = await import('../debug/SimstimLab');
     const q = new URLSearchParams(window.location.search);
     const seekRaw = Number.parseFloat(q.get('t') ?? '');
-    const missionScene =
-      missionId === 'm7' ? 'straylight-m7' : missionId === 'm5' ? 'straylight' : 'sensenet';
+    const missionScene = missionId === 'm7' ? 'straylight-m7' : 'sensenet';
     labHandle = installSimstimLab(renderer, simstim, modes, {
       scene: q.get('scene') ?? (stimMission ? missionScene : undefined),
       mission: stimMission ? mission : undefined,
@@ -564,7 +564,10 @@ export async function startApp({
       const { startSenseNetMission } = await import('../campaign/senseNet');
       sliceHandle = await startSenseNetMission({ ...bootSlice, simstim });
     };
-    if (missionId === 'm4') {
+    if (missionId === 'm5') {
+      const { startKuangGradeMission } = await import('../campaign/kuangGrade');
+      sliceHandle = await startKuangGradeMission({ ...bootSlice, simstim });
+    } else if (missionId === 'm4') {
       const { startTuringMission } = await import('../campaign/turing');
       sliceHandle = await startTuringMission(bootSlice);
     } else if (missionId === 'm3') {
@@ -845,7 +848,10 @@ export async function startApp({
   // Playwright sets navigator.webdriver. Do not start a live HUD+CRT rAF for
   // ?lab=dixie / ?mission=m3|m4 — that billed sibling SwiftShader loop.spec / sector.spec.
   const webdriver = typeof navigator !== 'undefined' && navigator.webdriver;
-  if (webdriver && (lab === 'dixie' || missionId === 'm3' || missionId === 'm4')) {
+  if (
+    webdriver &&
+    (lab === 'dixie' || missionId === 'm3' || missionId === 'm4' || missionId === 'm5')
+  ) {
     root.dataset.status = 'running';
     syncRoot();
   } else {

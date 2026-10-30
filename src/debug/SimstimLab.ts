@@ -67,8 +67,8 @@ export function parseSimstimScene(raw: string | null | undefined): SimstimLabSce
  * `?lab=simstim` — Sense/Net walk (M6.2) through RasterCrtPass, plus the
  * M6.1 feed FSM. `&scene=lab` keeps the original one-gate lobby.
  * `&scene=straylight` / `straylight-m7` are M6.3 Villa Straylight.
- * `?mission=m5|m7` loads the matching stub against the mock runner.
- * Campaign `?mission=m2` is M7.5 (`campaign/senseNet.ts`), not this lab.
+ * `?mission=m7` loads the M7 word-scene stub against the mock runner.
+ * Campaign `?mission=m2` is M7.5; `?mission=m5` is M7.9 (`campaign/kuangGrade.ts`).
  */
 export function installSimstimLab(
   renderer: Renderer,
