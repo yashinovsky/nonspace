@@ -19,7 +19,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach` / `grid`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach` / `grid` / `heraldry`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -171,6 +171,14 @@ export async function startApp({
       kind: q.get('g') ?? undefined,
       seed: q.get('seed') ?? undefined,
       lod: q.get('lod') ?? undefined,
+    });
+  } else if (lab === 'heraldry') {
+    const { installHeraldryLab } = await import('../content/lab');
+    const q = new URLSearchParams(window.location.search);
+    labHandle = installHeraldryLab(renderer, root, {
+      id: q.get('id') ?? undefined,
+      gray: q.get('gray') ?? undefined,
+      bpm: q.get('bpm') ?? undefined,
     });
   }
   if (lab === 'points') {

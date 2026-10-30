@@ -51,6 +51,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=sky` is the M2.4 spiral-arm sky (40k MIL points in one draw, 0.1× parallax, far constellations). `1` ground / `2` ceiling / `3` fly. Screenshot: `docs/screenshots/m2-4-sky-arms.png`. Contract notes in plan §9.22.
 - `?lab=beach` is M7.10 / M6 "The Beach": first-person walk, SDF raymarch (half-res), Linda, sun cycle, checkerboard tell, dub-bass exit. `window.__nonspace.beach` is the sim handle. Contract notes in plan §9.23.
 - `?lab=grid` is the M1.3 ground grid + local lattice lab (analytic AA, checker, Wintermute warp, camera-centred 64 u lattice). `&scene=cruise|graze|high|warp|lattice`. Screenshot: `docs/screenshots/m1-3-grid.png`. Contract notes in plan §9.24.
+- `?lab=heraldry` is the M2.2 corp heraldry set (nine authored landmarks, mock tempo clock, grayscale toggle). `?id=esfa` (or any landmark id) selects the construct; `?gray=1` forces grayscale. Screenshot: `docs/screenshots/m2-2-heraldry.png`. Contract notes in plan §9.25.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -76,6 +77,7 @@ Shared contracts from plan §9 are typed stubs other tasks build against:
 | Flight, camera, hull collision     | `src/player/{FlightController,CameraRig,Collision}.ts`                                        |
 | Construct grammar (M2.1)           | `src/world/constructs/{grammar,primitives,lod}.ts`                                            |
 | Sky (spiral arms + constellations) | `src/world/sky/{SpiralArms,FarConstellations,Sky}.ts`                                         |
+| Corp heraldry + landmarks (M2.2)   | `src/content/{corps,landmarks}.ts`                                                            |
 
 Test doubles (recording beam/point batches, event recorder, recording audio engine) and valid sample data are in `src/testing/`. Notes on how the stubs differ from the plan's literal TypeScript are in plan §9.8.
 
@@ -94,7 +96,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Renderer service (HDR targets, PostChain, quality)                       | `src/render/Renderer.ts`                               |
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky, beach, grid), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.24. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky, beach, grid, heraldry), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.25. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
@@ -121,7 +123,7 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 - `?debug` adds a graphics folder: quality, internal size, dynres, a GPU-load slider, and inject-20 ms buttons. Persistence tunables live in the `phosphor` folder.
 - `?lab=beam` — eight palette cubes plus a grid, through the same HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m1-1-beams.png`.
 - `?lab=grid` — infinite ground grid (8/64/1024 u, analytic AA, checker, warp) plus the 64 u local lattice. Screenshot: `docs/screenshots/m1-3-grid.png`.
-- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. M1.2 must not edit `render/lines/*`.
+- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. M1.2 must not edit `render/lines/*`.
 - M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.
