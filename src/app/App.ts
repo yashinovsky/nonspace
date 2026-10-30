@@ -32,7 +32,7 @@ export interface AppOptions {
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
-  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m7 also in preview; p0–m6 always). */
+  /** `?mission=` — mock id, loaded only in dev or with `?debug` (p0–m7 campaign always). */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
   checkpoint?: string;
@@ -93,7 +93,8 @@ export async function startApp({
     missionId === 'm2' ||
     missionId === 'm3' ||
     missionId === 'm4' ||
-    missionId === 'm5';
+    missionId === 'm5' ||
+    missionId === 'm7';
   const beachMission = missionId === 'm6';
   const flyCam =
     lab === 'sector' || lab === 'look' || lab === 'ai' || lab === 'jump' || sliceMission;
@@ -210,9 +211,7 @@ export async function startApp({
     return aiPresence;
   };
 
-  const stimMission = missionId === 'm7';
-  const allowMissionRoute =
-    debug || import.meta.env.DEV || stimMission || sliceMission || beachMission;
+  const allowMissionRoute = debug || import.meta.env.DEV || sliceMission || beachMission;
   if (allowMissionRoute && missionId && !sliceMission && !beachMission) {
     const def = getMockMission(missionId);
     if (!def) {
@@ -333,18 +332,15 @@ export async function startApp({
     labHandle = await installVectorCrtLab(renderer);
     root.dataset.lab = 'vector';
   }
-  if (lab === 'simstim' || stimMission) {
+  if (lab === 'simstim') {
     const { installSimstimLab } = await import('../debug/SimstimLab');
     const q = new URLSearchParams(window.location.search);
     const seekRaw = Number.parseFloat(q.get('t') ?? '');
-    const missionScene = missionId === 'm7' ? 'straylight-m7' : 'sensenet';
     labHandle = installSimstimLab(renderer, simstim, modes, {
-      scene: q.get('scene') ?? (stimMission ? missionScene : undefined),
-      mission: stimMission ? mission : undefined,
+      scene: q.get('scene') ?? undefined,
       seek: Number.isFinite(seekRaw) && seekRaw > 0 ? seekRaw : undefined,
     });
-    if (lab === 'simstim') root.dataset.lab = 'simstim';
-    if (stimMission && missionId) root.dataset.mission = missionId;
+    root.dataset.lab = 'simstim';
   }
 
   if (lab === 'sky') {
@@ -606,7 +602,10 @@ export async function startApp({
       const { startSenseNetMission } = await import('../campaign/senseNet');
       sliceRef.current = await startSenseNetMission({ ...bootSlice, simstim });
     };
-    if (missionId === 'm5') {
+    if (missionId === 'm7') {
+      const { startTrueNameMission } = await import('../campaign/trueName');
+      sliceRef.current = await startTrueNameMission({ ...bootSlice, simstim });
+    } else if (missionId === 'm5') {
       const { startKuangGradeMission } = await import('../campaign/kuangGrade');
       sliceRef.current = await startKuangGradeMission({ ...bootSlice, simstim });
     } else if (missionId === 'm4') {
@@ -897,7 +896,8 @@ export async function startApp({
       missionId === 'm3' ||
       missionId === 'm4' ||
       missionId === 'm5' ||
-      missionId === 'm6')
+      missionId === 'm6' ||
+      missionId === 'm7')
   ) {
     root.dataset.status = 'running';
     syncRoot();

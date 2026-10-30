@@ -228,7 +228,7 @@ export function mockM5Mission(): MissionDef {
   };
 }
 
-/** Structural M7 stub so `?mission=m7` plays the word-scene timeline (M6.3). */
+/** Structural M7 stub for unit tests / `?lab=simstim&scene=straylight-m7`. Campaign `?mission=m7` is M7.11. */
 export function mockM7Mission(): MissionDef {
   const base = mockTriggerMission();
   return {

@@ -1,0 +1,120 @@
+{
+  "title": "m7",
+  "initial": "brief",
+  "variables": {},
+  "knots": {
+    "brief": {
+      "name": "brief",
+      "lines": [
+        "Back in. Kuang coiled at the core. Molly has 3Jane on the meat side. Watch the feed. The word is sung. Then type it."
+      ],
+      "tags": [
+        "page:text",
+        "title:TRUE NAME"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "JACK IN",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "epilogue": {
+      "name": "epilogue",
+      "lines": [
+        "Payment pipes. Turing records gone. The sacs quiet. Somewhere a new mind counts."
+      ],
+      "tags": [
+        "page:text",
+        "title:THE HEAD"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "NEXT",
+          "divert": "coda_offer"
+        }
+      ],
+      "divert": null
+    },
+    "erased": {
+      "name": "erased",
+      "lines": [
+        "You pulled the plug. The construct is gone. A laugh still finds you."
+      ],
+      "tags": [
+        "page:text",
+        "title:PAULEY"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "NEXT",
+          "divert": "coda_offer"
+        }
+      ],
+      "divert": null
+    },
+    "kept": {
+      "name": "kept",
+      "lines": [
+        "You left him on the chip. ROM. He will forget this too."
+      ],
+      "tags": [
+        "page:text",
+        "title:PAULEY"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "NEXT",
+          "divert": "coda_offer"
+        }
+      ],
+      "divert": null
+    },
+    "coda_offer": {
+      "name": "coda_offer",
+      "lines": [
+        "The matrix is changed. Jack in once more, or let the credits roll."
+      ],
+      "tags": [
+        "page:text",
+        "title:ACT V"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "JACK IN",
+          "divert": "END"
+        },
+        {
+          "index": 2,
+          "text": "CREDITS",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "credits": {
+      "name": "credits",
+      "lines": [
+        "Hershey vector fonts: Dr. A. V. Hershey / James Hurt. Px437 IBM CGA and IBM BIOS: VileR, CC BY-SA 4.0. VFD glyphs: in-house."
+      ],
+      "tags": [
+        "page:text",
+        "title:NONSPACE"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "DONE",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    }
+  }
+}

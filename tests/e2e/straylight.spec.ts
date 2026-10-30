@@ -236,42 +236,4 @@ test.describe('M6.3 Straylight simstim content', () => {
 
     expect(errors).toEqual([]);
   });
-
-  test('?mission=m7 stub plays the Straylight word-scene timeline', async ({ page }) => {
-    test.setTimeout(60_000);
-    const errors = collectErrors(page);
-    try {
-      await page.setViewportSize({ width: 1280, height: 720 });
-      await page.goto('/?mission=m7');
-      await expect(page.locator('#app')).toHaveAttribute('data-mission', 'm7');
-      await expect(page.locator('#app')).toHaveAttribute('data-scene', 'straylight-m7');
-      await page.waitForFunction(handle);
-      await freezeLoop(page);
-      await drawOnce(page);
-      const m7 = await page.evaluate(() => {
-        const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
-        return {
-          clock: app.simstim.debug.clock,
-          word: document.getElementById('app')?.dataset.word,
-        };
-      });
-      expect(m7.clock).toMatch(/^04:41:\d{2}$/);
-      expect(m7.word).toBe('to whom');
-      expect(errors).toEqual([]);
-    } finally {
-      try {
-        await page.evaluate(() => {
-          const app = (window as unknown as { __nonspace?: StimHandle }).__nonspace;
-          app?.renderer.three.setAnimationLoop(null);
-        });
-      } catch {
-        /* ignore */
-      }
-      try {
-        await page.goto('about:blank');
-      } catch {
-        /* ignore */
-      }
-    }
-  });
 });

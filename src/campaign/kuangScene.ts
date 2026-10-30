@@ -30,6 +30,8 @@ export interface KuangScene {
   readonly core: CoreInterior;
   follow(cam: { x: number; y: number; z: number }, latticeRadius: number): void;
   setVisible(on: boolean): void;
+  /** M7.11 merge: green rectangles fold. 0 = rest, 1 = collapsed. */
+  fold(amount: number): void;
   paint(): void;
   dispose(): void;
 }
@@ -117,6 +119,23 @@ export function createKuangScene(renderer: Renderer, collision: CollisionWorld):
       lattice.visible = on;
       for (const b of batches) b.object.visible = on;
       for (const e of extras) e.visible = on;
+    },
+    fold(amount) {
+      const a = amount < 0 ? 0 : amount > 1 ? 1 : amount;
+      for (const b of batches) {
+        b.object.rotation.x = a * 1.15;
+        b.object.rotation.z = a * 0.32;
+        b.object.scale.set(
+          LANDMARK_SCALE,
+          Math.max(0.08, LANDMARK_SCALE * (1 - a * 0.82)),
+          LANDMARK_SCALE,
+        );
+      }
+      const coreObj = extras[0];
+      if (coreObj) {
+        coreObj.rotation.y = a * 0.55;
+        coreObj.scale.setScalar(Math.max(4, CORE_SCALE * (1 - a * 0.42)));
+      }
     },
     paint() {
       core.paint();
