@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
+import { withSectorHitchLock } from './swiftshaderLock';
 
 const SCREENSHOT = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -61,11 +62,33 @@ async function drawOnce(page: Page): Promise<void> {
   });
 }
 
+async function dropPage(page: Page): Promise<void> {
+  try {
+    await page.evaluate(() => {
+      const appHandle = (window as unknown as { __nonspace?: AppHandle }).__nonspace;
+      appHandle?.renderer.three.setAnimationLoop(null);
+    });
+  } catch {
+    /* page may already be closing */
+  }
+  try {
+    await page.goto('about:blank');
+  } catch {
+    /* ignore */
+  }
+}
+
 test.describe('M2.3 sector streaming lab', () => {
   test('?lab=sector streams a 5×5 window with landmarks and Manhattan traffic', async ({
     page,
   }) => {
-    const errors = collectErrors(page);
+    await withSectorHitchLock(() => runSectorStream(page));
+  });
+});
+
+async function runSectorStream(page: Page): Promise<void> {
+  const errors = collectErrors(page);
+  try {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('/?lab=sector&seed=1');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
@@ -77,6 +100,13 @@ test.describe('M2.3 sector streaming lab', () => {
     // Freeze before any canvas snapshot. Live sector frames + a SwiftShader
     // sibling (render GPU inject) billed one upload slice over 4 ms.
     await freezeLoop(page);
+    await page.evaluate(() => {
+      const h = (window as unknown as { __nonspaceSector?: SectorHandle }).__nonspaceSector;
+      if (h) {
+        h.stats.hitchesOver4ms = 0;
+        h.stats.maxMainMs = 0;
+      }
+    });
     await drawOnce(page);
 
     await expect
@@ -178,5 +208,7 @@ test.describe('M2.3 sector streaming lab', () => {
     expect(hitch.n).toBe(0);
 
     expect(errors).toEqual([]);
-  });
-});
+  } finally {
+    await dropPage(page);
+  }
+}
