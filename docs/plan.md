@@ -1135,7 +1135,19 @@ Typed stubs for 9.1–9.7 are committed at the paths above (under `src/`). Where
 - **Ceiling.** Above 12,000 u a spring pushes down and `controlScale = 1 / (1 + over / ceilingSluggish)` scales look and thrust. Soft: the player can overshoot; they are not teleported onto the line.
 - **Collision** (`player/Collision.ts`): spheres and AABBs, `kind: 'construct' | 'ice'`. Within 20 u a spring pushes out and `telemetry.flare` / `iceContact` report the closest hull. The player point cannot stay inside: a just-entered frame is fully corrected, a deep spawn is pushed at `hullPushMax` u/s. Trace accrual is not applied here (Trace does not exist yet); poll `telemetry.iceContact`.
 - **`CameraRig`** (`player/CameraRig.ts`) writes an interpolated pose onto a `THREE.PerspectiveCamera` (`rotation.order = 'YXZ'`). Banking is visual-only roll. It does not use the M0.4 Renderer service — pass `renderer` (today a `WebGLRenderer`) into `?lab=flight`.
-- **Lab:** `?lab=flight`. Click the canvas for pointer lock. Debug GUI folder `flight` is the §3.3 table.
+- **Lab:** `?lab=flight`. Click the canvas for pointer lock. Debug GUI folder `flight` is the §3.3 table. Pass `renderer.three` (the `WebGLRenderer`) into the lab; `App.renderer` is the M0.4 service.
+
+### 9.16 Contract notes from M0.4 (repo copy only)
+
+Render skeleton. M1.4–M1.8 replace **their own pass file** and must not edit sibling passes, `PostChain.ts`, or `targets.ts`.
+
+- **`settings.graphics.quality`** (`auto|low|medium|high`) maps through `render/quality.ts` onto a resolved `QualityConfig` (`tier`, `baseScale`, `persistence`, `bloomMips`, `latticeRadius`, line/point caps, `hdr`). `auto` picks Low on software/no-HDR, Medium on typical integrated, High on discrete / Apple silicon. `?quality=` is a session override and does not write the save. Reduce Motion forces `persistence: false`.
+- **`App.renderer`** is the `Renderer` service (`render/Renderer.ts`), not a raw `THREE.WebGLRenderer`. The Three instance is `renderer.three`. `ModeContext.renderer` is optional so existing ModeStack unit tests stay unchanged; the App always provides it.
+- **`PostPass`** (`render/post/pass.ts`): `{ name, slot, kind?, resize, render(input, ctx) → Texture, dispose }`. Identity / disabled passes **return `input` unchanged** and allocate nothing. Slots: `persistence` (M1.4, `PersistencePass.ts`), `bloom` (M1.5, `BloomPass.ts` writes `ctx.bloom` and returns combined), `blackIce` (M1.8, `BlackIceComposite.ts`; stub adds bloom when present), `crt` (`VectorCrtPass.ts` M1.6 / `RasterCrtPass.ts` M1.7, selected by `PostMode`), `final` (M0.4). Beach skips CRT.
+- **`PostContext.encoded`**: `'hdr'` until a CRT pass tonemaps. FinalComposite applies Reinhard + desaturate-to-white only while `'hdr'`. When VectorCrtPass (or RasterCrtPass) tonemaps, it MUST set `encoded = 'ldr'` so the backbuffer is not darkened twice.
+- **Targets** (`render/targets.ts`): `hdrScene` (RGBA16F + depth, RGBA8 fallback if the half-float framebuffer probe fails), `persist` ping-pong (for M1.4), `post` ping-pong, `blackIceMask` (R8), `hud`, `simstim` 320×240 RGBA8. Extra RTs (bloom mips) should be allocated inside the owning pass via `createColorTarget` / `createPingPong`.
+- **Dynamic resolution** (`render/dynamicRes.ts`): GPU ms > 15 for 30 frames → scale −0.1 down to 0.6; < 12 ms for 30 frames → step back up. `inject(ms)` is the artificial-load hook (debug GUI + tests). Effective internal size = CSS × min(DPR, 2) × `baseScale` × dynres scale.
+- **Dev route**: `?lab=render` draws the HDR test cube. `window.__nonspace` is also exposed on that route (not only `?debug`). `?lab=flight` skips PostChain and draws with `renderer.three`.
 
 ---
 
