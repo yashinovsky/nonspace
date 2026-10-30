@@ -1,0 +1,22 @@
+{
+  "name": "nonspace-phase-lock-prototype",
+  "private": true,
+  "version": "0.1.0",
+  "description": "M4.1 Phase Lock prototype: standalone 2D lab for the NONSPACE breach mechanic",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "playtest": "tsx scripts/playtest.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.0",
+    "vite": "^8.0.0",
+    "vitest": "^5.0.0"
+  }
+}

@@ -1,0 +1,136 @@
+/**
+ * Scripted self-test: N tries per (ICE preset × difficulty × player profile).
+ * Writes playtest/results.json and playtest/results.md.
+ *   npm run playtest            (N = 200)
+ *   npm run playtest -- 50      (custom N)
+ */
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { BOT_PROFILES, type BotProfile } from '../src/bot/HumanProxy';
+import { type TryResult, runTry } from '../src/bot/runTry';
+import { DIFFICULTIES, type Difficulty, ICE_PRESETS, type IcePreset, getDifficulty, getIce } from '../src/breach/presets';
+
+const N = Number(process.argv[2] ?? 200);
+
+interface Cell {
+  ice: string;
+  diff: string;
+  profile: string;
+  variant: string;
+  n: number;
+  cracked: number;
+  flatline: number;
+  burned: number;
+  timeout: number;
+  gripped: number;
+  gripSurvived: number;
+  p10: number;
+  p25: number;
+  median: number;
+  p75: number;
+  p90: number;
+  max: number;
+  mean: number;
+  /** share of tries that saw at least one re-key */
+  sawRekey: number;
+  /** mean re-keys per try */
+  rekeys: number;
+  /** share of tries where a re-key cost ≥ 25% of the meter */
+  bigSetback: number;
+  /** mean neural load at the end */
+  neural: number;
+  /** mean trace at the end */
+  trace: number;
+  hist: string;
+}
+
+const q = (xs: number[], p: number) => (xs.length ? xs[Math.min(xs.length - 1, Math.floor(p * xs.length))] : NaN);
+
+function hist(times: number[]): string {
+  const bins = [0, 2, 4, 6, 8, 10, 12, 15, 20, 30, 45, 60, Infinity];
+  const counts = bins.slice(0, -1).map((lo, i) => times.filter((t) => t >= lo && t < bins[i + 1]).length);
+  const max = Math.max(1, ...counts);
+  const bars = ' ▁▂▃▄▅▆▇█';
+  return counts.map((c) => bars[Math.ceil((c / max) * 8)]).join('');
+}
+
+function cell(ice: IcePreset, d: Difficulty, p: BotProfile, variant: string, rs: TryResult[]): Cell {
+  const ok = rs.filter((r) => r.status === 'cracked').map((r) => r.time).sort((a, b) => a - b);
+  const gripped = rs.filter((r) => r.grip);
+  return {
+    ice: ice.id,
+    diff: d.id,
+    profile: p.name,
+    variant,
+    n: rs.length,
+    cracked: ok.length,
+    flatline: rs.filter((r) => r.status === 'flatline').length,
+    burned: rs.filter((r) => r.status === 'burned').length,
+    timeout: rs.filter((r) => r.status === 'timeout').length,
+    gripped: gripped.length,
+    gripSurvived: gripped.filter((r) => r.status === 'cracked').length,
+    p10: q(ok, 0.1),
+    p25: q(ok, 0.25),
+    median: q(ok, 0.5),
+    p75: q(ok, 0.75),
+    p90: q(ok, 0.9),
+    max: ok[ok.length - 1] ?? NaN,
+    mean: ok.reduce((s, x) => s + x, 0) / Math.max(1, ok.length),
+    sawRekey: rs.filter((r) => r.stats.rekeys > 0).length / rs.length,
+    rekeys: rs.reduce((s, r) => s + r.stats.rekeys, 0) / rs.length,
+    bigSetback: rs.filter((r) => r.stats.lostProgress >= 0.25).length / rs.length,
+    neural: rs.reduce((s, r) => s + r.neural, 0) / rs.length,
+    trace: rs.reduce((s, r) => s + r.trace, 0) / rs.length,
+    hist: hist(ok),
+  };
+}
+
+const cells: Cell[] = [];
+const run = (ice: IcePreset, d: Difficulty, p: BotProfile, variant: string, opts = {}) => {
+  const rs = Array.from({ length: N }, (_, i) => runTry(ice, d, p, 10_000 + i * 7919, opts));
+  const c = cell(ice, d, p, variant, rs);
+  cells.push(c);
+  return c;
+};
+
+for (const p of Object.values(BOT_PROFILES)) {
+  for (const ice of ICE_PRESETS) for (const d of DIFFICULTIES) run(ice, d, p, 'default');
+}
+// Telegraph without the ghost preview (REKEY text + flicker + tone slide only).
+for (const ice of ICE_PRESETS.filter((i) => i.layer.rekeyEvery)) {
+  for (const d of DIFFICULTIES) run(ice, d, BOT_PROFILES.average, 'no-ghost', { telegraphPreview: false });
+}
+// Purist mode: no ratio detents, so tolRatio matters.
+for (const ice of ICE_PRESETS) for (const d of DIFFICULTIES) run(ice, d, BOT_PROFILES.average, 'purist', { purist: true });
+// Proposed tuning.
+for (const p of Object.values(BOT_PROFILES)) {
+  for (const ice of ICE_PRESETS.filter((i) => i.layer.rekeyEvery)) {
+    for (const d of DIFFICULTIES) run(getIce(ice.id, 'proposed'), getDifficulty(d.id, 'proposed'), p, 'proposed');
+  }
+}
+
+const f = (x: number) => (Number.isFinite(x) ? x.toFixed(1) : '—');
+const pct = (x: number) => `${Math.round(x * 100)}%`;
+const table = (rows: Cell[]) =>
+  [
+    '| ICE | Difficulty | Cracked | p10 | p25 | **median** | p75 | p90 | max | Saw a re-key | Re-keys/try | Lost ≥25% to a re-key | Gripped (survived) | Fails | Histogram 0–60 s |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+    ...rows.map(
+      (c) =>
+        `| ${c.ice} | ${c.diff} | ${c.cracked}/${c.n} | ${f(c.p10)} | ${f(c.p25)} | **${f(c.median)}** | ${f(c.p75)} | ${f(c.p90)} | ${f(c.max)} | ${pct(c.sawRekey)} | ${c.rekeys.toFixed(2)} | ${pct(c.bigSetback)} | ${c.gripped ? `${c.gripped} (${c.gripSurvived})` : '—'} | ${c.flatline + c.burned + c.timeout ? `${c.flatline}F ${c.burned}B ${c.timeout}T` : '—'} | \`${c.hist}\` |`,
+    ),
+  ].join('\n');
+
+const md: string[] = [`<!-- generated by \`npm run playtest -- ${N}\` -->`, `Tries per cell: **${N}**. Times are seconds from engage to crack (cracked tries only). Histogram bins: 0,2,4,6,8,10,12,15,20,30,45,60 s.`, ''];
+for (const p of Object.keys(BOT_PROFILES)) {
+  md.push(`#### Profile: ${p}`, '', table(cells.filter((c) => c.profile === p && c.variant === 'default')), '');
+}
+md.push('#### Telegraph without ghost preview (average profile)', '', table(cells.filter((c) => c.variant === 'no-ghost')), '');
+md.push('#### Purist mode, no detents (average profile)', '', table(cells.filter((c) => c.variant === 'purist')), '');
+for (const p of Object.keys(BOT_PROFILES)) {
+  md.push(`#### Proposed tuning, profile: ${p}`, '', table(cells.filter((c) => c.profile === p && c.variant === 'proposed')), '');
+}
+
+mkdirSync('playtest', { recursive: true });
+writeFileSync('playtest/results.json', JSON.stringify({ n: N, cells }, null, 2));
+writeFileSync('playtest/results.md', md.join('\n'));
+console.log(md.join('\n'));
