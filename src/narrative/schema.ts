@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { NeuromancerAction } from '../ai/Neuromancer';
-import { MAX_GRID_BEND_POINTS, type WintermuteAction } from '../ai/Wintermute';
+import type { WintermuteAction } from '../ai/Wintermute';
 import { MODE_IDS, type ModeId } from '../app/ModeStack';
 import type { IceLayerDef } from '../breach/IceModel';
 import { GAME_EVENT_TYPES, type GameEvent } from '../core/events';
@@ -114,9 +114,7 @@ export const wintermuteActionSchema: z.ZodType<WintermuteAction> = z.discriminat
   z.strictObject({ kind: z.literal('freeze'), on: z.boolean() }),
   z.strictObject({
     kind: z.literal('gridBend'),
-    points: z
-      .array(z.strictObject({ x: z.number(), z: z.number(), strength: z.number() }))
-      .max(MAX_GRID_BEND_POINTS),
+    points: z.array(z.strictObject({ x: z.number(), z: z.number(), strength: z.number() })).max(4),
   }),
   z.strictObject({ kind: z.literal('persona'), who: id, on: z.boolean() }),
   z.strictObject({ kind: z.literal('ringPhones'), on: z.boolean() }),

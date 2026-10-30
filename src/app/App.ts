@@ -1,3 +1,5 @@
+import type { NeuromancerAction } from '../ai/Neuromancer';
+import type { WintermuteAction } from '../ai/Wintermute';
 import { createEventBus, type EventBus } from '../core/events';
 import { createLoop, type Loop } from '../core/loop';
 import { createSaveStore, type SaveStore } from '../core/save';
@@ -22,7 +24,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core` / `phaselock3d` / `softs`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core` / `phaselock3d` / `softs` / `ai`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -81,7 +83,7 @@ export async function startApp({
   const renderer = createRenderer({ parent: root, settings, qualityOverride });
   const collision = createCollisionWorld();
   const flight = createFlightController({ collision });
-  const flyCam = lab === 'sector' || lab === 'look';
+  const flyCam = lab === 'sector' || lab === 'look' || lab === 'ai';
   const cameraRig = createCameraRig({
     camera: flyCam ? renderer.cameras.matrix : undefined,
     aspect: window.innerWidth / Math.max(window.innerHeight, 1),
@@ -95,6 +97,17 @@ export async function startApp({
     document,
   });
   const modeRef: { stack: ModeStack | null } = { stack: null };
+  type AiPresenceHandle = {
+    applyWintermute(action: WintermuteAction): void;
+    applyNeuromancer(action: NeuromancerAction): void;
+    update(dt: number): void;
+    reset(): void;
+    dispose(): void;
+  };
+  let aiPresence: AiPresenceHandle | null = null;
+  let ensureAi: () => Promise<AiPresenceHandle> = async () => {
+    throw new Error('AI presence not ready');
+  };
   const mission = createMissionRunner({
     events,
     save,
@@ -104,6 +117,12 @@ export async function startApp({
         if (id === 'beach' && stack && !stack.has('beach')) {
           stack.reset(createBeachMode());
         }
+      },
+      wintermute(action) {
+        void ensureAi().then((p) => p.applyWintermute(action));
+      },
+      neuromancer(action) {
+        void ensureAi().then((p) => p.applyNeuromancer(action));
       },
     },
   });
@@ -119,6 +138,18 @@ export async function startApp({
     simstim,
   });
   modeRef.stack = modes;
+  ensureAi = async () => {
+    if (aiPresence) return aiPresence;
+    const { createAiPresence } = await import('../debug/AiLab');
+    aiPresence = createAiPresence({
+      renderer,
+      flight,
+      save,
+      events,
+      modes,
+    });
+    return aiPresence;
+  };
 
   const stimMission = missionId === 'm2' || missionId === 'm5' || missionId === 'm7';
   const allowMissionRoute = debug || import.meta.env.DEV || stimMission;
@@ -143,9 +174,10 @@ export async function startApp({
     update(dt) {
       const frame = input.sample(dt);
       modes.handleInput(frame);
-      if (flightLab || sectorLab || lookLab || lab === 'sky') {
+      if (flightLab || sectorLab || lookLab || lab === 'sky' || lab === 'ai') {
         flight.step(frame, dt, { reduceMotion: settings.value.reduceMotion });
       }
+      aiPresence?.update(dt);
       mission.update(dt);
       simstim.update(dt);
       labHandle?.update(dt);
@@ -410,6 +442,22 @@ export async function startApp({
       reduceMotion: () => settings.value.reduceMotion,
     });
   }
+  if (lab === 'ai') {
+    const { installAiLab, isAiScene } = await import('../debug/AiLab');
+    const q = new URLSearchParams(window.location.search);
+    const sceneParam = q.get('scene');
+    labHandle = installAiLab({
+      renderer,
+      flight,
+      cameraRig,
+      events,
+      save,
+      modes,
+      root,
+      scene: isAiScene(sceneParam) ? sceneParam : undefined,
+      reduceFlashing: () => settings.value.reduceFlashing,
+    });
+  }
 
   let inputLab: { dispose(): void } | null = null;
   if (lab === 'input') {
@@ -577,6 +625,78 @@ export async function startApp({
       ice.addBinding(icePass, 'edgeIntensity', { min: 0, max: 4, step: 0.05, label: 'UV edge' });
       ice.addBinding(icePass, 'grip', { min: 0, max: 1, step: 0.01 });
     }
+    const aiFold = gui.pane.addFolder({ title: 'AI' });
+    type AiButtons = {
+      applyWintermute(action: WintermuteAction): void;
+      applyNeuromancer(action: NeuromancerAction): void;
+      reset(): void;
+    };
+    const pickAi = async (): Promise<AiButtons> => {
+      const lab = (window as unknown as { __nonspaceAi?: AiButtons }).__nonspaceAi;
+      if (lab) return lab;
+      const p = await ensureAi();
+      return {
+        applyWintermute(action) {
+          events.post({ type: 'wintermute', action });
+          p.applyWintermute(action);
+        },
+        applyNeuromancer(action) {
+          events.post({ type: 'neuromancer', action });
+          p.applyNeuromancer(action);
+        },
+        reset() {
+          p.reset();
+        },
+      };
+    };
+    const onAi = (fn: (p: AiButtons) => void): void => {
+      void pickAi().then(fn);
+    };
+    aiFold.addButton({ title: 'overexpose' }).on('click', () => {
+      onAi((p) => p.applyWintermute({ kind: 'overexpose', amount: 1 }));
+    });
+    aiFold.addButton({ title: 'persona' }).on('click', () => {
+      onAi((p) => p.applyWintermute({ kind: 'persona', who: 'finn', on: true }));
+    });
+    aiFold.addButton({ title: 'hijack' }).on('click', () => {
+      onAi((p) => p.applyWintermute({ kind: 'hijack', text: 'WINTERMUTE> I NEED A RIDER' }));
+    });
+    aiFold.addButton({ title: 'freeze' }).on('click', () => {
+      onAi((p) => p.applyWintermute({ kind: 'freeze', on: true }));
+    });
+    aiFold.addButton({ title: 'grid bend' }).on('click', () => {
+      onAi((p) =>
+        p.applyWintermute({
+          kind: 'gridBend',
+          points: [
+            { x: -48, z: 40, strength: 0.8 },
+            { x: 48, z: 40, strength: 0.8 },
+            { x: -56, z: -90, strength: 0.68 },
+            { x: 56, z: -90, strength: 0.68 },
+          ],
+        }),
+      );
+    });
+    aiFold.addButton({ title: 'phones' }).on('click', () => {
+      onAi((p) => p.applyWintermute({ kind: 'ringPhones', on: true }));
+    });
+    aiFold.addButton({ title: 'bargain' }).on('click', () => {
+      onAi((p) => p.applyWintermute({ kind: 'bargain', offerId: 'opens-the-door', debt: 1 }));
+    });
+    aiFold.addButton({ title: 'soften' }).on('click', () => {
+      onAi((p) => p.applyNeuromancer({ kind: 'soften', amount: 1 }));
+    });
+    aiFold.addButton({ title: 'pull' }).on('click', () => {
+      onAi((p) =>
+        p.applyNeuromancer({ kind: 'pull', target: { x: 0, y: 16, z: 8 }, strength: 40 }),
+      );
+    });
+    aiFold.addButton({ title: 'beach' }).on('click', () => {
+      onAi((p) => p.applyNeuromancer({ kind: 'beach' }));
+    });
+    aiFold.addButton({ title: 'reset AI' }).on('click', () => {
+      onAi((p) => p.reset());
+    });
   }
 
   let last = performance.now();
@@ -621,6 +741,8 @@ export async function startApp({
       labHandle?.dispose();
       sectorLab?.dispose();
       lookLab?.dispose();
+      aiPresence?.dispose();
+      aiPresence = null;
       modes.reset();
       simstim.dispose();
       mission.dispose();

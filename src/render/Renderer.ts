@@ -80,6 +80,11 @@ export interface Renderer {
   pipEnabled: boolean;
   exposure: number;
   /**
+   * Wintermute overexpose bloom scale. Unset = BloomPass radius (1).
+   * Only set while the AI behavior is active.
+   */
+  bloomRadius?: number;
+  /**
    * Vector-load 0..1 for CRT flicker (M1.6). Null override means derive from
    * scene draw calls this frame.
    */
@@ -188,6 +193,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
   let drawHdr: ((renderer: WebGLRenderer, target: WebGLRenderTarget) => void) | null = null;
   let pipEnabled = false;
   let exposure = 1;
+  let bloomRadius: number | undefined;
   let gpuLoad = 0;
   let vectorLoadOverride: number | null = null;
   let time = 0;
@@ -328,6 +334,12 @@ export function createRenderer(opts: RendererOptions): Renderer {
     set exposure(v) {
       exposure = v;
     },
+    get bloomRadius() {
+      return bloomRadius;
+    },
+    set bloomRadius(v) {
+      bloomRadius = v;
+    },
     get gpuLoad() {
       return gpuLoad;
     },
@@ -367,6 +379,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
       ctx.time = time;
       ctx.mode = postMode;
       ctx.exposure = exposure;
+      ctx.bloomRadius = bloomRadius;
       ctx.quality = quality;
       ctx.vectorLoad = vectorLoadOverride ?? 0;
       ctx.blackIceDrawn = false;

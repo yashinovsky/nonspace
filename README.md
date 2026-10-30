@@ -67,6 +67,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=watchers` is the M4.6 Turing / sysop sweep lab (vector fans, detection cones, 6%/s trace, DECOY lure stub, radar blips). Screenshot: `docs/screenshots/m4-6-watchers.png`. Contract notes in plan §9.42.
 - `?lab=core` is the M4.5 core interior (seeded cathedral, on-beat target / off-beat decoys, download hold, jack-out vs route-out re-freeze). `&scene=cathedral|download|exfil|route`, `&seed=`. Screenshot: `docs/screenshots/m4-5-core.png`. Contract notes in plan §9.46.
 - `?lab=phaselock3d` (alias `?lab=softs`) is the M4.4 softs lab (PROBE numeral, CLAMP, DAMPER, DECOY lure, MIMIC, KUANG, Dixie `H` hook). `&scene=probe|clamp|damper|decoy|mimic|kuang|dixie|loadout`. Screenshot: `docs/screenshots/m4-4-softs.png`. Contract notes in plan §9.43.
+- `?lab=ai` is the M7.3 Wintermute / Neuromancer lab (overexpose, persona, hijack, freeze, grid bend, soften, pull, beach). `&scene=overexpose|persona|hijack|freeze|bend|soften|pull|beach`. Screenshot: `docs/screenshots/m7-3-wintermute.png`, `docs/screenshots/m7-3-neuromancer.png`. Contract notes in plan §9.48.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -119,7 +120,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
 | Simstim feed, flip, gates, pain (M6.1)                                   | `src/simstim/*`, `src/app/modes/Simstim.ts`            |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look, jack, ice, hud, breach, deck, watchers, core, phaselock3d / softs), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.46. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look, jack, ice, hud, breach, deck, watchers, core, phaselock3d / softs, ai), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.48. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
@@ -160,6 +161,7 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 - `?lab=watchers` — M4.6 Turing / sysop vector fans, 6%/s trace, DECOY lure. Screenshot: `docs/screenshots/m4-6-watchers.png`. Contract notes in plan §9.42.
 - `?lab=core` — M4.5 core cathedral, on-beat target / off-beat decoys, download hold, route-out re-freeze. Screenshot: `docs/screenshots/m4-5-core.png`. Contract notes in plan §9.46.
 - `?lab=phaselock3d` / `?lab=softs` — M4.4 softs (PROBE / CLAMP / DAMPER / DECOY / MIMIC / KUANG, Dixie `H` hook). Screenshot: `docs/screenshots/m4-4-softs.png`. Contract notes are in plan §9.43.
+- `?lab=ai` — M7.3 Wintermute overexpose + Finn persona, Neuromancer soften. Screenshots: `docs/screenshots/m7-3-wintermute.png`, `docs/screenshots/m7-3-neuromancer.png`. Contract notes in plan §9.48.
 - `?lab=blackice` — black ICE shard in front of a hot construct: the solid is truly black (eats bloom), UV edges crawl, `?scene=grip` grows screen-edge tendrils. Screenshot: `docs/screenshots/m1-8-black-ice.png`.
 - `?lab=look` — M1.9 art scene through the full vector CRT chain. Screenshot: `docs/screenshots/m1-9-look-lab.png`.
 - M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.

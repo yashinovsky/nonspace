@@ -1,6 +1,7 @@
 import type { EventBus } from '../core/events';
 import type { Palette } from '../render/palette';
 import type { Renderer } from '../render/Renderer';
+import { createHijack } from '../ai/Hijack';
 import {
   Beam,
   BeamFlag,
@@ -193,6 +194,9 @@ export interface Hud {
   setBlips(blips: readonly RadarBlip[]): void;
   print(text: string, opts?: TerminalPrintOpts): void;
   clearTerminal(): void;
+  /** Wintermute VFD re-segment. `null` restores the strip. */
+  hijack(text: string | null): void;
+  readonly hijackText: string;
   update(dt: number): void;
   dispose(): void;
 }
@@ -251,6 +255,7 @@ export function createHud(opts: CreateHudOptions): Hud {
   const vfd = createVfdStrip(palette, { z: HUD_Z });
   const bar = createBargraph(palette, { z: HUD_Z });
   const terminal = createTerminal(palette, { z: HUD_Z });
+  const hijack = createHijack(palette, { z: HUD_Z });
   const pip = createPip(palette, { z: HUD_Z, feed: renderer.targets.simstim.texture });
   const reticle = createReticle(palette, { z: HUD_Z });
   const chrome = createBeamBatch(palette, {
@@ -266,6 +271,7 @@ export function createHud(opts: CreateHudOptions): Hud {
     ...vfd.objects,
     bar.object,
     terminal.object,
+    hijack.object,
     ...pip.objects,
     reticle.object,
     chrome.object,
@@ -316,7 +322,10 @@ export function createHud(opts: CreateHudOptions): Hud {
     );
     unsubs.push(
       bus.on('wintermute', (e) => {
-        if (e.action.kind === 'hijack') terminal.print(e.action.text, { wintermute: true });
+        if (e.action.kind === 'hijack') {
+          terminal.print(e.action.text, { wintermute: true });
+          hijack.set(e.action.text);
+        }
       }),
     );
     unsubs.push(
@@ -358,6 +367,7 @@ export function createHud(opts: CreateHudOptions): Hud {
     });
     bar.layout(L.trace.x, L.trace.y, L.trace.w, L.trace.h, HUD_Z);
     terminal.layout(L.terminal.x, L.terminal.y, HUD_Z, L.terminalCell);
+    hijack.layout(L.coords.x, L.coords.y, HUD_Z, L.vfdSize);
     pip.layout(L.pip.x, L.pip.y, L.pip.w, L.pip.h, HUD_Z);
     reticle.layout(L.reticle.x, L.reticle.y, L.reticleArm, HUD_Z);
     writeChrome(chrome, L);
@@ -454,12 +464,20 @@ export function createHud(opts: CreateHudOptions): Hud {
     clearTerminal() {
       terminal.clear();
     },
+    hijack(text) {
+      if (text) hijack.set(text);
+      else hijack.clear();
+    },
+    get hijackText() {
+      return hijack.text;
+    },
     update(dt) {
       time += Math.max(0, dt);
       const w = renderer.cssWidth;
       const h = renderer.cssHeight;
       if (w !== lastW || h !== lastH) hud.resize(w, h);
       terminal.update(dt, time);
+      hijack.update(dt);
       eeg.update(time, state.neural, state.flatline, state.scars);
       radar.update(time, state.blips);
       bar.update(state.trace, time, opts.reduceFlashing?.() ?? true);
@@ -483,6 +501,7 @@ export function createHud(opts: CreateHudOptions): Hud {
       vfd.dispose();
       bar.dispose();
       terminal.dispose();
+      hijack.dispose();
       pip.dispose();
       reticle.dispose();
       chrome.dispose();

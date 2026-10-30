@@ -133,6 +133,13 @@ export interface FlightController {
   setPose(partial: Partial<FlightPose>): void;
   resetPose(): void;
   resetParams(): void;
+  /**
+   * Neuromancer pull: drift toward `target` at `strength` u/s².
+   * Null / strength 0 clears. Jack-out is blocked while pulling.
+   */
+  setPull(target: { x: number; y: number; z: number } | null, strength: number): void;
+  /** Neuromancer pull / black-ICE grip share this: the deck won't let go. */
+  jackOutBlocked: boolean;
   /** Unit look vector from current yaw/pitch. Writes `out`. */
   forward(out: { x: number; y: number; z: number }): { x: number; y: number; z: number };
 }
@@ -351,6 +358,13 @@ export function createFlightController(opts: FlightControllerOptions = {}): Flig
 
   writeTelemetry(false, 1);
 
+  let pullOn = false;
+  let pullX = 0;
+  let pullY = 0;
+  let pullZ = 0;
+  let pullK = 0;
+  let jackOutBlocked = false;
+
   const controller: FlightController = {
     params,
     pose,
@@ -376,6 +390,26 @@ export function createFlightController(opts: FlightControllerOptions = {}): Flig
     },
     resetParams() {
       Object.assign(params, FLIGHT_DEFAULTS);
+    },
+    get jackOutBlocked() {
+      return jackOutBlocked;
+    },
+    set jackOutBlocked(v) {
+      jackOutBlocked = v;
+    },
+    setPull(target, strength) {
+      if (!target || !(strength > 0)) {
+        pullOn = false;
+        pullK = 0;
+        jackOutBlocked = false;
+        return;
+      }
+      pullOn = true;
+      pullX = target.x;
+      pullY = target.y;
+      pullZ = target.z;
+      pullK = strength;
+      jackOutBlocked = true;
     },
     step(frame, dt, stepOpts) {
       if (!(dt > 0)) return;
@@ -451,6 +485,19 @@ export function createFlightController(opts: FlightControllerOptions = {}): Flig
       if (over > 0) {
         pose.vy -= params.ceilingSpring * over * dt;
         if (pose.vy > 0) pose.vy *= expDecay(0.4, dt);
+      }
+
+      if (pullOn && pullK > 0) {
+        const dx = pullX - pose.x;
+        const dy = pullY - pose.y;
+        const dz = pullZ - pose.z;
+        const plen = Math.hypot(dx, dy, dz);
+        if (plen > 1e-4) {
+          const a = pullK * dt;
+          pose.vx += (dx / plen) * a;
+          pose.vy += (dy / plen) * a;
+          pose.vz += (dz / plen) * a;
+        }
       }
 
       pose.x += pose.vx * dt;
