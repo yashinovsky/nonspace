@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { TUTORIAL_LABELS } from '../../src/campaign/tutorialPrompts';
 import { CHIBA_CLUSTER_IDS, getLandmark } from '../../src/content/landmarks';
+import { createIceModel } from '../../src/breach/IceModel';
 import { isCampaignMissionId, loadCampaignMission } from '../../src/content/missions/load';
 import { m1Mission, M1_ICE_ID, M1_LOOK_S, M1_START } from '../../src/content/missions/m1';
+import {
+  applySenseNetRekey,
+  m2Mission,
+  M2_ICE_ID,
+  M2_REKEY,
+  M2_REKEY_PANIC,
+  M2_START,
+  senseNetIce,
+} from '../../src/content/missions/m2';
 import { p0Mission } from '../../src/content/missions/p0';
+import { SENSE_NET_CAMPAIGN_PANIC_AT } from '../../src/content/simstim/senseNet';
 import { parseMission } from '../../src/narrative/schema';
 
 describe('M7.4 campaign missions', () => {
@@ -35,15 +46,59 @@ describe('M7.4 campaign missions', () => {
     }
   });
 
+  it('parses M2 Sense/Net', () => {
+    const def = parseMission(m2Mission());
+    expect(def.id).toBe('m2');
+    expect(def.act).toBe(2);
+    expect(def.start.coords).toEqual({ ...M2_START });
+    expect(def.targets[0]?.ice).toBe(M2_ICE_ID);
+    expect(def.simstim?.gates).toHaveLength(3);
+    expect(def.simstim?.gates.map((g) => g.tMeat)).toEqual([80, 200, 280]);
+    expect(def.fail.length).toBeGreaterThanOrEqual(2);
+    expect(def.checkpoints.map((c) => c.id)).toEqual([
+      'start',
+      'approach',
+      'lobby',
+      'panic',
+      'vault',
+    ]);
+    expect(
+      def.timeline.some(
+        (row) => row.at.t === 'meatTime' && row.at.s === SENSE_NET_CAMPAIGN_PANIC_AT,
+      ),
+    ).toBe(true);
+    for (const row of def.timeline) {
+      for (const a of row.do) {
+        if (a.a === 'say') expect(a.who).not.toBe('dixie');
+      }
+    }
+  });
+
   it('lazy-loads campaign missions by id', async () => {
     expect(isCampaignMissionId('p0')).toBe(true);
     expect(isCampaignMissionId('m1')).toBe(true);
-    expect(isCampaignMissionId('m2')).toBe(false);
+    expect(isCampaignMissionId('m2')).toBe(true);
     const p0 = await loadCampaignMission('p0');
     const m1 = await loadCampaignMission('m1');
+    const m2 = await loadCampaignMission('m2');
     expect(p0?.id).toBe('p0');
     expect(m1?.id).toBe('m1');
+    expect(m2?.id).toBe('m2');
     expect(await loadCampaignMission('nope')).toBeNull();
+  });
+
+  it('halves Sense/Net re-key rate during the Moderns panic', () => {
+    const ice = createIceModel(senseNetIce(), { seed: 4 });
+    ice.engage();
+    expect(ice.def.layers[0]?.rekeyEvery).toEqual(M2_REKEY.lobby);
+    const before = ice.state.current.nextRekeyAt;
+    expect(before).not.toBeNull();
+    applySenseNetRekey(ice, true);
+    expect(ice.def.layers[0]?.rekeyEvery).toEqual(M2_REKEY_PANIC.lobby);
+    expect(ice.def.layers[2]?.rekeyEvery).toEqual(M2_REKEY_PANIC.vault);
+    expect(ice.state.current.nextRekeyAt).toBeGreaterThan(before ?? 0);
+    applySenseNetRekey(ice, false);
+    expect(ice.def.layers[0]?.rekeyEvery).toEqual(M2_REKEY.lobby);
   });
 });
 

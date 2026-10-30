@@ -142,7 +142,7 @@ export function mockSimstimMission(): MissionDef {
   };
 }
 
-/** Structural M2 stub so `?mission=m2` plays the Sense/Net timeline (M6.2). */
+/** Structural M2 stub (lab / unit tests). Campaign `?mission=m2` is M7.5. */
 export function mockM2Mission(): MissionDef {
   const base = mockTriggerMission();
   return {

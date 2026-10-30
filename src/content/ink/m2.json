@@ -1,0 +1,58 @@
+{
+  "title": "m2",
+  "initial": "brief",
+  "variables": {},
+  "knots": {
+    "brief": {
+      "name": "brief",
+      "lines": [
+        "Sense/Net. Molly walks in as a tourist. You run cover. Three locks. Wait for the Moderns."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "JACK IN",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "debrief": {
+      "name": "debrief",
+      "lines": [
+        "The construct is in the deck. Molly's leg is bad. Yonderboy leaves a word: WINTERMUTE."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "DONE",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "caught": {
+      "name": "caught",
+      "lines": [
+        "Molly is made. The lobby eats her. Retry from the last lock."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "RETRY",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    }
+  }
+}

@@ -100,6 +100,8 @@ export interface VerticalSliceOptions {
   checkpoint?: string;
   /** App assigns this before `mission.start()` so say/music/sfx land on HUD/audio. */
   effectsSlot: { current: MissionEffects | null };
+  /** M1 debrief → M2 (M7.5). */
+  onContinueToM2?: () => void | Promise<void>;
 }
 
 declare global {
@@ -661,7 +663,9 @@ export async function startVerticalSlice(opts: VerticalSliceOptions): Promise<Ve
       story: m1Ink as InkStory,
       audio: audio ?? undefined,
       onChange(info) {
+        root.dataset.knot = info.knot;
         if (info.ended) ended = true;
+        if (info.ended && interlude?.ink.get('go_m2') === 1) void opts.onContinueToM2?.();
       },
     });
     interlude.ink.goto('debrief');

@@ -32,7 +32,7 @@ export interface AppOptions {
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
-  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m2/m5/m7 also in preview; p0/m1 always). */
+  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m5/m7 also in preview; p0/m1/m2 always). */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
   checkpoint?: string;
@@ -87,7 +87,7 @@ export async function startApp({
   const renderer = createRenderer({ parent: root, settings, qualityOverride });
   const collision = createCollisionWorld();
   const flight = createFlightController({ collision });
-  const sliceMission = missionId === 'p0' || missionId === 'm1';
+  const sliceMission = missionId === 'p0' || missionId === 'm1' || missionId === 'm2';
   const flyCam =
     lab === 'sector' || lab === 'look' || lab === 'ai' || lab === 'jump' || sliceMission;
   const cameraRig = createCameraRig({
@@ -129,6 +129,12 @@ export async function startApp({
       say(who, line) {
         sliceFx.current?.say?.(who, line);
       },
+      iceMod(iceId, patch) {
+        sliceFx.current?.iceMod?.(iceId, patch);
+      },
+      ink(knot) {
+        sliceFx.current?.ink?.(knot);
+      },
       music(state) {
         sliceFx.current?.music?.(state);
       },
@@ -168,7 +174,7 @@ export async function startApp({
     return aiPresence;
   };
 
-  const stimMission = missionId === 'm2' || missionId === 'm5' || missionId === 'm7';
+  const stimMission = missionId === 'm5' || missionId === 'm7';
   const allowMissionRoute = debug || import.meta.env.DEV || stimMission || sliceMission;
   if (allowMissionRoute && missionId && !sliceMission) {
     const def = getMockMission(missionId);
@@ -529,8 +535,7 @@ export async function startApp({
   }
 
   if (sliceMission && !lab) {
-    const { startVerticalSlice } = await import('../campaign/verticalSlice');
-    sliceHandle = await startVerticalSlice({
+    const bootSlice = {
       root,
       renderer,
       events,
@@ -541,10 +546,25 @@ export async function startApp({
       cameraRig,
       modes,
       mission,
-      missionId: missionId === 'm1' ? 'm1' : 'p0',
       checkpoint,
       effectsSlot: sliceFx,
-    });
+    };
+    const startM2 = async (): Promise<void> => {
+      sliceHandle?.dispose();
+      sliceHandle = null;
+      const { startSenseNetMission } = await import('../campaign/senseNet');
+      sliceHandle = await startSenseNetMission({ ...bootSlice, simstim });
+    };
+    if (missionId === 'm2') {
+      await startM2();
+    } else {
+      const { startVerticalSlice } = await import('../campaign/verticalSlice');
+      sliceHandle = await startVerticalSlice({
+        ...bootSlice,
+        missionId: missionId === 'm1' ? 'm1' : 'p0',
+        onContinueToM2: startM2,
+      });
+    }
   }
 
   let inputLab: { dispose(): void } | null = null;
