@@ -77,6 +77,11 @@ export interface Renderer {
   /** PIP thumbnail of the 320×240 simstim feed (live link, not flipped). */
   pipEnabled: boolean;
   exposure: number;
+  /**
+   * Vector-load 0..1 for CRT flicker (M1.6). Null override means derive from
+   * scene draw calls this frame.
+   */
+  vectorLoad: number;
   /** Extra fullscreen shader iterations (debug / AC GPU load). 0 = off. */
   gpuLoad: number;
   setQuality(setting: QualitySetting): void;
@@ -180,6 +185,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
   let pipEnabled = false;
   let exposure = 1;
   let gpuLoad = 0;
+  let vectorLoadOverride: number | null = null;
   let time = 0;
 
   const burnTarget = createColorTarget(64, 64, { hdr: false, depth: false });
@@ -318,6 +324,12 @@ export function createRenderer(opts: RendererOptions): Renderer {
     set gpuLoad(v) {
       gpuLoad = Math.max(0, Math.min(256, v));
     },
+    get vectorLoad() {
+      return vectorLoadOverride ?? ctx.vectorLoad;
+    },
+    set vectorLoad(v) {
+      vectorLoadOverride = Math.min(1, Math.max(0, v));
+    },
     setQuality(setting) {
       override = setting;
       applyQuality();
@@ -337,6 +349,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
       ctx.mode = postMode;
       ctx.exposure = exposure;
       ctx.quality = quality;
+      ctx.vectorLoad = vectorLoadOverride ?? 0;
 
       cameras.matrix.getWorldQuaternion(scratchQuat);
       ctx.angularVelocity = dt > 1e-6 ? lastQuat.angleTo(scratchQuat) / dt : 0;
@@ -369,6 +382,9 @@ export function createRenderer(opts: RendererOptions): Renderer {
             three.clear(true, true, false);
             three.render(scenes.blackIce, cameras.matrix);
           }
+        }
+        if (vectorLoadOverride === null) {
+          ctx.vectorLoad = Math.min(1, three.info.render.calls / 32);
         }
 
         if (scenes.hud.children.length > 0) {

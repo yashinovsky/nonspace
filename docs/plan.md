@@ -1297,6 +1297,17 @@ Text rendering. Does not edit `render/lines/*` (consumes `BeamBatch` / `LineSet`
 - **Conversion**: `scripts/convert-fonts.mjs` (JHF + 8×8 ROM → public assets). Attribution in `docs/CREDITS.md`.
 - **Dev route**: `?lab=text` (`&scene=all|hershey|bitmap|vfd`). Lazy-imported from `main.ts` so the default-boot graph never fetches Hershey / Px437 / VFD. `window.__nonspaceText` and `window.__nonspace.{renderer,textLab}`. Screenshot: `docs/screenshots/m3-1-text.png`.
 
+### 9.31 Contract notes from M1.6 (repo copy only)
+
+Vector CRT composite. Extends the M1.5 `VectorCrtPass` tonemap stub; does not replace Reinhard + desaturate-to-white. Does not edit sibling passes, `PostChain.ts`, or `targets.ts`. Bloom remains M1.5 (§9.29). Raster CRT remains M1.7 (§9.19). Hershey / bitmap / VFD text remains M3.1 (§9.30). Black ICE remains M1.8. Look Lab remains M1.9.
+
+- **`VectorCrtPass`** (`render/post/VectorCrtPass.ts`): `name: 'vectorCrt'`, `slot: 'crt'`, `kind: 'vector'`. Shader `post/shaders/vectorCrt.frag` samples with CRT optics, then the same `tonemapReinhardWhite` as `tonemap.frag` (M1.5). Writes LDR through `ctx.targets.post` ping-pong and sets **`ctx.encoded = 'ldr'`**. Missing `post.write.texture` still sets `encoded` and returns `input` (unit-test doubles).
+- **Effects** (plan §8.5), each with an `params.enable*` toggle and a magnitude: mild barrel `k ≈ 0.015`; sub-pixel beam jitter ≤ 0.25 px (low-frequency whole-image deflection, not per-pixel hash); flicker ≤ 3% amplitude × `ctx.vectorLoad`, **forced to 0 when `ctx.reduceFlashing`**; vignette; glass sheen + sparse dust; phosphor grain. Glass / grain / vignette / flicker are **multiplicative** so empty regions measure RGB (0,0,0). Out-of-tube barrel UVs write black (no clamp-to-edge lift). No raster black lift, no scanlines, no aperture grille.
+- **Vector load.** `Renderer.vectorLoad` (0..1) overrides; otherwise `min(1, sceneDrawCalls / 32)` after the matrix/sky draws. The `?lab=vector` route sets 0.85 so flicker is visible once Reduce flashing is off.
+- **Debug GUI.** `?debug` adds a `vector CRT` folder: six enable toggles, six magnitudes, a live `flicker now` readout, and a vector-load slider.
+- **Hershey.** Mild CRT (k = 0.015, ≤ 0.25 px jitter, ≤ 3% flicker, multiplicative grain) keeps 16 px cap-height simplex readable at 1080p. The vector lab loads `simplex.bin.gz` through M3.1 `loadHersheyFont` (gunzip only when gzip magic is still present).
+- **Dev route:** `?lab=vector` (lazy `debug/VectorCrtLab.ts` chunk; default boot does not fetch it). Lattice + Hershey `NONSPACE` through the pass. Screenshot: `docs/screenshots/m1-6-vector-crt.png`. Dist budget is the default-boot graph (labs excluded), same as sector streaming.
+
 ---
 
 ## 10. Milestones and tasks

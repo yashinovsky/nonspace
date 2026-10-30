@@ -12,6 +12,7 @@ import { createCollisionWorld, type CollisionWorld } from '../player/Collision';
 import { createFlightController, type FlightController } from '../player/FlightController';
 import { createRenderer, type Renderer } from '../render/Renderer';
 import type { PersistencePass } from '../render/post/PersistencePass';
+import { isVectorCrtPass } from '../render/post/VectorCrtPass';
 import type { BeachSim } from '../render/beach/sim';
 import { createSimstimFeed, type SimstimFeed } from '../simstim/SimstimFeed';
 import { createBeachMode, type BeachMode } from './modes/Beach';
@@ -20,7 +21,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -222,6 +223,11 @@ export async function startApp({
     labHandle = installRasterCrtLab(renderer);
     root.dataset.lab = 'raster';
   }
+  if (lab === 'vector') {
+    const { installVectorCrtLab } = await import('../debug/VectorCrtLab');
+    labHandle = await installVectorCrtLab(renderer);
+    root.dataset.lab = 'vector';
+  }
   if (lab === 'simstim') {
     const { installSimstimLab } = await import('../debug/SimstimLab');
     labHandle = installSimstimLab(renderer, simstim, modes);
@@ -355,6 +361,43 @@ export async function startApp({
       readonly: true,
       format: (v: number) => v.toFixed(1),
     });
+    const vectorPass = renderer.chain.vectorCrt;
+    if (isVectorCrtPass(vectorPass)) {
+      const crt = gui.pane.addFolder({ title: 'vector CRT' });
+      crt.addBinding(vectorPass.params, 'enableBarrel', { label: 'barrel' });
+      crt.addBinding(vectorPass.params, 'enableJitter', { label: 'jitter' });
+      crt.addBinding(vectorPass.params, 'enableFlicker', { label: 'flicker' });
+      crt.addBinding(vectorPass.params, 'enableVignette', { label: 'vignette' });
+      crt.addBinding(vectorPass.params, 'enableGlass', { label: 'glass' });
+      crt.addBinding(vectorPass.params, 'enableGrain', { label: 'grain' });
+      crt.addBinding(vectorPass.params, 'barrel', { min: 0, max: 0.05, step: 0.001 });
+      crt.addBinding(vectorPass.params, 'jitter', {
+        min: 0,
+        max: 0.25,
+        step: 0.01,
+        label: 'jitter px',
+      });
+      crt.addBinding(vectorPass.params, 'flicker', {
+        min: 0,
+        max: 0.03,
+        step: 0.001,
+        label: 'flicker amp',
+      });
+      crt.addBinding(vectorPass.params, 'vignette', { min: 0, max: 1, step: 0.01 });
+      crt.addBinding(vectorPass.params, 'glass', { min: 0, max: 1, step: 0.01 });
+      crt.addBinding(vectorPass.params, 'grain', { min: 0, max: 0.2, step: 0.005 });
+      crt.addBinding(vectorPass, 'effectiveFlicker', {
+        readonly: true,
+        label: 'flicker now',
+        format: (v: number) => v.toFixed(3),
+      });
+      const load = { vectorLoad: renderer.vectorLoad };
+      crt
+        .addBinding(load, 'vectorLoad', { min: 0, max: 1, step: 0.01, label: 'vector load' })
+        .on('change', (ev) => {
+          renderer.vectorLoad = Number(ev.value) || 0;
+        });
+    }
     const phosphorPass = renderer.chain.getPass('persistence') as PersistencePass;
     if ('decayScale' in phosphorPass) {
       const phos = gui.pane.addFolder({ title: 'phosphor' });
