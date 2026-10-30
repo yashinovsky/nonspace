@@ -22,7 +22,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -288,6 +288,21 @@ export async function startApp({
       cameraRig,
       root,
       gray: q.get('gray'),
+    });
+  }
+  if (lab === 'jack') {
+    const { installJackLab } = await import('../debug/JackLab');
+    const q = new URLSearchParams(window.location.search);
+    labHandle = installJackLab({
+      renderer,
+      modes,
+      events,
+      save,
+      settings,
+      root,
+      seq: q.get('seq'),
+      scene: q.get('scene'),
+      first: q.get('first'),
     });
   }
 

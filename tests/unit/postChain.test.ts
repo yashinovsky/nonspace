@@ -177,4 +177,39 @@ describe('FinalComposite contract', () => {
     expect(tonemap).toBe(0);
     pass.dispose();
   });
+
+  it('identity CRT collapse leaves scale 1 / fade 1 / glow 0', () => {
+    const pass = createFinalComposite();
+    const input = tex('in');
+    let collapse = { x: -1, y: -1, glow: -1, fade: -1 };
+    const ctx = fakeCtx({
+      encoded: 'ldr',
+      blit: (material) => {
+        const u = (
+          material as unknown as {
+            uniforms: {
+              uCollapse: { value: { x: number; y: number } };
+              uCollapseGlow: { value: number };
+              uCollapseFade: { value: number };
+            };
+          }
+        ).uniforms;
+        collapse = {
+          x: u.uCollapse.value.x,
+          y: u.uCollapse.value.y,
+          glow: u.uCollapseGlow.value,
+          fade: u.uCollapseFade.value,
+        };
+      },
+    });
+    pass.render(input, ctx);
+    expect(collapse).toEqual({ x: 1, y: 1, glow: 0, fade: 1 });
+    ctx.crtCollapse = { scaleX: 0.2, scaleY: 0.05, glow: 0.4, fade: 0.8 };
+    pass.render(input, ctx);
+    expect(collapse.x).toBeCloseTo(0.2);
+    expect(collapse.y).toBeCloseTo(0.05);
+    expect(collapse.glow).toBeCloseTo(0.4);
+    expect(collapse.fade).toBeCloseTo(0.8);
+    pass.dispose();
+  });
 });

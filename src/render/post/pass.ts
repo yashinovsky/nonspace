@@ -88,7 +88,27 @@ export interface PostContext {
    * extra blit on default boot (SwiftShader cannot afford it).
    */
   blackIceDrawn?: boolean;
+  /**
+   * Jack-out CRT power-off (M2.7). Identity is scale 1, glow 0, fade 1.
+   * FinalComposite remaps UVs toward the centre. Owned by `fx/CrtCollapse.ts`.
+   */
+  crtCollapse?: CrtCollapseState;
 }
+
+/** CRT power-off squash (plan §5.9 / §8.5). Identity leaves the blit untouched. */
+export interface CrtCollapseState {
+  scaleX: number;
+  scaleY: number;
+  glow: number;
+  fade: number;
+}
+
+export const IDENTITY_CRT_COLLAPSE: CrtCollapseState = {
+  scaleX: 1,
+  scaleY: 1,
+  glow: 0,
+  fade: 1,
+};
 
 export interface PostPass {
   readonly name: string;

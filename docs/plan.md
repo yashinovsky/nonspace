@@ -1326,6 +1326,15 @@ Look Lab art-integration scene. Does not edit sibling passes, `PostChain.ts`, `t
 - **GPU timer.** App starts `createGpuTimer` on this route even without `?debug` (`data-gpu-ms`). HUD also shows an EMA fps.
 - **Dev route:** `?lab=look` (`&quality=medium`, `&gray=1`). `window.__nonspaceLook` exposes `{ stats, iceScreen, setGrayscale, setTime, resetPose }`. Screenshot: `docs/screenshots/m1-9-look-lab.png` (grayscale `m1-9-look-lab-gray.png`). Playwright freezes `setAnimationLoop` before canvas snapshots (SwiftShader). Dist budget is the default-boot graph (lab chunk excluded), same as sector streaming.
 
+### 9.35 Contract notes from M2.7 (repo copy only)
+
+Jack-in / jack-out sequences. Does not own `hud/*` (M3.2). Does not edit sibling post passes except FinalComposite's CRT-collapse uniforms (plan §8.5 lists collapse there). Ground grid race-out is an additive `uRadius` on M1.3's shader (default `1e9` = infinite; Look Lab / grid lab unchanged). Bloom remains M1.5 (§9.29). Vector CRT remains M1.6 (§9.32). Black ICE remains M1.8 (§9.33). Look Lab remains M1.9 (§9.34). Sector streaming remains M2.3 (§9.26).
+
+- **`JackInSequence.ts`** (`render/fx/JackInSequence.ts`): 5.5 s full / 1.2 s short. Phases: black → silver phosphenes (curl-noise point sprites from the edges, low contrast) → origami fold (`origamiFold.vert`, 8 hinged grid panels, fold uniforms 0→π) → ground-grid radius exponential race-out → far landmark points fade in → HUD boot stub (VFD characters lighting in sequence, camera-attached in the matrix scene until M3.2 composites `hudRT`). `sampleJackIn` is the CPU twin. `campaign.flags.jackInSeen` gates skip (any key after the first viewing). Reduce flashing clamps phosphene amplitude.
+- **`CrtCollapse.ts`**: 0.6 s analog power-off (squash Y to a line, then X to a dot, then fade). Writes `Renderer.crtCollapse` / `PostContext.crtCollapse`. Identity is scale 1, glow 0, fade 1.
+- **Modes** (`app/modes/JackIn.ts`, `JackOut.ts`): JackIn `simulatesWhenCovered` so JackOut can push on top and collapse the live image. Jack-out is not skippable.
+- **Dev route:** `?lab=jack` (`&seq=full|short`, `&scene=in|out`, `&first=1`). Lazy `debug/JackLab.ts` chunk; default boot never fetches it. `window.__nonspaceJack` exposes `{ seek, playIn, playOut, sampleAt, collapse }`. Screenshot: `docs/screenshots/m2-7-jack-in.png`. Playwright freezes `setAnimationLoop` before snapshots and steps frames for the flash rule (≤ 3 flashes/s, low contrast). Dist budget is the default-boot graph (lab chunk excluded). No `.gz` fetch on this path (gunzip-if-magic remains M3.1 / M1.6).
+
 ---
 
 ## 10. Milestones and tasks

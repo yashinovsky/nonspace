@@ -22,6 +22,7 @@ uniform float uChecker;
 uniform float uCheckerEnd;
 uniform float uFogStart;
 uniform float uFogDensity;
+uniform float uRadius;
 uniform float logDepthBufFC;
 
 out vec4 fragColor;
@@ -88,7 +89,12 @@ void main() {
   float fill = check * uChecker * densityFade(derivC) * nearFade;
 
   float fog = exp(-uFogDensity * max(dist - uFogStart, 0.0));
-  float I = (lines + fill) * fog;
+  float race = 1.0;
+  if (uRadius > 0.0 && uRadius < 1.0e8) {
+    float edge = uRadius * 0.82;
+    race = 1.0 - smoothstep(edge, uRadius, dist);
+  }
+  float I = (lines + fill) * fog * race;
   if (I < 0.0004) discard;
   fragColor = vec4(uPalette[0] * I, 1.0);
 }
