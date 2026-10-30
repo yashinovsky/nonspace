@@ -1,0 +1,43 @@
+{
+  "title": "m6",
+  "initial": "brief",
+  "variables": {},
+  "knots": {
+    "brief": {
+      "name": "brief",
+      "lines": [
+        "The EEG went flat. Then sand. A bunker. Linda waiting. A boy at the water. Time slides."
+      ],
+      "tags": [
+        "page:text",
+        "title:THE BEACH"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "WALK",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "debrief": {
+      "name": "debrief",
+      "lines": [
+        "A dub bassline at the edge. Walk out toward the work, or stay for one more sunset."
+      ],
+      "tags": [
+        "page:text",
+        "title:MAELCUM"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "DONE",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    }
+  }
+}

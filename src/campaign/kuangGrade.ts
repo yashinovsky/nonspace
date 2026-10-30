@@ -1,6 +1,5 @@
 import { createWintermute, type Wintermute } from '../ai/Wintermute';
 import { createNeuromancer, type Neuromancer } from '../ai/Neuromancer';
-import { createBeachMode } from '../app/modes/Beach';
 import { createDiveMode, type DiveMode } from '../app/modes/Dive';
 import { createFlatlineMode, FLATLINE_TIMING, type FlatlineMode } from '../app/modes/Flatline';
 import { createInterludeMode } from '../app/modes/Interlude';
@@ -37,6 +36,7 @@ import { createCoordinateJump, type CoordinateJump } from '../player/CoordinateJ
 import { poseFromForward, type FlightController } from '../player/FlightController';
 import type { CameraRig } from '../player/CameraRig';
 import { sphereHull } from '../player/Collision';
+import type { BeachSim } from '../render/beach/sim';
 import { createJumpStreak, sampleJumpStreak } from '../render/fx/JumpStreak';
 import type { PersistencePass } from '../render/post/PersistencePass';
 import { asVectorCrtPass } from '../render/post/VectorCrtPass';
@@ -55,6 +55,7 @@ import {
   type DiveState,
 } from '../world/diveMath';
 import { createKuang, KUANG_MIMIC_S, type Kuang } from '../world/Kuang';
+import { enterBeach } from './enterBeach';
 import { createKuangScene } from './kuangScene';
 import m5Ink from '../content/ink/m5.json';
 
@@ -109,6 +110,7 @@ export interface KuangGradeHandle {
 export interface KuangGradeMission {
   readonly handle: KuangGradeHandle;
   readonly effects: MissionEffects;
+  readonly beach?: BeachSim;
   update(dt: number): void;
   render(alpha: number): void;
   dispose(): void;
@@ -256,6 +258,13 @@ export async function startKuangGradeMission(
   let disposed = false;
   let beachOn = false;
   let handoff = '';
+  type BeachHandoff = {
+    update(dt: number): void;
+    render(alpha: number): void;
+    dispose(): void;
+    readonly beach?: BeachSim;
+  };
+  let beachRun: BeachHandoff | null = null;
   let intercepting = false;
   let mollyIndex = 0;
   let nm: Neuromancer | null = null;
@@ -592,11 +601,24 @@ export async function startKuangGradeMission(
     kuang.object.visible = false;
     if (visuals) visuals.object.visible = false;
     nm?.apply({ kind: 'beach' });
-    if (!modes.has('beach')) modes.reset(createBeachMode());
     renderer.postMode = 'beach';
     root.dataset.handoff = 'm6';
     root.dataset.mission = 'm6';
     ended = true;
+    void enterBeach({
+      root,
+      renderer,
+      events,
+      save,
+      settings,
+      input,
+      modes,
+      mission,
+      effectsSlot: opts.effectsSlot,
+      source: 'm5',
+    }).then((run) => {
+      beachRun = run;
+    });
   };
 
   nm = createNeuromancer({
@@ -905,6 +927,14 @@ export async function startKuangGradeMission(
       if (!scripted) breach.forceFlatline(false);
     },
     advance(dt) {
+      if (beachOn) {
+        beachRun?.update(dt);
+        modes.update(dt);
+        events.flush();
+        mission.update(dt);
+        root.dataset.phase = phaseOf();
+        return;
+      }
       if (jump.active) jump.step(dt);
       else {
         const top = modes.top?.id;
@@ -926,6 +956,11 @@ export async function startKuangGradeMission(
       root.dataset.phase = phaseOf();
     },
     paint() {
+      if (beachOn) {
+        beachRun?.render(1);
+        if (modes.has('beach')) modes.render(1);
+        return;
+      }
       syncHudVis();
       if (overlayPaint()) {
         interlude?.update(0);
@@ -950,8 +985,15 @@ export async function startKuangGradeMission(
   const run: KuangGradeMission = {
     handle,
     effects,
+    get beach() {
+      return beachRun?.beach;
+    },
     update(dt) {
       if (disposed) return;
+      if (beachOn) {
+        beachRun?.update(dt);
+        return;
+      }
       if (jump.active) jump.step(dt);
       else {
         const top = modes.top?.id;
@@ -971,12 +1013,18 @@ export async function startKuangGradeMission(
     },
     render(alpha) {
       if (disposed) return;
+      if (beachOn) {
+        beachRun?.render(alpha);
+        return;
+      }
       syncHudVis();
       if (overlayPaint()) return;
       paintWorld(alpha);
     },
     dispose() {
       disposed = true;
+      beachRun?.dispose();
+      beachRun = null;
       const w = window as unknown as { __nonspaceMission?: KuangGradeHandle };
       if (w.__nonspaceMission === handle) delete w.__nonspaceMission;
       unbindAudio?.();
