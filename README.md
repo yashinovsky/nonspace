@@ -53,6 +53,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=grid` is the M1.3 ground grid + local lattice lab (analytic AA, checker, Wintermute warp, camera-centred 64 u lattice). `&scene=cruise|graze|high|warp|lattice`. Screenshot: `docs/screenshots/m1-3-grid.png`. Contract notes in plan §9.24.
 - `?lab=heraldry` is the M2.2 corp heraldry set (nine authored landmarks, mock tempo clock, grayscale toggle). `?id=esfa` (or any landmark id) selects the construct; `?gray=1` forces grayscale. Screenshot: `docs/screenshots/m2-2-heraldry.png`. Contract notes in plan §9.25.
 - `?lab=sector` is the M2.3 sector streamer (5×5 window, worker gen, budgeted upload, far-LOD landmarks always on). `?seed=` and `?autofly=1` (boost along +X) are optional. Screenshot: `docs/screenshots/m2-3-sector-stream.png`. Contract notes in plan §9.26.
+- `?lab=simstim` is the M6.1 simstim feed (flat-dither lobby at 320×240 through the raster CRT, chip clock, PIP, flip/peek/lag, gates, pain echo). Screenshot: `docs/screenshots/m6-1-simstim-crt.png`. Contract notes in plan §9.27.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -71,6 +72,7 @@ Shared contracts from plan §9 are typed stubs other tasks build against:
 | Missions (zod)                     | `src/narrative/schema.ts`                                                                             |
 | Mission runner + triggers          | `src/narrative/MissionRunner.ts`, `src/narrative/triggers.ts`                                         |
 | Simstim timelines                  | `src/content/simstim/types.ts`                                                                        |
+| Simstim feed + renderer (M6.1)     | `src/simstim/{SimstimFeed,MollyTimeline,Gates,Pain,flip,clock}.ts`, `src/render/simstim/`             |
 | Audio API + no-op engine           | `src/audio/AudioEngine.ts`                                                                            |
 | Web Audio engine (M5.1)            | `src/audio/{AudioEngine,engine,buses,spatial}.ts`, `src/audio/worklets/`, `src/audio/voices/`         |
 | SFX catalog, modem, Dixie (M5.2)   | `src/audio/sfx/`, `src/audio/modem.ts`, `src/audio/dixieVoice.ts`                                     |
@@ -97,8 +99,9 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Flight controller, camera rig, soft hull collision                       | `src/player/{FlightController,CameraRig,Collision}.ts` |
 | Renderer service (HDR targets, PostChain, quality)                       | `src/render/Renderer.ts`                               |
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
+| Simstim feed, flip, gates, pain (M6.1)                                   | `src/simstim/*`, `src/app/modes/Simstim.ts`            |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky, beach, grid, heraldry, sector), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.26. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky, beach, grid, heraldry, sector, simstim), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.27. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
@@ -125,7 +128,8 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 - `?debug` adds a graphics folder: quality, internal size, dynres, a GPU-load slider, and inject-20 ms buttons. Persistence tunables live in the `phosphor` folder.
 - `?lab=beam` — eight palette cubes plus a grid, through the same HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m1-1-beams.png`.
 - `?lab=grid` — infinite ground grid (8/64/1024 u, analytic AA, checker, warp) plus the 64 u local lattice. Screenshot: `docs/screenshots/m1-3-grid.png`.
-- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. Sector notes are plan §9.26. M1.2 must not edit `render/lines/*`.
+- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. Sector notes are plan §9.26. Simstim notes are plan §9.27. M1.2 must not edit `render/lines/*`.
 - M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.
+- M6.1 simstim feed (`?lab=simstim`) renders a flat-dithered 320×240 lobby into `targets.simstim`, then through that raster CRT. Flip/peek/lag, gate windows, wait exposure and pain→neural echo live in `src/simstim/`. Contract notes are in plan §9.27.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.

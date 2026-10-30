@@ -5,6 +5,7 @@ import {
   Quaternion,
   Scene,
   SRGBColorSpace,
+  Vector2,
   WebGLRenderer,
   type Texture,
   type WebGLRenderTarget,
@@ -73,6 +74,8 @@ export interface Renderer {
    * draws so a fullscreen SDF pass can write `hdrScene` before the chain.
    */
   drawHdr: ((renderer: WebGLRenderer, target: WebGLRenderTarget) => void) | null;
+  /** PIP thumbnail of the 320×240 simstim feed (live link, not flipped). */
+  pipEnabled: boolean;
   exposure: number;
   /** Extra fullscreen shader iterations (debug / AC GPU load). 0 = off. */
   gpuLoad: number;
@@ -105,23 +108,15 @@ export interface RendererOptions {
 
 const SIMSTIM_ASPECT = 320 / 240;
 
-const BURN_FRAG = /* glsl */ `
-precision highp float;
-uniform float uIters;
-in vec2 vUv;
-out vec4 fragColor;
-void main() {
-  vec2 uv = vUv;
-  float a = 0.0;
-  int n = int(uIters);
-  for (int i = 0; i < 256; i++) {
-    if (i >= n) break;
-    a += fract(sin(dot(uv, vec2(12.9898, 78.233)) * float(i + 1)) * 43758.5453);
-    uv += vec2(a * 0.01);
-  }
-  fragColor = vec4(a * 1e-8, 0.0, 0.0, 0.0);
-}
-`;
+const PIP_FRAG = /* glsl */ `precision highp float;uniform sampler2D tInput;in vec2 vUv;out vec4 fragColor;
+void main(){float scan=0.82+0.18*step(0.5,fract(vUv.y*48.0));vec3 c=texture(tInput,vUv).rgb*scan*1.05;
+float edge=min(min(vUv.x,1.0-vUv.x),min(vUv.y,1.0-vUv.y));c*=smoothstep(0.0,0.045,edge);
+c*=0.55+0.45*smoothstep(1.1,0.35,length(vUv*2.0-1.0));fragColor=vec4(c,1.0);}`;
+
+const BURN_FRAG = /* glsl */ `precision highp float;uniform float uIters;in vec2 vUv;out vec4 fragColor;
+void main(){vec2 uv=vUv;float a=0.0;int n=int(uIters);for(int i=0;i<256;i++){if(i>=n)break;
+a+=fract(sin(dot(uv,vec2(12.9898,78.233))*float(i+1))*43758.5453);uv+=vec2(a*0.01);}
+fragColor=vec4(a*1e-8,0.0,0.0,0.0);}`;
 
 export function createRenderer(opts: RendererOptions): Renderer {
   const three = new WebGLRenderer({
@@ -182,12 +177,15 @@ export function createRenderer(opts: RendererOptions): Renderer {
   let internalHeight = 1;
   let postMode: PostMode = 'matrix';
   let drawHdr: ((renderer: WebGLRenderer, target: WebGLRenderTarget) => void) | null = null;
+  let pipEnabled = false;
   let exposure = 1;
   let gpuLoad = 0;
   let time = 0;
 
   const burnTarget = createColorTarget(64, 64, { hdr: false, depth: false });
   const burnMat = createFullscreenMaterial(BURN_FRAG, { uIters: { value: 0 } });
+  const pipMat = createFullscreenMaterial(PIP_FRAG, { tInput: { value: null } });
+  const drawingSize = new Vector2();
 
   const dummy: Texture = targets.hdrScene.texture;
   const ctx: PostContext = {
@@ -302,6 +300,12 @@ export function createRenderer(opts: RendererOptions): Renderer {
     set drawHdr(fn) {
       drawHdr = fn;
     },
+    get pipEnabled() {
+      return pipEnabled;
+    },
+    set pipEnabled(v) {
+      pipEnabled = v;
+    },
     get exposure() {
       return exposure;
     },
@@ -343,18 +347,28 @@ export function createRenderer(opts: RendererOptions): Renderer {
         blitter.blit(three, burnMat, burnTarget);
       }
 
+      const simstimLive = scenes.simstim.children.length > 0;
+      if (simstimLive) {
+        three.setRenderTarget(targets.simstim);
+        three.clear(true, true, false);
+        three.render(scenes.simstim, cameras.simstim);
+      }
+
+      const drawMatrix = postMode === 'matrix';
       three.setRenderTarget(targets.hdrScene);
       three.clear(true, true, false);
       if (drawHdr) {
         drawHdr(three, targets.hdrScene);
       } else {
-        if (scenes.sky.children.length > 0) three.render(scenes.sky, cameras.matrix);
-        if (scenes.matrix.children.length > 0) three.render(scenes.matrix, cameras.matrix);
+        if (drawMatrix) {
+          if (scenes.sky.children.length > 0) three.render(scenes.sky, cameras.matrix);
+          if (scenes.matrix.children.length > 0) three.render(scenes.matrix, cameras.matrix);
 
-        if (scenes.blackIce.children.length > 0) {
-          three.setRenderTarget(targets.blackIceMask);
-          three.clear(true, true, false);
-          three.render(scenes.blackIce, cameras.matrix);
+          if (scenes.blackIce.children.length > 0) {
+            three.setRenderTarget(targets.blackIceMask);
+            three.clear(true, true, false);
+            three.render(scenes.blackIce, cameras.matrix);
+          }
         }
 
         if (scenes.hud.children.length > 0) {
@@ -365,6 +379,24 @@ export function createRenderer(opts: RendererOptions): Renderer {
       }
 
       chain.render(targets.hdrScene.texture, ctx);
+
+      if (pipEnabled && simstimLive && postMode === 'matrix') {
+        three.getDrawingBufferSize(drawingSize);
+        const pw = Math.max(96, Math.round(drawingSize.x * 0.2));
+        const ph = Math.round((pw * 240) / 320);
+        const margin = Math.max(8, Math.round(drawingSize.x * 0.016));
+        const vx = drawingSize.x - pw - margin;
+        const vy = drawingSize.y - ph - margin;
+        pipMat.uniforms.tInput!.value = targets.simstim.texture;
+        three.setRenderTarget(null);
+        three.setScissorTest(true);
+        three.setViewport(vx, vy, pw, ph);
+        three.setScissor(vx, vy, pw, ph);
+        blitter.blit(three, pipMat, null);
+        three.setScissorTest(false);
+        three.setViewport(0, 0, drawingSize.x, drawingSize.y);
+        three.setScissor(0, 0, drawingSize.x, drawingSize.y);
+      }
       debugState.textures = three.info.memory.textures;
       debugState.dyn = dynamicRes.scale;
       debugState.scale = quality.baseScale * dynamicRes.scale;
@@ -422,6 +454,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
       blitter.dispose();
       burnTarget.dispose();
       burnMat.dispose();
+      pipMat.dispose();
       palette.reset();
       three.dispose();
       three.domElement.remove();

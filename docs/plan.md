@@ -1255,6 +1255,18 @@ Sector streaming and procedural population. Does not edit M2.1 grammar emitters 
 - **Streaming** (`world/SectorStreamer.ts`, `sectorWorker.ts`): active window radius 2, unload radius 3 (hysteresis). Generation is off the `update()` stack (`createAsyncBackend` macrotask in the lab, `createWorkerBackend` / `sectorWorker.ts` as the module-worker path). Main-thread view upload is sliced at **1 ms/frame**, hitch counter trips above **4 ms**. Landmarks (`world/landmarks.ts` fallback list; do not import M2.2 `content/landmarks.ts` into the streamer — that module pulls BeamBatch). Far-LOD landmarks are never unloaded with sectors. The lab does not import the worker chunk so dist stays under 1 MB.
 - **Lab:** `?lab=sector&seed=1`. Optional `&autofly=1` holds 600 u/s along +X. `window.__nonspaceSector` exposes loaded counts, hashes, `jumpTo`, landmark count, `trafficManhattan`. Screenshot `docs/screenshots/m2-3-sector-stream.png`.
 
+### 9.27 Contract notes from M6.1 (repo copy only)
+
+Simstim renderer and feed. Uses M1.7 `RasterCrtPass` as-is (does not edit sibling passes, `PostChain.ts`, or `targets.ts`). Next free §9.x after M2.3's §9.26. `endFrame` still honors `drawHdr` (beach); the 320×240 simstim RT is filled first, and PIP only blits in matrix mode.
+
+- **`SimstimTimeline`** (§9.6, `content/simstim/types.ts`) is unchanged. Playback is `simstim/MollyTimeline.ts`: camera path + head-bob, rigid figure keys, spoken lines (once). Driven by **meat time**, which always advances. A late gate with `holdUntilOpen` freezes `playbackTime` at `tMeat` while exposure accrues; the chip clock keeps using meat time.
+- **`Gates`** (`simstim/Gates.ts`): window `[tG − early, tG + late]`. Listens for `iceLayerCracked` on `iceNode`. States match §9.1 `gateWindow`: `open` → `hit` / `early` / `late` / `missed`. Late + `holdUntilOpen` waits; `exposurePerSec` (lab 0.04) to 1.0 then `missed`. `feed.crack(iceNode)` posts the crack so the mission runner sees it too.
+- **`Pain`** (`simstim/Pain.ts`): `mollyPain` raises 0..1 amount (red vignette, tinnitus level, frame-hold). Flip-back with remaining pain posts `neuralChanged` (`amount * 8`) — the EEG / neural-load echo. Regenerates 4/s.
+- **Flip / peek / lag** (`simstim/flip.ts`, `SimstimFeed.handleInput`): `T` (`simstim` action). Short press toggles; hold ≥ 0.2 s peeks and release returns. Flip-on is instant and plays the 0.3 s raster transition (`RasterCrtPass.playTransition`). Flip-back starts a **0.4 s** control lag (`controlScale` eases 0.35 → 1). `simstimFlip` is posted both ways (SFX binder already maps it).
+- **Mode** (`app/modes/Simstim.ts`): overlay, `simulatesWhenCovered: true`. Matrix underneath must also set `simulatesWhenCovered: true` (the lab stub does; this is how a re-key is verified while flipped). `ModeContext.simstim?` is the feed; the App always constructs it and `update`s it every sim step, even when not flipped.
+- **Renderer** (`render/simstim/SimstimRenderer.ts`, `flatDither.frag`): 320×240 scene into `targets.simstim` (Renderer.endFrame, whenever the simstim scene has children). Flat Lambert via face derivatives, 16-color palette, 4×4 Bayer. Chip clock is a camera-parented red `fillText` canvas (lower-left). Silvered-lens vignette + pain reddening on a near-plane quad. Hands in frame. On flip, `postMode = 'simstim'` and `RasterCrtPass.source = simstimRT`. PIP: `renderer.pipEnabled` blits the 320×240 feed to the top-right after the chain (matrix mode only).
+- **Dev route:** `?lab=simstim`. Procedural lobby (no glTF; M6.2 owns content). `T` flip/peek, `F` crack the lab gate, `1` pain. Matrix stub re-keys every 1.6 s. Screenshot: `docs/screenshots/m6-1-simstim-crt.png`.
+
 ---
 
 ## 10. Milestones and tasks
