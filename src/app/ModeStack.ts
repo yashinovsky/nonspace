@@ -3,6 +3,7 @@ import type { SaveStore } from '../core/save';
 import type { SettingsStore } from '../core/settings';
 import type { InputFrame, InputService } from '../input/Input';
 import type { MissionRunner } from '../narrative/MissionRunner';
+import type { FlightController } from '../player/FlightController';
 
 /** Mode ids from plan §8.2. */
 export const MODE_IDS = [
@@ -38,6 +39,8 @@ export interface ModeContext {
   readonly mission?: MissionRunner;
   /** M0.3. Optional so parallel tasks don't have to construct an Input service. */
   readonly input?: InputService;
+  /** M2.5. Optional so parallel tasks don't have to construct a flight controller. */
+  readonly flight?: FlightController;
 }
 
 /** Plan §8.2. Implement as a class or plain object; one instance may be on the stack at a time. */

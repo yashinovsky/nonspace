@@ -8,6 +8,9 @@ import { createGpuTimer, type GpuTimer } from '../debug/gpuTimer';
 import { createInput, type InputService } from '../input/Input';
 import { createMissionRunner, type MissionRunner } from '../narrative/MissionRunner';
 import { getMockMission } from '../narrative/mocks';
+import { createCameraRig, type CameraRig } from '../player/CameraRig';
+import { createCollisionWorld, type CollisionWorld } from '../player/Collision';
+import { createFlightController, type FlightController } from '../player/FlightController';
 import { createModeStack, type ModeStack } from './ModeStack';
 
 export interface AppOptions {
@@ -28,12 +31,15 @@ export interface App {
   readonly settings: SettingsStore;
   readonly mission: MissionRunner;
   readonly input: InputService;
+  readonly flight: FlightController;
+  readonly cameraRig: CameraRig;
+  readonly collision: CollisionWorld;
   dispose(): void;
 }
 
 declare global {
   interface Window {
-    /** The running App, exposed under `?debug` and `?lab=input` for e2e tests and console poking. */
+    /** The running App, exposed under `?debug`, `?lab=input` and `?lab=flight`. */
     __nonspace?: App;
   }
 }
@@ -53,9 +59,16 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
   renderer.autoClear = false;
   root.appendChild(renderer.domElement);
 
+  const collision = createCollisionWorld();
+  const flight = createFlightController({ collision });
+  const cameraRig = createCameraRig({
+    aspect: window.innerWidth / Math.max(window.innerHeight, 1),
+  });
+
   const resize = (): void => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
+    cameraRig.setAspect(window.innerWidth / Math.max(window.innerHeight, 1));
   };
   resize();
   window.addEventListener('resize', resize);
@@ -74,7 +87,7 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
     document,
   });
   const mission = createMissionRunner({ events, save });
-  const modes = createModeStack({ events, settings, save, mission, input });
+  const modes = createModeStack({ events, settings, save, mission, input, flight });
   const allowMissionRoute = debug || import.meta.env.DEV;
   if (allowMissionRoute && missionId) {
     const def = getMockMission(missionId);
@@ -85,14 +98,19 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
       mission.start(checkpoint ? { checkpoint } : undefined);
     }
   }
+  let flightLab: { render(alpha: number): void; dispose(): void } | null = null;
+
   const loop = createLoop({
     update(dt) {
-      modes.handleInput(input.sample(dt));
+      const frame = input.sample(dt);
+      modes.handleInput(frame);
+      if (flightLab) flight.step(frame, dt, { reduceMotion: settings.value.reduceMotion });
       mission.update(dt);
       modes.update(dt);
       events.flush();
     },
     render(alpha) {
+      flightLab?.render(alpha);
       modes.render(alpha);
     },
   });
@@ -134,6 +152,36 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
       format: (v: number) => v.toFixed(2),
     });
     mis.addBinding(mission.debug, 'checkpoint', { readonly: true });
+    const fly = gui.pane.addFolder({ title: 'flight' });
+    const p = flight.params;
+    fly.addBinding(p, 'cruiseMaxSpeed', { min: 1, max: 400, step: 1, label: 'cruise u/s' });
+    fly.addBinding(p, 'boostMaxSpeed', { min: 1, max: 2000, step: 1, label: 'boost u/s' });
+    fly.addBinding(p, 'cruiseAccel', { min: 1, max: 2000, step: 1, label: 'accel cruise' });
+    fly.addBinding(p, 'boostAccel', { min: 1, max: 4000, step: 1, label: 'accel boost' });
+    fly.addBinding(p, 'dragHalfLife', { min: 0.05, max: 3, step: 0.05, label: 'drag half-life' });
+    fly.addBinding(p, 'pitchClampDeg', { min: 10, max: 89, step: 1, label: 'pitch clamp °' });
+    fly.addBinding(p, 'bankMaxDeg', { min: 0, max: 30, step: 0.5, label: 'bank max °' });
+    fly.addBinding(p, 'autoLevelHalfLife', {
+      min: 0.05,
+      max: 2,
+      step: 0.05,
+      label: 'auto-level s',
+    });
+    fly.addBinding(p, 'fovBase', { min: 40, max: 100, step: 1, label: 'FOV base °' });
+    fly.addBinding(p, 'fovKick', { min: 0, max: 30, step: 0.5, label: 'FOV kick °' });
+    fly.addBinding(p, 'gridAssist');
+    fly.addBinding(p, 'gridAssistConeDeg', { min: 1, max: 45, step: 1, label: 'assist cone °' });
+    fly.addBinding(p, 'gridAssistRateDeg', { min: 1, max: 180, step: 1, label: 'assist °/s' });
+    fly.addBinding(p, 'banking');
+    fly.addBinding(p, 'fovKickEnabled', { label: 'FOV kick on' });
+    fly.addBinding(p, 'hullSpringRadius', { min: 0, max: 80, step: 1, label: 'hull spring u' });
+    fly.addBinding(p, 'altitudeCeiling', { min: 100, max: 40_000, step: 100, label: 'ceiling u' });
+    const live = fly.addFolder({ title: 'live', expanded: false });
+    live.addBinding(flight.telemetry, 'speed', { readonly: true });
+    live.addBinding(flight.telemetry, 'altitude', { readonly: true });
+    live.addBinding(flight.telemetry, 'headingDeg', { readonly: true, label: 'heading °' });
+    live.addBinding(flight.telemetry, 'fov', { readonly: true });
+    live.addBinding(flight.telemetry, 'flare', { readonly: true });
   }
 
   let last = performance.now();
@@ -168,6 +216,9 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
     settings,
     mission,
     input,
+    flight,
+    cameraRig,
+    collision,
     dispose() {
       renderer.setAnimationLoop(null);
       window.removeEventListener('resize', resize);
@@ -176,6 +227,8 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
       mission.dispose();
       events.clear();
       inputLab?.dispose();
+      flightLab?.dispose();
+      cameraRig.dispose();
       input.dispose();
       gpuTimer?.dispose();
       gui?.dispose();
@@ -184,10 +237,14 @@ export async function startApp({ root, debug, missionId, checkpoint }: AppOption
       if (window.__nonspace === app) delete window.__nonspace;
     },
   };
-  if (debug || lab === 'input') window.__nonspace = app;
+  if (debug || lab === 'input' || lab === 'flight') window.__nonspace = app;
   if (lab === 'input') {
     const { createInputLab } = await import('../input/InputLab');
     inputLab = createInputLab(input, settings, root);
+  }
+  if (lab === 'flight') {
+    const { createFlightLab } = await import('../player/FlightLab');
+    flightLab = createFlightLab({ renderer, flight, cameraRig, root });
   }
   return app;
 }
