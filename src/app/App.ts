@@ -145,6 +145,14 @@ export async function startApp({
     const { installRenderLab } = await import('../debug/RenderLab');
     labHandle = installRenderLab(renderer);
     root.dataset.lab = 'render';
+  } else if (lab === 'grammar') {
+    const { installGrammarLab } = await import('../world/constructs/lab');
+    const q = new URLSearchParams(window.location.search);
+    labHandle = installGrammarLab(renderer, root, {
+      kind: q.get('g') ?? undefined,
+      seed: q.get('seed') ?? undefined,
+      lod: q.get('lod') ?? undefined,
+    });
   }
   if (lab === 'points') {
     const { installPointsLab } = await import('../debug/PointsLab');

@@ -47,6 +47,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=points` is the M1.2 lightpoint / traffic lab (60k static points in one draw, Manhattan path-texture traffic). Screenshot: `docs/screenshots/m1-2-lightpoints.png`. Contract notes in plan §9.18.
 - `?lab=raster` is the M1.7 SMPTE test card through the raster CRT / NTSC pass (chroma bleed, 240 scanlines, aperture grille, barrel). Screenshot: `docs/screenshots/m1-7-smpte-raster-crt.png`.
 - `?lab=beam` is the M1.1 beam-line lab (palette, near-plane clip, sub-pixel width, vertex dwell, fog, 150k stress, dynamic batch). `&scene=` selects a fixture; `?debug` exposes σ / dwell / fog. Screenshot: `docs/screenshots/m1-1-beams.png`. Contract notes in plan §9.20.
+- `?lab=grammar` is the M2.1 construct grammar (all §8.6 primitives, LOD far/mid/near, live param sliders). `?g=ziggurat` (or any primitive id) selects the shape; `?lod=` and `?seed=` are optional. Draws with a Three.js line fallback (does not require BeamBatch). Screenshot: `docs/screenshots/m2-1-grammar-ziggurat.png`. Contract notes in plan §9.21.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -70,6 +71,7 @@ Shared contracts from plan §9 are typed stubs other tasks build against:
 | SFX catalog, modem, Dixie (M5.2) | `src/audio/sfx/`, `src/audio/modem.ts`, `src/audio/dixieVoice.ts`                             |
 | Adaptive music (M5.3)            | `src/audio/music/{Sequencer,Harmony,player,motifs}.ts`, `src/audio/music/patterns/`           |
 | Flight, camera, hull collision   | `src/player/{FlightController,CameraRig,Collision}.ts`                                        |
+| Construct grammar (M2.1)         | `src/world/constructs/{grammar,primitives,lod}.ts`                                            |
 
 Test doubles (recording beam/point batches, event recorder, recording audio engine) and valid sample data are in `src/testing/`. Notes on how the stubs differ from the plan's literal TypeScript are in plan §9.8.
 
@@ -87,7 +89,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Flight controller, camera rig, soft hull collision                       | `src/player/{FlightController,CameraRig,Collision}.ts` |
 | Renderer service (HDR targets, PostChain, quality)                       | `src/render/Renderer.ts`                               |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.20. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.21. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
