@@ -87,6 +87,11 @@ export interface IceState {
   neural: number;
   grip: GripState | null;
   current: IceLayerState;
+  /**
+   * Multiplier on lock-meter drain only (1 = normal). Dixie auto-hold writes
+   * 0.5 while simstim is flipped (`companion/Dixie.lockDecayScale`).
+   */
+  lockDecayScale: number;
 }
 
 /** M4.4 soft modifiers. Optional on `IceModel.step`; Wintermute freeze stays `setFrozen`. */
@@ -188,6 +193,7 @@ export function createIceModel(def: IceDef, opts: CreateIceModelOptions = {}): I
     neural: opts.neural ?? 0,
     grip: null,
     current: layerState(0, 0),
+    lockDecayScale: 1,
   };
 
   const emit = (list: IceSimEvent[], ev: IceSimEvent): void => {
@@ -352,7 +358,7 @@ export function createIceModel(def: IceDef, opts: CreateIceModelOptions = {}): I
       const [a, b] = cur.ratio;
       cur.roll = stepRoll(cur.roll, input.R, a, b, dt);
       cur.m = matchMetric(input.R, input.Phi + cur.roll, a, b, cur.phi, layer.tolRatio);
-      cur.meter = stepLockMeter(cur.meter, cur.m, dt, layer.lockTime);
+      cur.meter = stepLockMeter(cur.meter, cur.m, dt, layer.lockTime, state.lockDecayScale);
 
       if (cur.meter >= 1) {
         crackCurrent(list);

@@ -196,8 +196,9 @@ test.describe('M4.4 softs', () => {
     expect(rest.afterMimic.after.R).not.toBeCloseTo(rest.afterMimic.before.R, 5);
 
     expect(rest.kuangOk).toBe(true);
-    expect(rest.dixieOk).toBe(false);
-    expect(rest.lastFail).toBe('no-companion');
+    expect(rest.dixieOk).toBe(true);
+    expect(rest.lastFail).toBeNull();
+    expect(rest.lastUsed).toBe('dixie-read');
 
     expect(errors).toEqual([]);
     await page.goto('about:blank');

@@ -96,10 +96,21 @@ export function matchMetric(
   return ratioMatch(R, a, b, tol) * phaseMatch(Phi, phi, a, b);
 }
 
-/** Lock meter step: fill at 1/lockTime while m ≥ 0.85, else drain at half that. Clamped to [0, 1]. */
-export function stepLockMeter(meter: number, m: number, dt: number, lockTime: number): number {
+/**
+ * Lock meter step: fill at 1/lockTime while m ≥ 0.85, else drain at half that
+ * times `drainScale` (Dixie auto-hold uses 0.5). Clamped to [0, 1]. Fill is
+ * unchanged by drainScale.
+ */
+export function stepLockMeter(
+  meter: number,
+  m: number,
+  dt: number,
+  lockTime: number,
+  drainScale = 1,
+): number {
   const rate = 1 / lockTime;
-  const next = m >= LOCK_THRESHOLD ? meter + rate * dt : meter - DRAIN_FACTOR * rate * dt;
+  const drain = drainScale < 0 ? 0 : drainScale;
+  const next = m >= LOCK_THRESHOLD ? meter + rate * dt : meter - DRAIN_FACTOR * drain * rate * dt;
   return next < 0 ? 0 : next > 1 ? 1 : next;
 }
 
