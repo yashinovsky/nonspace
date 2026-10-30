@@ -1162,6 +1162,16 @@ Phosphor persistence. Replaces the identity `PersistencePass.ts`. Does not edit 
 - **Clear.** `clear(ctx)` and `resize` wipe persist A/B to black so trails don't smear across a size change. Disable→enable also clears.
 - **Lab.** `?lab=persist` (use `&quality=medium` or `high`; SwiftShader `auto` is Low and would skip). Screenshot `docs/screenshots/m1-4-phosphor-trails.png`. `?debug` adds a `phosphor` folder (`decayScale`, `shift`, smear knobs).
 
+### 9.18 Contract notes from M1.2 (repo copy only)
+
+Lightpoints and traffic. Does not edit `BeamBatch`, `palette.ts`, `Renderer.ts`, or post passes.
+
+- **`PointSet` / `PointBatch`** (§9.2, `dispose` from §9.8) are unchanged. `createRecordingPointBatch` remains the CPU test double. The GPU factory is `createPointBatch({ capacity, palette })` → `GpuPointBatch`: same methods plus `object` (instanced `Mesh`, add to a scene), `drawCount`, `setViewport(w,h)`, `setTime(t)`, `setFogDensity`. Mutate `transform` in place (it is `mesh.matrix`). `setStatic` fills the front of the instance buffer; `beginDynamic`/`push`/`endDynamic` append after that without allocating. One draw: `geometry.instanceCount`.
+- **`createTrafficBatch`**: same quad + `lightPoint.frag`, vertex stage `traffic.vert`. `setPaths(polylines)` packs a `DataTexture` (RGBA32F, nearest): xyz = vertex, w = cumulative arc length, paths concatenated, each closed so `fract` wrapping is C0. `t = fract(time * speed / len + offset)`; position = arc-length sample (binary search). `setInstances({ pathIndex, offset, speed, color, … })` uploads per-particle attributes once; only `uTime` changes per frame.
+- **`lightPoint.vert/.frag`**: screen-space quads, Gaussian disc (`exp(-r²·4)`), additive, depth test on / write off. `size` is pixels at `POINT_REF_DISTANCE` (80 u). Projected size clamps to **1.5 px min** (energy × `(projected/min)²` so far points do not alias) and 128 px max. Distance fog `exp(-density · dist)`. Twinkle is a mild `sin` mix (traffic). Palette is the shared `uPalette[8]` uniform from `createPalette()`. Logarithmic depth uses Three's `USE_LOGARITHMIC_DEPTH_BUFFER` + `logDepthBufFC`.
+- **Helpers** (CPU, unit-tested): `packPaths`, `samplePath`, `maxJointError`, `projectPointSize` in `render/points/path.ts` / `PointBatch.ts`.
+- **Dev route:** `?lab=points`. 60k static points (one draw) + path-texture traffic. `data-point-count`, `data-point-draws`, `data-joint-error` on `#app`.
+
 ---
 
 ## 10. Milestones and tasks
