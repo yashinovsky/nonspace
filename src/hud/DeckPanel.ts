@@ -77,6 +77,7 @@ export interface DeckPanel {
   readonly tab: DeckTab;
   readonly capturing: boolean;
   readonly coordValue: string;
+  readonly coordLabel: string;
   readonly lastJump: MatrixCoord | null;
   readonly lastError: string | null;
   readonly log: readonly string[];
@@ -84,11 +85,14 @@ export interface DeckPanel {
   readonly link: boolean;
   readonly addressBook: readonly AddressEntry[];
   setTab(tab: DeckTab): void;
+  setCoordLabel(label: string): void;
   setInRun(on: boolean): void;
   setLink(on: boolean): void;
   setAddressBook(entries: readonly AddressEntry[]): void;
   addAddress(entry: AddressEntry): void;
   pushLog(line: string): void;
+  /** Enter-equivalent. Word climax uses this; COORD still parses jumps. */
+  submitRaw(raw: string): boolean;
   show(): void;
   hide(): void;
   toggle(): void;
@@ -108,6 +112,11 @@ export interface DeckPanelOptions {
    * keep the deck open (blocked jump). M2.6 wires CoordinateJump here.
    */
   onJump?: (coord: MatrixCoord) => void | boolean | string;
+  /**
+   * M7.11 word climax. Return true to consume Enter before coord parse,
+   * or an error string to keep the deck open.
+   */
+  onRawSubmit?: (raw: string) => boolean | string;
   onError?: () => void;
   /** Esc while the deck is open (settings). */
   onSettings?: () => void;
@@ -124,6 +133,7 @@ export function createDeckPanel(opts: DeckPanelOptions = {}): DeckPanel {
   let open = false;
   let tab: DeckTab = 'COORD';
   let coordValue = '';
+  let coordLabel = 'COORD';
   let lastJump: MatrixCoord | null = null;
   let lastError: string | null = null;
   let inRun = false;
@@ -145,6 +155,23 @@ export function createDeckPanel(opts: DeckPanelOptions = {}): DeckPanel {
   };
 
   const submitCoord = (raw: string): boolean => {
+    if (opts.onRawSubmit) {
+      const hit = opts.onRawSubmit(raw);
+      if (hit === true) {
+        lastError = null;
+        lastJump = null;
+        panel.pushLog(`${coordLabel}  ${raw.trim()}`);
+        paint();
+        return true;
+      }
+      if (typeof hit === 'string') {
+        lastJump = null;
+        lastError = hit;
+        opts.onError?.();
+        paint();
+        return false;
+      }
+    }
     const parsed = parseMatrixCoord(raw);
     if (!parsed) {
       lastError = 'BAD COORD';
@@ -195,7 +222,11 @@ export function createDeckPanel(opts: DeckPanelOptions = {}): DeckPanel {
     const shown = capturing() ? (opts.input?.frame.textValue ?? coordValue) : coordValue;
     const cursor = capturing() ? '_' : '';
     host.appendChild(
-      el('div', { class: 'ns-row', 'data-testid': 'deck-coord-line' }, `COORD> ${shown}${cursor}`),
+      el(
+        'div',
+        { class: 'ns-row', 'data-testid': 'deck-coord-line' },
+        `${coordLabel}> ${shown}${cursor}`,
+      ),
     );
     if (lastError)
       host.appendChild(
@@ -333,6 +364,9 @@ export function createDeckPanel(opts: DeckPanelOptions = {}): DeckPanel {
     get coordValue() {
       return capturing() ? (opts.input?.frame.textValue ?? coordValue) : coordValue;
     },
+    get coordLabel() {
+      return coordLabel;
+    },
     get lastJump() {
       return lastJump;
     },
@@ -357,6 +391,14 @@ export function createDeckPanel(opts: DeckPanelOptions = {}): DeckPanel {
       tab = next;
       if (next === 'COORD' && open) startCapture(coordValue);
       paint();
+    },
+    setCoordLabel(label) {
+      coordLabel = label.trim() || 'COORD';
+      if (open && tab === 'COORD') paint();
+    },
+    submitRaw(raw) {
+      coordValue = raw;
+      return submitCoord(raw);
     },
     setInRun(on) {
       inRun = on;

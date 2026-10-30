@@ -54,7 +54,7 @@ describe('M6.3 Straylight content', () => {
     expect(STRAYLIGHT_WORD.split(/\s+/).length).toBeLessThanOrEqual(3);
   });
 
-  it('matches the campaign M5 and ?mission=m7 stub gates', () => {
+  it('matches the campaign M5 and mock M7 word-scene gates', () => {
     const m5 = mockM5Mission();
     expect(m5.id).toBe('m5');
     expect(m5.simstim?.timeline).toBe('straylight-m5');
