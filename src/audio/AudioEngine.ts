@@ -54,8 +54,9 @@ export interface SfxOptions {
 }
 
 /**
- * Audio API (plan §9.7). The real engine is M5.1's; until then, and in tests,
- * use createNoopAudioEngine(). Every method is safe to call before unlock().
+ * Audio API (plan §9.7). `createAudioEngine()` is the Web Audio implementation;
+ * tests and headless code use `createNoopAudioEngine()`. Every method is safe
+ * to call before unlock().
  */
 export interface AudioEngine {
   /** Call on the first user gesture. */
@@ -95,3 +96,13 @@ export function createNoopAudioEngine(): AudioEngine {
     listener: () => {},
   };
 }
+
+export {
+  createAudioEngine,
+  disposeAudioEngine,
+  getAudioDiagnostics,
+  getAudioEngineHandle,
+  type AudioDiagnostics,
+  type CreateAudioEngineOptions,
+  type EngineLabHandle,
+} from './engine';

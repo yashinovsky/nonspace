@@ -1089,6 +1089,14 @@ Typed stubs for 9.1–9.7 are committed at the paths above (under `src/`). Where
 - **`MissionEffects`** is the sink for `say` / `ink` / `iceMod` / `forceMode` / AI / audio actions, so this task does not own those systems. If an `AudioEngine` is passed, valid `music`/`sfx` ids also hit it.
 - **Debug**: `?mission=<id>&checkpoint=<id>` (dev or `?debug`) loads a mock from `narrative/mocks.ts`. No story content here. `jumpToCheckpoint` restores a captured snapshot, or seeks by satisfying the checkpoint trigger. `?mission=mock-triggers` is the AC fixture (time, meatTime, event, near, flags, all/any).
 
+### 9.11 Contract notes from M5.1 (repo copy only)
+
+- **`createNoopAudioEngine()`** and **`createRecordingAudioEngine()`** are unchanged: silent, and a dotted-path recorder wrapping the silent engine. Tests that don't need a device should keep using them.
+- **`createAudioEngine(opts?)`** is the Web Audio implementation of 9.7. Every method is still safe before `unlock()`. Optional `opts.settings` applies `audio.master/music/sfx/voice` linear gains. `disposeAudioEngine(engine)` and `getAudioDiagnostics(engine)` are helpers, not part of 9.7.
+- **`music.setKey(root, mode)`**: `root` is a MIDI note number (default A2 = 45). Adaptive layers and corp motifs beyond HRTF drones are M5.3.
+- **`sfx` / `modem` / `phaseLock`**: audible stubs so the engine is exercisable; recipes, Bell 103 FSK, and Phase Lock coupling stay M5.2 / M5.4.
+- **Dev route:** `?lab=audio`.
+
 ---
 
 ## 10. Milestones and tasks
