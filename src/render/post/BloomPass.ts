@@ -3,7 +3,6 @@ import type { ShaderMaterial, WebGLRenderTarget } from 'three';
 import { Vector2, Vector3 } from 'three';
 import { createColorTarget } from '../targets';
 import { createFullscreenMaterial, type PostContext, type PostPass } from './pass';
-import bloomCompositeFrag from './shaders/bloomComposite.frag';
 import bloomDownFrag from './shaders/bloomDown.frag';
 import bloomUpFrag from './shaders/bloomUp.frag';
 
@@ -60,10 +59,8 @@ export function createBloomPass(): BloomPass {
 
   let downMat: ShaderMaterial | null = null;
   let upMat: ShaderMaterial | null = null;
-  let compositeMat: ShaderMaterial | null = null;
 
   const texel = new Vector2();
-  const bloomTexel = new Vector2();
   const haloTexel = new Vector2();
   const warm = new Vector3(HALATION_WARM_TINT.r, HALATION_WARM_TINT.g, HALATION_WARM_TINT.b);
 
@@ -109,7 +106,6 @@ export function createBloomPass(): BloomPass {
 
       const downM = ensureDown();
       const upM = ensureUp();
-      const compM = ensureComposite();
 
       // Downsample: Karis only on the HDR source to tame intensity-4 fireflies.
       downM.uniforms.tInput!.value = input;
@@ -141,6 +137,8 @@ export function createBloomPass(): BloomPass {
       draws++;
 
       // Upsample from the coarsest dual-filter mip, folding in finer downs.
+      upM.uniforms.uHalationWeight!.value = 0;
+      upM.uniforms.uIntensity!.value = 1;
       let low: WebGLRenderTarget = last;
       for (let i = mips - 2; i >= 0; i--) {
         const dest = up[i]!;
@@ -159,17 +157,20 @@ export function createBloomPass(): BloomPass {
         low = dest;
       }
 
-      bloomTexel.set(1 / Math.max(low.width, 1), 1 / Math.max(low.height, 1));
       haloTexel.set(1 / Math.max(halation!.width, 1), 1 / Math.max(halation!.height, 1));
-      compM.uniforms.tBloom!.value = low.texture;
-      compM.uniforms.tHalation!.value = halation!.texture;
-      compM.uniforms.uBloomTexel!.value = bloomTexel;
-      compM.uniforms.uHalationTexel!.value = haloTexel;
-      compM.uniforms.uSampleScale!.value = radius;
-      compM.uniforms.uIntensity!.value = pass.intensity;
-      compM.uniforms.uHalationWeight!.value = pass.halationWeight;
-      compM.uniforms.uWarmTint!.value = warm;
-      ctx.blit(compM, output);
+      upM.uniforms.tLow!.value = low.texture;
+      upM.uniforms.tHalation!.value = halation!.texture;
+      upM.uniforms.uTexelSize!.value = texel.set(
+        1 / Math.max(low.width, 1),
+        1 / Math.max(low.height, 1),
+      );
+      upM.uniforms.uHalationTexel!.value = haloTexel;
+      upM.uniforms.uSampleScale!.value = radius;
+      upM.uniforms.uAddHigh!.value = 0;
+      upM.uniforms.uIntensity!.value = pass.intensity;
+      upM.uniforms.uHalationWeight!.value = pass.halationWeight;
+      upM.uniforms.uWarmTint!.value = warm;
+      ctx.blit(upM, output);
       draws++;
 
       stats.mips = mips;
@@ -182,10 +183,8 @@ export function createBloomPass(): BloomPass {
       disposeTargets();
       downMat?.dispose();
       upMat?.dispose();
-      compositeMat?.dispose();
       downMat = null;
       upMat = null;
-      compositeMat = null;
     },
   };
 
@@ -202,26 +201,17 @@ export function createBloomPass(): BloomPass {
     upMat ??= createFullscreenMaterial(bloomUpFrag, {
       tLow: { value: null },
       tHigh: { value: null },
+      tHalation: { value: null },
       uTexelSize: { value: new Vector2(1, 1) },
+      uHalationTexel: { value: new Vector2(1, 1) },
       uSampleScale: { value: 1 },
       uAddHigh: { value: 1 },
       uHighGain: { value: BLOOM_HIGH_GAIN },
-    });
-    return upMat;
-  }
-
-  function ensureComposite(): ShaderMaterial {
-    compositeMat ??= createFullscreenMaterial(bloomCompositeFrag, {
-      tBloom: { value: null },
-      tHalation: { value: null },
-      uBloomTexel: { value: new Vector2(1, 1) },
-      uHalationTexel: { value: new Vector2(1, 1) },
-      uSampleScale: { value: 1 },
-      uIntensity: { value: DEFAULT_BLOOM_INTENSITY },
-      uHalationWeight: { value: DEFAULT_HALATION_WEIGHT },
+      uIntensity: { value: 1 },
+      uHalationWeight: { value: 0 },
       uWarmTint: { value: warm.clone() },
     });
-    return compositeMat;
+    return upMat;
   }
 
   function ensureTargets(hdr: boolean): void {
@@ -254,13 +244,30 @@ export function createBloomPass(): BloomPass {
   return pass;
 }
 
+const SOFTWARE_GPU = /swiftshader|llvmpipe|softpipe|microsoft basic render|gdi generic/i;
+
 /**
- * Low skips the dual-filter (identity). Persistence is already off on Low;
- * 13 extra 16F blits on SwiftShader blow the throttled 60 Hz sim loop.
- * Medium/High always run. Unit tests that want the mip chain use medium/high.
+ * Low is identity (same as persistence-off). Software GL (SwiftShader) also
+ * skips: 13 extra 16F blits blow the throttled 60 Hz loop and make sibling
+ * e2e canvas screenshots wait forever for a stable frame. Medium/High run
+ * the dual-filter on real GPUs. Unit tests use a fake renderer (no GL) so
+ * they still exercise the mip chain.
  */
 function skipGpuBloom(ctx: PostContext): boolean {
-  return ctx.quality.tier === 'low';
+  if (ctx.quality.tier === 'low') return true;
+  const gl = ctx.renderer.getContext?.() as WebGLRenderingContext | undefined;
+  if (!gl) return false;
+  try {
+    const ext = gl.getExtension('WEBGL_debug_renderer_info') as {
+      UNMASKED_RENDERER_WEBGL: number;
+    } | null;
+    const name = ext
+      ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) ?? '')
+      : String(gl.getParameter(gl.RENDERER) ?? '');
+    return SOFTWARE_GPU.test(name);
+  } catch {
+    return false;
+  }
 }
 
 function setSizeIfChanged(rt: WebGLRenderTarget, width: number, height: number): void {

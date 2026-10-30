@@ -13,7 +13,6 @@ import { bindPingPong } from '../../src/render/targets';
 import { hexToRgb } from '../../src/render/palette';
 import bloomDown from '../../src/render/post/shaders/bloomDown.frag';
 import bloomUp from '../../src/render/post/shaders/bloomUp.frag';
-import bloomComposite from '../../src/render/post/shaders/bloomComposite.frag';
 import tonemapFrag from '../../src/render/post/shaders/tonemap.frag';
 
 const tex = (id: string): Texture => ({ uuid: id }) as unknown as Texture;
@@ -207,8 +206,8 @@ describe('bloom / tonemap shaders', () => {
     expect(bloomDown).toContain('uKaris');
     expect(bloomUp).toContain('1.0 / 16.0');
     expect(bloomUp).toContain('uSampleScale');
-    expect(bloomComposite).toContain('uWarmTint');
-    expect(bloomComposite).toContain('uSampleScale * 2.0');
+    expect(bloomUp).toContain('uWarmTint');
+    expect(bloomUp).toContain('uSampleScale * 2.0');
     expect(tonemapFrag).toContain('tonemapReinhardWhite');
     expect(HALATION_WARM_TINT.r).toBeGreaterThan(HALATION_WARM_TINT.b);
   });

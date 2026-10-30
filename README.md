@@ -109,21 +109,21 @@ The App flushes posted events after every sim step. Under `?debug` and `?lab=` (
 
 M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain. Default boot is still a black canvas. Contract notes are in plan §9.16. M1.1 adds instanced beam lines (`createBeamBatch`, `beamLine.vert/.frag`); contract notes are in plan §9.20. M1.3 adds the infinite ground grid and local 3D lattice (`render/grid/`); contract notes are in plan §9.24.
 
-| Piece                                          | File                                                                                 |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Renderer service, scenes, cameras              | `src/render/Renderer.ts`                                                             |
-| HDR 16F targets + RGBA8 fallback, ping-pong    | `src/render/targets.ts`                                                              |
-| Quality tiers from `settings.graphics.quality` | `src/render/quality.ts`                                                              |
-| Dynamic resolution                             | `src/render/dynamicRes.ts`                                                           |
-| Pass interface + chain                         | `src/render/post/pass.ts`, `PostChain.ts`                                            |
-| Phosphor persistence (M1.4)                    | `PersistencePass.ts`, `post/shaders/persistence.frag`                                |
-| Bloom + halation (M1.5)                        | `BloomPass.ts`, `post/shaders/bloomDown.frag`, `bloomUp.frag`, `bloomComposite.frag` |
-| Vector CRT tonemap stub (M1.5; effects M1.6)   | `VectorCrtPass.ts`, `post/shaders/tonemap.frag`                                      |
-| Raster CRT / NTSC (M1.7)                       | `RasterCrtPass.ts`, `post/shaders/rasterCrt.frag`                                    |
-| Remaining M1 slots (identity stubs)            | `BlackIceComposite.ts`                                                               |
-| Tonemap blit (skipped when CRT sets `encoded`) | `FinalComposite.ts`                                                                  |
-| Beam lines (M1.1)                              | `render/lines/BeamBatch.ts`, `beamLine.vert/.frag`, `render/palette.ts`              |
-| Ground grid + lattice (M1.3)                   | `render/grid/GroundGrid.ts`, `LocalLattice.ts`, `groundGrid.vert/.frag`              |
+| Piece                                          | File                                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------------------- |
+| Renderer service, scenes, cameras              | `src/render/Renderer.ts`                                                |
+| HDR 16F targets + RGBA8 fallback, ping-pong    | `src/render/targets.ts`                                                 |
+| Quality tiers from `settings.graphics.quality` | `src/render/quality.ts`                                                 |
+| Dynamic resolution                             | `src/render/dynamicRes.ts`                                              |
+| Pass interface + chain                         | `src/render/post/pass.ts`, `PostChain.ts`                               |
+| Phosphor persistence (M1.4)                    | `PersistencePass.ts`, `post/shaders/persistence.frag`                   |
+| Bloom + halation (M1.5)                        | `BloomPass.ts`, `post/shaders/bloomDown.frag`, `bloomUp.frag`           |
+| Vector CRT tonemap stub (M1.5; effects M1.6)   | `VectorCrtPass.ts`, `post/shaders/tonemap.frag`                         |
+| Raster CRT / NTSC (M1.7)                       | `RasterCrtPass.ts`, `post/shaders/rasterCrt.frag`                       |
+| Remaining M1 slots (identity stubs)            | `BlackIceComposite.ts`                                                  |
+| Tonemap blit (skipped when CRT sets `encoded`) | `FinalComposite.ts`                                                     |
+| Beam lines (M1.1)                              | `render/lines/BeamBatch.ts`, `beamLine.vert/.frag`, `render/palette.ts` |
+| Ground grid + lattice (M1.3)                   | `render/grid/GroundGrid.ts`, `LocalLattice.ts`, `groundGrid.vert/.frag` |
 
 - `?lab=render` — two amber cubes (HDR intensity 4 vs 0.55) through the HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m0-4-hdr-cube.png`.
 - `?lab=persist` — GRID radar arm + orbiting bars through PersistencePass. Trails shift blue-white → yellow-green. Screenshot: `docs/screenshots/m1-4-phosphor-trails.png`.

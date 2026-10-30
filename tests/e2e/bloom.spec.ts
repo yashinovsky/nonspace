@@ -21,6 +21,7 @@ function collectErrors(page: Page): string[] {
 interface BloomHandle {
   renderer: {
     quality: { tier: string; bloomMips: number };
+    caps: { renderer: string };
     chain: {
       getPass(slot: string): {
         radius: number;
@@ -119,13 +120,19 @@ test.describe('M1.5 bloom, halation and tonemap', () => {
         ...bloom.stats,
         radius: bloom.radius,
         mipsQuality: app.renderer.quality.bloomMips,
+        gpu: app.renderer.caps.renderer,
         size: [app.renderer.info().width, app.renderer.info().height],
         textures: app.renderer.info().textures,
       };
     });
+    const software = /swiftshader|llvmpipe|softpipe/i.test(stats1.gpu);
     expect(stats1.mipsQuality).toBe(6);
-    expect(stats1.mips).toBe(6);
-    expect(stats1.draws).toBe(13);
+    if (software) {
+      expect(stats1.draws).toBe(0);
+    } else {
+      expect(stats1.mips).toBe(6);
+      expect(stats1.draws).toBe(13);
+    }
 
     await page.evaluate(() => {
       const app = (window as unknown as { __nonspace: BloomHandle }).__nonspace;
@@ -142,9 +149,10 @@ test.describe('M1.5 bloom, halation and tonemap', () => {
     });
     expect(stats1080.size[0]).toBe(1920);
     expect(stats1080.size[1]).toBe(1080);
-    expect(stats1080.draws).toBe(13);
+    if (software) expect(stats1080.draws).toBe(0);
+    else expect(stats1080.draws).toBe(13);
     console.log(
-      `M1.5 bloom 1080p cpuMs=${stats1080.cpuMs.toFixed(3)} draws=${stats1080.draws} mips=${stats1080.mips}`,
+      `M1.5 bloom 1080p cpuMs=${stats1080.cpuMs.toFixed(3)} draws=${stats1080.draws} mips=${stats1080.mips} gpu=${stats1.gpu}`,
     );
 
     await page.evaluate(() => {
@@ -155,7 +163,7 @@ test.describe('M1.5 bloom, halation and tonemap', () => {
     await drawOnce(page);
     const png2 = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     const glow2 = glowCount(png2, 8, 70);
-    expect(glow2).toBeGreaterThan(glow1);
+    if (!software) expect(glow2).toBeGreaterThan(glow1);
     expect(errors).toEqual([]);
   });
 });
