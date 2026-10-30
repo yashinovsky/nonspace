@@ -138,6 +138,98 @@ export function lineSetCount(set: LineSet): number {
   return set.color.length;
 }
 
+/** Split each segment into `parts` colinear pieces (Neuromancer softening). */
+export function subdivideLineSet(set: LineSet, parts: number): LineSet {
+  const n = Math.max(1, parts | 0);
+  if (n === 1) return set;
+  const segs = lineSetCount(set);
+  const out = createLineSet(segs * n, { width: !!set.width, flags: !!set.flags });
+  for (let i = 0; i < segs; i++) {
+    const p = i * 6;
+    const ax = set.positions[p]!;
+    const ay = set.positions[p + 1]!;
+    const az = set.positions[p + 2]!;
+    const bx = set.positions[p + 3]!;
+    const by = set.positions[p + 4]!;
+    const bz = set.positions[p + 5]!;
+    for (let k = 0; k < n; k++) {
+      const t0 = k / n;
+      const t1 = (k + 1) / n;
+      const o = (i * n + k) * 6;
+      const j = i * n + k;
+      out.positions[o] = ax + (bx - ax) * t0;
+      out.positions[o + 1] = ay + (by - ay) * t0;
+      out.positions[o + 2] = az + (bz - az) * t0;
+      out.positions[o + 3] = ax + (bx - ax) * t1;
+      out.positions[o + 4] = ay + (by - ay) * t1;
+      out.positions[o + 5] = az + (bz - az) * t1;
+      out.color[j] = set.color[i]!;
+      out.intensity[j] = set.intensity[i]!;
+      if (out.width && set.width) out.width[j] = set.width[i]!;
+      if (out.flags && set.flags) out.flags[j] = set.flags[i]!;
+    }
+  }
+  return out;
+}
+
+const DEFAULT_QUAD = new Float32Array([0, -1, 0, 1, -1, 0, 0, 1, 0, 1, 1, 0]);
+const DEFAULT_INDEX = [0, 1, 2, 1, 3, 2];
+
+/** Shared Neuromancer soften uniforms. Amount 0 is off (default boot). */
+export const BEAM_SOFTEN = {
+  amount: { value: 0 },
+  time: { value: 0 },
+};
+
+export const BEAM_SOFTEN_DIVISIONS = 8;
+
+const beamGeos = new Set<InstancedBufferGeometry>();
+let beamAlongSteps = 1;
+
+function alongGeometry(steps: number): { positions: Float32Array; index: number[] } {
+  if (steps <= 1) return { positions: DEFAULT_QUAD, index: DEFAULT_INDEX };
+  const n = steps + 1;
+  const positions = new Float32Array(n * 2 * 3);
+  const index: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / steps;
+    const b = i * 2;
+    positions[b * 3] = t;
+    positions[b * 3 + 1] = -1;
+    positions[(b + 1) * 3] = t;
+    positions[(b + 1) * 3 + 1] = 1;
+  }
+  for (let i = 0; i < steps; i++) {
+    const a = i * 2;
+    index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  }
+  return { positions, index };
+}
+
+function applyAlongSteps(geo: InstancedBufferGeometry, steps: number): void {
+  const { positions, index } = alongGeometry(steps);
+  geo.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geo.setIndex(index);
+}
+
+/**
+ * Neuromancer softening. `amount` 0 restores the 1-quad template (no leftover).
+ * Template subdivision is applied only while amount > 0.
+ */
+export function setBeamSoften(amount: number, time?: number): void {
+  const a = Math.min(1, Math.max(0, amount));
+  BEAM_SOFTEN.amount.value = a;
+  if (time !== undefined) BEAM_SOFTEN.time.value = time;
+  const steps = a > 1e-4 ? BEAM_SOFTEN_DIVISIONS : 1;
+  if (steps === beamAlongSteps) return;
+  beamAlongSteps = steps;
+  for (const geo of beamGeos) applyAlongSteps(geo, steps);
+}
+
+export function getBeamSoften(): number {
+  return BEAM_SOFTEN.amount.value;
+}
+
 /**
  * Clip a view-space segment to the near plane (plan §8.5).
  * `za`/`zb` are Three.js view-space z (negative in front). `near` is
@@ -184,11 +276,8 @@ function makeQuadGeometry(
   usage: typeof DynamicDrawUsage | typeof StaticDrawUsage,
 ): GpuBuffers {
   const geo = new InstancedBufferGeometry();
-  geo.setAttribute(
-    'position',
-    new Float32BufferAttribute(new Float32Array([0, -1, 0, 1, -1, 0, 0, 1, 0, 1, 1, 0]), 3),
-  );
-  geo.setIndex([0, 1, 2, 1, 3, 2]);
+  applyAlongSteps(geo, beamAlongSteps);
+  beamGeos.add(geo);
 
   const aA = new InstancedBufferAttribute(new Float32Array(Math.max(capacity, 1) * 3), 3);
   aA.setUsage(usage);
@@ -272,6 +361,8 @@ export function createBeamMaterial(palette: Palette, style?: Partial<BeamStyle>)
       uDwellSigma: { value: resolved.dwellSigma },
       uFogStart: { value: resolved.fogStart },
       uFogDensity: { value: resolved.fogDensity },
+      uSoften: BEAM_SOFTEN.amount,
+      uSoftenTime: BEAM_SOFTEN.time,
       logDepthBufFC: { value: 2 / (Math.log(1000 + 1) / Math.LN2) },
     },
     depthTest: true,
@@ -389,6 +480,7 @@ export function createBeamBatch(palette: Palette, opts: CreateBeamBatchOptions =
       const n = lineSetCount(set);
       if (n > staticBuf.capacity) {
         group.remove(staticBuf.mesh);
+        beamGeos.delete(staticBuf.geo);
         staticBuf.geo.dispose();
         staticBuf = makeQuadGeometry(n, StaticDrawUsage);
         staticBuf.mesh.material = material;
@@ -441,6 +533,8 @@ export function createBeamBatch(palette: Palette, opts: CreateBeamBatchOptions =
     dispose() {
       group.remove(staticBuf.mesh);
       group.remove(dynBuf.mesh);
+      beamGeos.delete(staticBuf.geo);
+      beamGeos.delete(dynBuf.geo);
       staticBuf.geo.dispose();
       dynBuf.geo.dispose();
       if (!opts.material) material.dispose();

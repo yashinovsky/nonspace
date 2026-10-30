@@ -84,6 +84,8 @@ export interface VfdTextOpts {
   x?: number;
   y?: number;
   z?: number;
+  /** Wintermute hijack: per-glyph 14-seg masks (overrides `vfdMask(ch)`). */
+  masks?: ArrayLike<number>;
 }
 
 export interface VfdText {
@@ -216,7 +218,7 @@ export function createVfdText(palette: Palette, opts: CreateVfdTextOptions = {})
           sizeArr[i2 + 1] = size;
           dataArr[i4] = color;
           dataArr[i4 + 1] = intensity;
-          dataArr[i4 + 2] = vfdMask(line[col]!, mode);
+          dataArr[i4 + 2] = layout.masks?.[n] ?? vfdMask(line[col]!, mode);
           dataArr[i4 + 3] = flags;
           n++;
         }

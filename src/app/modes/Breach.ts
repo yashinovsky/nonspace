@@ -106,7 +106,13 @@ export function createBreachMode(opts: BreachModeOptions): BreachMode {
         }
         return;
       }
-      if (frame.held('jackOut') >= JACK_OUT_HOLD) opts.onJackOut?.();
+      if (frame.held('jackOut') >= JACK_OUT_HOLD) {
+        if (ctx?.flight?.jackOutBlocked) {
+          opts.hud?.print("DECK WON'T LET GO");
+        } else {
+          opts.onJackOut?.();
+        }
+      }
     },
   };
   return mode;

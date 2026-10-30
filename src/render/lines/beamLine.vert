@@ -14,6 +14,8 @@ uniform float uDwellSigma;
 uniform float uFogStart;
 uniform float uFogDensity;
 uniform vec3 uPalette[8];
+uniform float uSoften;
+uniform float uSoftenTime;
 
 flat out vec2 vScreenA;
 flat out vec2 vScreenB;
@@ -67,16 +69,6 @@ void main() {
     db = near;
   }
 
-  vec4 clipA = projectionMatrix * viewA;
-  vec4 clipB = projectionMatrix * viewB;
-  vec2 screenA = toScreen(clipA);
-  vec2 screenB = toScreen(clipB);
-
-  vec2 dir = screenB - screenA;
-  float len = length(dir);
-  vec2 tang = len > 0.05 ? dir / len : vec2(1.0, 0.0);
-  vec2 perp = vec2(-tang.y, tang.x);
-
   int flags = int(aData.w + 0.5);
   float width = aData.z;
   float conserved = max(width, 1.0);
@@ -96,12 +88,60 @@ void main() {
 
   float along = position.x;
   float across = position.y;
-  vec2 base = mix(screenA, screenB, along);
-  base += tang * (along * 2.0 - 1.0) * extra;
-  base += perp * across * halfW;
 
-  float w = mix(clipA.w, clipB.w, along);
-  float z = mix(clipA.z, clipB.z, along);
+  vec4 clipA = projectionMatrix * viewA;
+  vec4 clipB = projectionMatrix * viewB;
+  vec2 screenA;
+  vec2 screenB;
+  vec2 base;
+  float w;
+  float z;
+
+  if (uSoften > 0.001) {
+    vec3 seg = viewB.xyz - viewA.xyz;
+    float slen = length(seg);
+    vec3 tng = slen > 1e-4 ? seg / slen : vec3(0.0, 0.0, -1.0);
+    vec3 up = abs(tng.y) > 0.92 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+    vec3 side = normalize(cross(tng, up));
+    float wave = sin(dot(mix(viewA.xyz, viewB.xyz, 0.5), vec3(0.11, 0.07, 0.09)) + uSoftenTime * 0.55);
+    float amp = uSoften * (2.4 + 0.9 * wave);
+    vec4 viewP = mix(viewA, viewB, along);
+    viewP.xyz += side * sin(along * 3.14159265) * amp;
+    float t1 = clamp(along + 0.04, 0.0, 1.0);
+    float t0 = clamp(along - 0.04, 0.0, 1.0);
+    vec4 viewQ = mix(viewA, viewB, t1);
+    vec4 viewR = mix(viewA, viewB, t0);
+    viewQ.xyz += side * sin(t1 * 3.14159265) * amp;
+    viewR.xyz += side * sin(t0 * 3.14159265) * amp;
+    vec4 clipP = projectionMatrix * viewP;
+    vec2 screenP = toScreen(clipP);
+    vec2 screenQ = toScreen(projectionMatrix * viewQ);
+    vec2 screenR = toScreen(projectionMatrix * viewR);
+    vec2 sdir = along < 0.5 ? screenQ - screenP : screenP - screenR;
+    float sl = length(sdir);
+    vec2 stang = sl > 0.05 ? sdir / sl : vec2(1.0, 0.0);
+    vec2 sperp = vec2(-stang.y, stang.x);
+    screenA = toScreen(clipA);
+    screenB = toScreen(clipB);
+    base = screenP;
+    base += stang * (along * 2.0 - 1.0) * extra * 0.15;
+    base += sperp * across * halfW;
+    w = clipP.w;
+    z = clipP.z;
+  } else {
+    screenA = toScreen(clipA);
+    screenB = toScreen(clipB);
+    vec2 dir = screenB - screenA;
+    float len = length(dir);
+    vec2 tang = len > 0.05 ? dir / len : vec2(1.0, 0.0);
+    vec2 perp = vec2(-tang.y, tang.x);
+    base = mix(screenA, screenB, along);
+    base += tang * (along * 2.0 - 1.0) * extra;
+    base += perp * across * halfW;
+    w = mix(clipA.w, clipB.w, along);
+    z = mix(clipA.z, clipB.z, along);
+  }
+
   vec2 ndc = (base / max(uResolution, vec2(1.0))) * 2.0 - 1.0;
   gl_Position = vec4(ndc * w, z, w);
 

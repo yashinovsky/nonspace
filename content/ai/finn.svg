@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140">
+  <!-- Wintermute persona: the Finn, vector line-portrait (plan §3.8). -->
+  <path d="M50 10 L72 16 L88 40 L90 62 L80 92 L62 108 L50 112 L38 108 L20 92 L10 62 L12 40 L28 16 Z"/>
+  <path d="M22 44 L78 44"/>
+  <path d="M24 54 L44 54 L44 70 L24 70 Z"/>
+  <path d="M56 54 L76 54 L76 70 L56 70 Z"/>
+  <path d="M44 60 L56 60"/>
+  <path d="M50 48 L46 74 L54 74"/>
+  <path d="M34 82 L66 82 L66 96 L34 96 Z"/>
+  <path d="M40 82 L40 96 M46 82 L46 96 M52 82 L52 96 M58 82 L58 96 M62 82 L62 96"/>
+  <path d="M30 112 L50 136 L70 112"/>
+  <path d="M18 110 L32 110 L24 140"/>
+  <path d="M82 110 L68 110 L76 140"/>
+</svg>
