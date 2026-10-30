@@ -82,7 +82,7 @@ Shared contracts from plan §9 are typed stubs other tasks build against:
 | Beam lines, points, palette        | `src/render/lines/BeamBatch.ts`, `src/render/points/PointBatch.ts`, `src/render/palette.ts`                            |
 | ICE + Phase Lock metric            | `src/breach/{IceModel,IceVisuals,PhaseLock,BreachController,Grip}.ts`, `src/content/ice/{white,gray,black,presets}.ts` |
 | Core interior + download (M4.5)    | `src/breach/CoreInterior.ts`, `src/app/modes/Core.ts`                                                                  |
-| Softs                              | `src/content/softs.ts`, `src/deck/softs/{registry,effects}.ts`                                                          |
+| Softs                              | `src/content/softs.ts`, `src/deck/softs/{registry,effects}.ts`                                                         |
 | Missions (zod)                     | `src/narrative/schema.ts`                                                                                              |
 | Mission runner + triggers          | `src/narrative/MissionRunner.ts`, `src/narrative/triggers.ts`                                                          |
 | Simstim timelines                  | `src/content/simstim/types.ts`                                                                                         |
