@@ -2,7 +2,7 @@
 
 Standalone 2D prototype of the NONSPACE breach mechanic (plan §3.5): match your amber breaker
 Lissajous to the ICE's figure, hold the lock through telegraphed re-keys, crack the layer.
-Self-contained: its own `package.json`, no dependency on the main game in `src/`.
+Own `package.json` and lab UI; Phase Lock math is imported from the game's `src/breach/PhaseLock.ts`.
 
 **Play:** https://yashinovsky.github.io/nonspace/prototypes/phase-lock/ (published by
 `.github/workflows/phase-lock.yml` on pushes to `main`, once Settings → Pages → Source is set to
@@ -43,7 +43,7 @@ URL parameters: `?ice=black-1&diff=hard&tuning=proposed&bot=1&ghost=0&purist=1&c
 
 | Path | What | Destination in the game |
 |---|---|---|
-| `src/breach/PhaseLock.ts` | Pure math: match metric, lock meter, re-key reset, roll, figures, detents | `src/breach/PhaseLock.ts` |
+| `src/breach/PhaseLock.ts` | Re-export of the game's `src/breach/PhaseLock.ts` (pure math; tests in `tests/unit/phaseLock.test.ts`) | already there |
 | `src/breach/LayerSim.ts` | Seeded layer engagement: drift, telegraphed re-keys, trace, neural, grip | splits into `breach/IceModel.ts` + `BreachController`/`Grip` |
 | `src/breach/presets.ts` | Plan §12.3 ICE presets and difficulty multipliers, plus the proposed tuning | `content/ice/*.ts` |
 | `src/bot/` | Scripted human-proxy player for self-tests and auto-play | `src/testing/` |

@@ -64,7 +64,7 @@ Re-key pressure (average profile, Normal), with the same columns as the results 
    preview much. Humans who anticipate might use it more. Keep it as an accessibility parity cue
    for the audio tone-slide.
 
-## Fixes to the §3.5 math (implemented here; the scaffold's `src/breach/PhaseLock.ts` stub still uses the raw form)
+## Fixes to the §3.5 math (now in the game's `src/breach/PhaseLock.ts` and `docs/plan.md` §3.5)
 
 - **Figure phase.** With the plan's `x = sin(a·ωt + φ)`, the picture repeats every 2π/b of φ. So
   for 4:5 there are 5 phase values that look like a perfect fusion, and only one of them counts.
