@@ -1,6 +1,10 @@
 /**
  * Dev route `?lab=sector` (M2.3). Fly the streamed 5×5 window; landmarks stay
  * as far points from every sector. Query: `?lab=sector&seed=1&autofly=1`.
+ *
+ * Generation uses `createAsyncBackend` so `generateSector` shares rng/hash
+ * with the App graph. `sectorWorker.ts` is the module-worker implementation
+ * (kept off the lab import graph so dist stays under 1 MB).
  */
 
 import {
@@ -19,20 +23,16 @@ import { BEAM_HEX } from '../render/palette';
 import type { Renderer } from '../render/Renderer';
 import {
   formatMatrixCoord,
-  MAJOR_GRID,
-  SECTOR_SIZE,
   sectorCenter,
   STREAM_RADIUS,
   worldToMatrixCoord,
   worldToSector,
 } from './coords';
-import { createAuthoredMaps, mapsFromRgba, type DensityMaps, type RegionCode } from './densityMap';
+import { sampleAuthored, type RegionCode } from './densityMap';
 import { landmarkWorld, resolveLandmarks, type LandmarkDef } from './landmarks';
-import type { SectorData } from './Sector';
-import { createSectorStreamer, type SectorStreamer } from './SectorStreamer';
+import { generateSector, type SectorData } from './Sector';
+import { createAsyncBackend, createSectorStreamer, type SectorStreamer } from './SectorStreamer';
 import { isAxisAligned, isOnGridLines } from './traffic/routing';
-import { createWorkerBackend } from './workerBackend';
-import type { PrimitiveSpec } from './constructs/grammar';
 
 export interface SectorLab {
   update(dt: number): void;
@@ -47,7 +47,6 @@ export interface SectorLabOptions {
   root: HTMLElement;
   seed?: string | null;
   autofly?: boolean;
-  maps?: DensityMaps;
   landmarks?: readonly LandmarkDef[];
 }
 
@@ -71,141 +70,56 @@ declare global {
   }
 }
 
-const CSS = [
-  'position:fixed',
-  'inset:0',
-  'pointer-events:none',
-  'font:13px/1.4 ui-monospace, Menlo, Consolas, monospace',
-  'color:#a8d8ff',
-  'z-index:20',
-].join(';');
-
-const PANEL = [
-  'position:absolute',
-  'pointer-events:auto',
-  'left:1rem',
-  'top:1rem',
-  'min-width:18rem',
-  'background:rgba(0,0,0,0.55)',
-  'padding:0.75rem 0.9rem 0.85rem',
-  'border:1px solid #1a3348',
-].join(';');
-
-function hex(i: number): number {
-  return BEAM_HEX[(i | 0) & 7] ?? 0xa8d8ff;
-}
-
-function specExtent(spec: PrimitiveSpec): { w: number; h: number; d: number } {
-  switch (spec.kind) {
-    case 'box':
-      return { w: spec.w, h: spec.h, d: spec.d };
-    case 'slabTerrace':
-      return { w: spec.w, h: spec.count * (spec.h + spec.spacing), d: spec.d };
-    case 'cubeStack':
-      return { w: spec.n * 4, h: spec.k * 4, d: spec.m * 4 };
-    case 'ziggurat':
-      return { w: spec.base, h: spec.steps * spec.stepH, d: spec.base };
-    case 'mast':
-      return { w: 6, h: spec.height, d: 6 };
-    case 'nestedPoly': {
-      const r = spec.radius ?? 8;
-      return { w: r * 2, h: r * 2, d: r * 2 };
-    }
-    case 'geodesic':
-      return { w: spec.radius * 2, h: spec.radius * 2, d: spec.radius * 2 };
-    case 'tower':
-      return { w: 10, h: spec.height, d: 10 };
-    default:
-      return { w: 12, h: 12, d: 12 };
-  }
-}
-
-function pushBox(
-  pos: number[],
-  c: number[],
-  x: number,
-  y: number,
-  z: number,
-  w: number,
-  h: number,
-  d: number,
-  color: number,
-): void {
-  const x0 = x - w * 0.5;
-  const x1 = x + w * 0.5;
-  const y0 = y - h * 0.5;
-  const y1 = y + h * 0.5;
-  const z0 = z - d * 0.5;
-  const z1 = z + d * 0.5;
-  const corners: Array<[number, number, number]> = [
-    [x0, y0, z0],
-    [x1, y0, z0],
-    [x1, y0, z1],
-    [x0, y0, z1],
-    [x0, y1, z0],
-    [x1, y1, z0],
-    [x1, y1, z1],
-    [x0, y1, z1],
-  ];
-  const edges: Array<[number, number]> = [
-    [0, 1],
-    [1, 2],
-    [2, 3],
-    [3, 0],
-    [4, 5],
-    [5, 6],
-    [6, 7],
-    [7, 4],
-    [0, 4],
-    [1, 5],
-    [2, 6],
-    [3, 7],
-  ];
-  for (const [a, b] of edges) {
-    const A = corners[a]!;
-    const B = corners[b]!;
-    pos.push(A[0], A[1], A[2], B[0], B[1], B[2]);
-    c.push(color, color);
-  }
+function rgb(beam: number): [number, number, number] {
+  const h = BEAM_HEX[(beam | 0) & 7] ?? 0xa8d8ff;
+  return [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
 }
 
 function makeLines(pos: number[], colors: number[]): LineSegments {
   const geo = new BufferGeometry();
   geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
   geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
-  const mat = new LineBasicMaterial({
-    vertexColors: true,
-    toneMapped: false,
-    transparent: true,
-    opacity: 0.9,
-  });
-  const lines = new LineSegments(geo, mat);
+  const lines = new LineSegments(
+    geo,
+    new LineBasicMaterial({
+      vertexColors: true,
+      toneMapped: false,
+      transparent: true,
+      opacity: 0.9,
+    }),
+  );
   lines.frustumCulled = false;
   return lines;
 }
 
-function rgbOf(beam: number): [number, number, number] {
-  const h = hex(beam);
-  return [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
+function makePoints(pos: number[], colors: number[], size: number): Points {
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  const pts = new Points(
+    geo,
+    new PointsMaterial({
+      size,
+      vertexColors: true,
+      toneMapped: false,
+      sizeAttenuation: false,
+    }),
+  );
+  pts.frustumCulled = false;
+  return pts;
 }
 
-interface SectorView {
-  group: LineSegments | null;
-  built: number;
-}
-
-function buildConstructLines(data: SectorData): LineSegments {
+function buildSectorView(data: SectorData): LineSegments {
   const pos: number[] = [];
   const col: number[] = [];
   for (const c of data.constructs) {
-    const e = specExtent(c.spec);
-    const [r, g, b] = rgbOf(c.color);
-    const n0 = pos.length;
-    pushBox(pos, [], c.x, c.y, c.z, e.w, e.h, e.d, 0);
-    for (let i = n0; i < pos.length; i += 3) col.push(r, g, b);
+    const [r, g, b] = rgb(c.color);
+    const h = Math.max(8, c.spec.kind === 'mast' || c.spec.kind === 'tower' ? 24 : 12);
+    pos.push(c.x, c.y - h, c.z, c.x, c.y + h, c.z);
+    col.push(r, g, b, r, g, b);
   }
   for (const t of data.traffic) {
-    const [r, g, b] = rgbOf(t.kind === 'trunk' ? 5 : 0);
+    const [r, g, b] = rgb(t.kind === 'trunk' ? 5 : 0);
     const p = t.path;
     for (let i = 3; i < p.length; i += 3) {
       pos.push(p[i - 3]!, p[i - 2]!, p[i - 1]!, p[i]!, p[i + 1]!, p[i + 2]!);
@@ -219,73 +133,16 @@ function buildConstructLines(data: SectorData): LineSegments {
   return makeLines(pos, col);
 }
 
-function makeGrid(): LineSegments {
-  const pos: number[] = [];
-  const col: number[] = [];
-  const half = SECTOR_SIZE * 3;
-  const step = MAJOR_GRID;
-  const y = 0;
-  const minor = rgbOf(0);
-  const major = [minor[0]! * 1.8, minor[1]! * 1.8, minor[2]! * 1.8];
-  for (let i = -half; i <= half; i += step) {
-    const c = i % SECTOR_SIZE === 0 ? major : minor;
-    pos.push(-half, y, i, half, y, i);
-    col.push(c[0]!, c[1]!, c[2]!, c[0]!, c[1]!, c[2]!);
-    pos.push(i, y, -half, i, y, half);
-    col.push(c[0]!, c[1]!, c[2]!, c[0]!, c[1]!, c[2]!);
-  }
-  const lines = makeLines(pos, col);
-  lines.position.set(0, 0, 0);
-  lines.frustumCulled = false;
-  return lines;
-}
-
 function landmarkPoints(landmarks: readonly LandmarkDef[]): Points {
   const pos: number[] = [];
   const col: number[] = [];
   for (const lm of landmarks) {
     const p = landmarkWorld(lm);
     pos.push(p.x, p.y, p.z);
-    const [r, g, b] = rgbOf(lm.color);
+    const [r, g, b] = rgb(lm.color);
     col.push(r, g, b);
   }
-  const geo = new BufferGeometry();
-  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
-  geo.setAttribute('color', new Float32BufferAttribute(col, 3));
-  const mat = new PointsMaterial({
-    size: 6,
-    vertexColors: true,
-    toneMapped: false,
-    sizeAttenuation: false,
-  });
-  const pts = new Points(geo, mat);
-  pts.frustumCulled = false;
-  pts.name = 'landmarks';
-  return pts;
-}
-
-async function loadMaps(): Promise<DensityMaps> {
-  try {
-    const [dRes, rRes] = await Promise.all([
-      fetch('/data/density.png'),
-      fetch('/data/regions.png'),
-    ]);
-    if (!dRes.ok || !rRes.ok) return createAuthoredMaps();
-    const [dBlob, rBlob] = await Promise.all([dRes.blob(), rRes.blob()]);
-    const [dBmp, rBmp] = await Promise.all([createImageBitmap(dBlob), createImageBitmap(rBlob)]);
-    const canvas = document.createElement('canvas');
-    canvas.width = dBmp.width;
-    canvas.height = dBmp.height;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    ctx.drawImage(dBmp, 0, 0);
-    const dPix = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(rBmp, 0, 0);
-    const rPix = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    return mapsFromRgba(Uint8Array.from(dPix), Uint8Array.from(rPix), canvas.width, canvas.height);
-  } catch {
-    return createAuthoredMaps();
-  }
+  return makePoints(pos, col, 8);
 }
 
 function trafficManhattan(streamer: SectorStreamer): boolean {
@@ -302,34 +159,36 @@ function trafficManhattan(streamer: SectorStreamer): boolean {
 
 export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLab> {
   const { renderer, flight, cameraRig, root } = opts;
-  const maps = opts.maps ?? (await loadMaps());
   const landmarks = resolveLandmarks(opts.landmarks);
   const worldSeed = opts.seed != null && opts.seed !== '' ? Number(opts.seed) | 0 : 1;
   let autofly = Boolean(opts.autofly);
   const scene: Scene = renderer.scenes.matrix;
   scene.background = new Color(0x000000);
 
-  const grid = makeGrid();
-  scene.add(grid);
   const lmPts = landmarkPoints(landmarks);
   scene.add(lmPts);
-
   const views = new Map<string, LineSegments>();
 
   const streamer = createSectorStreamer({
-    backend: createWorkerBackend(maps, landmarks),
+    backend: createAsyncBackend((sx, sz, seed) => {
+      const at = sampleAuthored(sx, sz);
+      return generateSector({
+        sx,
+        sz,
+        worldSeed: seed,
+        density: at.density,
+        region: at.region,
+        landmarks,
+      });
+    }),
     worldSeed,
     landmarks,
-    createView: (data) => {
-      const view: SectorView = { group: null, built: 0 };
-      void data;
-      return view;
-    },
+    createView: () => ({ group: null as LineSegments | null }),
     buildSlice: (data, raw) => {
       const t0 = performance.now();
-      const view = raw as SectorView;
+      const view = raw as { group: LineSegments | null };
       if (view.group) return { done: true, costMs: 0 };
-      const lines = buildConstructLines(data);
+      const lines = buildSectorView(data);
       const key = `${data.sx}:${data.sz}`;
       const prev = views.get(key);
       if (prev) {
@@ -340,7 +199,6 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
       scene.add(lines);
       views.set(key, lines);
       view.group = lines;
-      view.built = data.constructs.length;
       return { done: true, costMs: Math.max(0, performance.now() - t0) };
     },
   });
@@ -360,9 +218,11 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
 
   const overlay = document.createElement('div');
   overlay.dataset.testid = 'sector-lab';
-  overlay.style.cssText = CSS;
+  overlay.style.cssText =
+    'position:fixed;inset:0;pointer-events:none;font:13px/1.4 ui-monospace,Menlo,monospace;color:#a8d8ff;z-index:20';
   const panel = document.createElement('div');
-  panel.style.cssText = PANEL;
+  panel.style.cssText =
+    'position:absolute;left:1rem;top:1rem;min-width:18rem;background:rgba(0,0,0,0.55);padding:0.75rem 0.9rem;border:1px solid #1a3348';
   overlay.appendChild(panel);
   root.appendChild(overlay);
   const title = document.createElement('div');
@@ -373,10 +233,11 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
   readout.dataset.testid = 'sector-readout';
   readout.style.cssText = 'margin:0;color:#c8e4ff;font:12px/1.45 inherit;white-space:pre';
   panel.appendChild(readout);
-  const hint = document.createElement('div');
-  hint.style.cssText = 'color:#6a8aaa;font-size:11px;margin:0.55rem 0 0';
-  hint.textContent = 'WASD fly · Shift boost · click to look · landmarks always on';
-  panel.appendChild(hint);
+
+  const here = (): { sx: number; sz: number; at: ReturnType<typeof sampleAuthored> } => {
+    const { sx, sz } = worldToSector(flight.pose.x, flight.pose.z);
+    return { sx, sz, at: sampleAuthored(sx, sz) };
+  };
 
   const handle: SectorLabHandle = {
     get loaded() {
@@ -386,14 +247,12 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
       return streamer.stats.pending;
     },
     get region() {
-      const { sx, sz } = worldToSector(flight.pose.x, flight.pose.z);
-      return maps.regionCode(sx, sz);
+      return here().at.region;
     },
     get coord() {
-      const { sx, sz } = worldToSector(flight.pose.x, flight.pose.z);
-      return formatMatrixCoord(
-        worldToMatrixCoord(flight.pose.x, flight.pose.y, flight.pose.z, maps.regionCode(sx, sz)),
-      );
+      const { at } = here();
+      const p = flight.pose;
+      return formatMatrixCoord(worldToMatrixCoord(p.x, p.y, p.z, at.region));
     },
     landmarkCount: landmarks.length,
     get hashes() {
@@ -414,7 +273,7 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
       autofly = on;
     },
     currentHash() {
-      const { sx, sz } = worldToSector(flight.pose.x, flight.pose.z);
+      const { sx, sz } = here();
       return streamer.get(sx, sz)?.contentHash ?? null;
     },
   };
@@ -422,8 +281,6 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
   root.dataset.lab = 'sector';
   root.dataset.landmarks = String(landmarks.length);
   root.dataset.streamRadius = String(STREAM_RADIUS);
-
-  const fmt = (n: number, d = 1): string => n.toFixed(d);
 
   const lab: SectorLab = {
     update(dt) {
@@ -441,12 +298,6 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
       }
       const p = flight.pose;
       streamer.update(p.x, p.y, p.z, dt);
-      const { sx, sz } = worldToSector(p.x, p.z);
-      const o = {
-        x: sx * SECTOR_SIZE + SECTOR_SIZE * 0.5,
-        z: sz * SECTOR_SIZE + SECTOR_SIZE * 0.5,
-      };
-      grid.position.set(o.x, 0, o.z);
       const keep = new Set(streamer.loadedKeys());
       for (const [key, obj] of views) {
         if (!keep.has(key)) {
@@ -456,8 +307,9 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
           views.delete(key);
         }
       }
+      const { sx, sz, at } = here();
       root.dataset.loaded = String(streamer.stats.loaded);
-      root.dataset.region = maps.regionCode(sx, sz);
+      root.dataset.region = at.region;
       root.dataset.hash = String(streamer.get(sx, sz)?.contentHash ?? '');
     },
     render(alpha) {
@@ -468,9 +320,9 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
         `coord     ${handle.coord}`,
         `region    ${handle.region}`,
         `loaded    ${s.loaded}  pending ${s.pending}  inflight ${s.inFlight}`,
-        `main ms   ${fmt(s.lastMainMs, 2)}  max ${fmt(s.maxMainMs, 2)}`,
-        `upload    ${fmt(s.lastUploadMs, 2)}  hitches>4ms ${s.hitchesOver4ms}`,
-        `speed     ${fmt(t.speed, 1)} u/s  alt ${fmt(t.altitude, 0)}`,
+        `main ms   ${s.lastMainMs.toFixed(2)}  max ${s.maxMainMs.toFixed(2)}`,
+        `upload    ${s.lastUploadMs.toFixed(2)}  hitches>4ms ${s.hitchesOver4ms}`,
+        `speed     ${t.speed.toFixed(1)} u/s  alt ${t.altitude.toFixed(0)}`,
         `landmarks ${landmarks.length}  manhattan ${handle.trafficManhattan ? 'yes' : 'NO'}`,
         `autofly   ${autofly ? 'ON' : 'off'}`,
       ].join('\n');
@@ -478,10 +330,7 @@ export async function installSectorLab(opts: SectorLabOptions): Promise<SectorLa
     dispose() {
       overlay.remove();
       streamer.dispose();
-      scene.remove(grid);
       scene.remove(lmPts);
-      grid.geometry.dispose();
-      (grid.material as LineBasicMaterial).dispose();
       lmPts.geometry.dispose();
       (lmPts.material as PointsMaterial).dispose();
       for (const obj of views.values()) {

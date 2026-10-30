@@ -9,18 +9,18 @@ A browser WebGL2 game set in the cyberspace of William Gibson's _Neuromancer_. T
 
 ## Commands
 
-| Command               | What it does                                                               |
-| --------------------- | -------------------------------------------------------------------------- |
-| `npm install`         | Install dependencies                                                       |
-| `npm run dev`         | Vite dev server at http://localhost:5173 (add `?debug` for the perf panel) |
-| `npm run build`       | Typecheck, build to `dist/`, and fail if `dist/` exceeds 1 MB              |
-| `npm run preview`     | Serve the built `dist/` at http://localhost:4173                           |
-| `npm test`            | Vitest unit tests (`tests/unit`)                                           |
-| `npm run e2e:install` | One-time: install Playwright's Chromium and system deps                    |
-| `npm run e2e`         | Build, serve, and run Playwright smoke tests in headless Chromium (WebGL2) |
-| `npm run lint`        | ESLint + Prettier check                                                    |
-| `npm run format`      | Prettier write                                                             |
-| `npm run typecheck`   | `tsc` for app code and for configs/e2e/scripts                             |
+| Command               | What it does                                                                 |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `npm install`         | Install dependencies                                                         |
+| `npm run dev`         | Vite dev server at http://localhost:5173 (add `?debug` for the perf panel)   |
+| `npm run build`       | Typecheck, build to `dist/`, and fail if the default-boot graph exceeds 1 MB |
+| `npm run preview`     | Serve the built `dist/` at http://localhost:4173                             |
+| `npm test`            | Vitest unit tests (`tests/unit`)                                             |
+| `npm run e2e:install` | One-time: install Playwright's Chromium and system deps                      |
+| `npm run e2e`         | Build, serve, and run Playwright smoke tests in headless Chromium (WebGL2)   |
+| `npm run lint`        | ESLint + Prettier check                                                      |
+| `npm run format`      | Prettier write                                                               |
+| `npm run typecheck`   | `tsc` for app code and for configs/e2e/scripts                               |
 
 CI (`.github/workflows/ci.yml`) runs lint, unit tests, build (with the size check) and the e2e smoke on every PR.
 

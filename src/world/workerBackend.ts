@@ -48,14 +48,7 @@ export function createWorkerBackend(
     }
   };
 
-  const init: WorkerRequest = {
-    type: 'init',
-    density: maps.density,
-    region: maps.region,
-    width: maps.width,
-    height: maps.height,
-    landmarks: landmarks.slice(),
-  };
+  const init: WorkerRequest = { type: 'init', landmarks: landmarks.slice() };
   worker.postMessage(init);
 
   return {
@@ -64,7 +57,16 @@ export function createWorkerBackend(
         const start = (): void => {
           const id = nextId++;
           pending.set(id, { resolve, reject });
-          const req: WorkerRequest = { type: 'gen', id, sx, sz, worldSeed };
+          const at = maps.at(sx, sz);
+          const req: WorkerRequest = {
+            type: 'gen',
+            id,
+            sx,
+            sz,
+            worldSeed,
+            density: at.density,
+            region: at.region,
+          };
           worker.postMessage(req);
         };
         if (ready) start();

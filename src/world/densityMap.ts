@@ -56,14 +56,20 @@ function packRgb(r: number, g: number, b: number): number {
   return ((r & 255) << 16) | ((g & 255) << 8) | (b & 255);
 }
 
-const RGB_INDEX = new Map<number, RegionCode>();
-for (const code of REGION_CODES) {
-  const [r, g, b] = REGION_RGB[code];
-  RGB_INDEX.set(packRgb(r, g, b), code);
+let RGB_INDEX: Map<number, RegionCode> | null = null;
+
+function rgbIndex(): Map<number, RegionCode> {
+  if (RGB_INDEX) return RGB_INDEX;
+  RGB_INDEX = new Map();
+  for (const code of REGION_CODES) {
+    const [r, g, b] = REGION_RGB[code];
+    RGB_INDEX.set(packRgb(r, g, b), code);
+  }
+  return RGB_INDEX;
 }
 
 export function rgbToRegion(r: number, g: number, b: number): RegionCode {
-  const exact = RGB_INDEX.get(packRgb(r, g, b));
+  const exact = rgbIndex().get(packRgb(r, g, b));
   if (exact) return exact;
   let best: RegionCode = 'VOID';
   let bestD = Infinity;
@@ -189,6 +195,32 @@ function orbitalWeight(pz: number): number {
   return ORBITAL_BAND.amp * bell * bell;
 }
 
+/** One sector of the first-pass blob table. Matches `createAuthoredMaps().at`. */
+export function sampleAuthored(sx: number, sz: number): { density: number; region: RegionCode } {
+  const s = clampSectorIndex(sx, sz);
+  let d = 0.03;
+  let best = 0;
+  let bestCode: RegionCode = 'VOID';
+  for (const b of DENSITY_BLOBS) {
+    const w = blobWeight(s.sx, s.sz, b);
+    d += w;
+    if (w > best) {
+      best = w;
+      bestCode = b.region;
+    }
+  }
+  const orb = orbitalWeight(s.sz);
+  d += orb;
+  if (orb > best && orb > 0.08) {
+    best = orb;
+    bestCode = 'ORBT';
+  }
+  if (best < 0.08) bestCode = 'VOID';
+  if (d < 0) d = 0;
+  else if (d > 1) d = 1;
+  return { density: ((d * 255 + 0.5) | 0) / 255, region: bestCode };
+}
+
 /**
  * Rasterize the authored blob table. First-pass stand-in for a hand-painted
  * map; committed PNGs must match this function.
@@ -198,32 +230,12 @@ export function createAuthoredMaps(): DensityMaps {
   const height = DENSITY_HEIGHT;
   const density = new Uint8Array(width * height);
   const region = new Uint8Array(width * height);
-  const floor = 0.03;
   for (let z = 0; z < height; z++) {
     for (let x = 0; x < width; x++) {
-      let d = floor;
-      let best = 0;
-      let bestCode: RegionCode = 'VOID';
-      for (const b of DENSITY_BLOBS) {
-        const w = blobWeight(x, z, b);
-        d += w;
-        if (w > best) {
-          best = w;
-          bestCode = b.region;
-        }
-      }
-      const orb = orbitalWeight(z);
-      d += orb;
-      if (orb > best && orb > 0.08) {
-        best = orb;
-        bestCode = 'ORBT';
-      }
-      if (best < 0.08) bestCode = 'VOID';
-      if (d < 0) d = 0;
-      else if (d > 1) d = 1;
+      const at = sampleAuthored(x, z);
       const i = z * width + x;
-      density[i] = (d * 255 + 0.5) | 0;
-      region[i] = regionIndex(bestCode);
+      density[i] = (at.density * 255 + 0.5) | 0;
+      region[i] = regionIndex(at.region);
     }
   }
   return bindMaps(width, height, density, region);

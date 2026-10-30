@@ -252,6 +252,36 @@ export function createSyncBackend(
   };
 }
 
+/**
+ * Runs generate on a later macrotask so it is not on the `update()` stack.
+ * Same contract as the module worker; used by the lab so rng/hash stay in
+ * the shared App graph and the worker chunk is not duplicated in dist.
+ */
+export function createAsyncBackend(
+  generate: (sx: number, sz: number, worldSeed: number) => SectorData,
+): SectorBackend {
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  return {
+    generate(sx, sz, worldSeed) {
+      return new Promise((resolve, reject) => {
+        const t = setTimeout(() => {
+          timers.delete(t);
+          try {
+            resolve(generate(sx, sz, worldSeed));
+          } catch (err) {
+            reject(err);
+          }
+        }, 0);
+        timers.add(t);
+      });
+    },
+    dispose() {
+      for (const t of timers) clearTimeout(t);
+      timers.clear();
+    },
+  };
+}
+
 /** Completes jobs only when `flush(n)` is called — models a worker. */
 export function createDeferredBackend(
   generate: (sx: number, sz: number, worldSeed: number) => SectorData,

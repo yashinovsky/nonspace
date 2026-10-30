@@ -20,9 +20,11 @@ import {
   DENSITY_WIDTH,
   mapsFromRgba,
   REGION_CODES,
+  sampleAuthored,
 } from '../../src/world/densityMap';
 import { FALLBACK_LANDMARKS, landmarkWorld } from '../../src/world/landmarks';
-import { DEFAULT_WORLD_SEED, generateSector, sampleMinorSpec } from '../../src/world/Sector';
+import { DEFAULT_WORLD_SEED, generateSector } from '../../src/world/Sector';
+import { sampleMinorSpec } from '../../src/world/sampleSpec';
 import {
   createDeferredBackend,
   createSectorStreamer,
@@ -41,11 +43,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 const maps = createAuthoredMaps();
 
 function gen(sx: number, sz: number, seed = DEFAULT_WORLD_SEED) {
+  const at = maps.at(sx, sz);
   return generateSector({
     sx,
     sz,
     worldSeed: seed,
-    maps,
+    density: at.density,
+    region: at.region,
     landmarks: FALLBACK_LANDMARKS,
   });
 }
@@ -70,7 +74,7 @@ describe('coords', () => {
 
 describe('density / region maps', () => {
   it('committed PNGs match the authored blob function', () => {
-    const dir = resolve(here, '../../public/data');
+    const dir = resolve(here, '../fixtures');
     const dPng = PNG.sync.read(readFileSync(resolve(dir, 'density.png')));
     const rPng = PNG.sync.read(readFileSync(resolve(dir, 'regions.png')));
     expect(dPng.width).toBe(DENSITY_WIDTH);
@@ -89,6 +93,9 @@ describe('density / region maps', () => {
     expect(maps.regionCode(40, 8)).toBe('ORBT');
     expect(maps.regionCode(20, 200)).toBe('VOID');
     expect(REGION_CODES).toContain('BAMA');
+    const spot = sampleAuthored(148, 72);
+    expect(spot.region).toBe('BAMA');
+    expect(spot.density).toBe(maps.sample(148, 72));
   });
 });
 
@@ -119,7 +126,7 @@ describe('generateSector', () => {
   });
 
   it('pins a golden hash for BAMA 148,72 seed 1', () => {
-    expect(gen(148, 72, 1).contentHash).toBe(2095364418);
+    expect(gen(148, 72, 1).contentHash).toBe(4291881016);
   });
 
   it('snaps cluster centers to the 64 u grid and emits Manhattan traffic', () => {

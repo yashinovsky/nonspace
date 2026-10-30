@@ -1,22 +1,23 @@
 /**
  * Web Worker entry for sector generation (plan §8.6). Spec-only: no Three,
- * no BeamBatch, no construct emitters.
+ * no BeamBatch, no construct emitters, no density rasters.
  */
 
-import { mapsFromRasters, type DensityMaps } from './densityMap';
+import type { RegionCode } from './densityMap';
 import type { LandmarkDef } from './landmarks';
 import { generateSector, type SectorData } from './Sector';
 
 export type WorkerRequest =
+  | { type: 'init'; landmarks: LandmarkDef[] }
   | {
-      type: 'init';
-      density: Uint8Array;
-      region: Uint8Array;
-      width: number;
-      height: number;
-      landmarks: LandmarkDef[];
-    }
-  | { type: 'gen'; id: number; sx: number; sz: number; worldSeed: number };
+      type: 'gen';
+      id: number;
+      sx: number;
+      sz: number;
+      worldSeed: number;
+      density: number;
+      region: RegionCode;
+    };
 
 export type WorkerResponse =
   | { type: 'ready' }
@@ -29,20 +30,20 @@ type WorkerScope = {
 };
 
 const ctx = self as unknown as WorkerScope;
-let maps: DensityMaps | null = null;
 let landmarks: LandmarkDef[] = [];
+let ready = false;
 
 ctx.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const msg = e.data;
   try {
     if (msg.type === 'init') {
-      maps = mapsFromRasters(msg.density, msg.region, msg.width, msg.height);
       landmarks = msg.landmarks;
+      ready = true;
       ctx.postMessage({ type: 'ready' });
       return;
     }
     if (msg.type === 'gen') {
-      if (!maps) {
+      if (!ready) {
         ctx.postMessage({ type: 'error', id: msg.id, message: 'worker not init' });
         return;
       }
@@ -50,7 +51,8 @@ ctx.onmessage = (e: MessageEvent<WorkerRequest>) => {
         sx: msg.sx,
         sz: msg.sz,
         worldSeed: msg.worldSeed,
-        maps,
+        density: msg.density,
+        region: msg.region,
         landmarks,
       });
       ctx.postMessage({ type: 'data', id: msg.id, sector });

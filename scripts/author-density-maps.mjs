@@ -93,7 +93,7 @@ for (let z = 0; z < H; z++) {
   }
 }
 
-const dir = join(dirname(fileURLToPath(import.meta.url)), '../public/data');
+const dir = join(dirname(fileURLToPath(import.meta.url)), '../tests/fixtures');
 writeFileSync(join(dir, 'density.png'), PNG.sync.write(density, { colorType: 0 }));
 writeFileSync(join(dir, 'regions.png'), PNG.sync.write(regions));
 console.log('wrote', join(dir, 'density.png'), join(dir, 'regions.png'));
