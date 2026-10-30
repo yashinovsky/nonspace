@@ -44,6 +44,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=sfx` is the M5.2 SFX catalog (every §7.3 recipe, Bell 103 modem, Dixie barks/laugh, event-driven flatline stub). Click to unlock. It does not need WebGL2.
 - `?lab=render` is the M0.4 HDR cube through the post chain. `?quality=low` (or `auto` / `medium` / `high`) is a session override of `settings.graphics.quality`.
 - `?lab=persist` is the M1.4 P7 phosphor lab (radar sweep + orbiting GRID/ICE bars). Use `&quality=medium` or `high` — SwiftShader `auto` is Low and skips persistence.
+- `?lab=points` is the M1.2 lightpoint / traffic lab (60k static points in one draw, Manhattan path-texture traffic). Screenshot: `docs/screenshots/m1-2-lightpoints.png`. Contract notes in plan §9.18.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 

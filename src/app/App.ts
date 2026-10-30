@@ -17,7 +17,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` is the HDR cube; `persist` is the M1.4 phosphor lab. */
+  /** `?lab=` value. `render` = HDR cube; `persist` = M1.4 phosphor; `points` = M1.2 lightpoints. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -145,6 +145,11 @@ export async function startApp({
     const { installRenderLab } = await import('../debug/RenderLab');
     labHandle = installRenderLab(renderer);
     root.dataset.lab = 'render';
+  }
+  if (lab === 'points') {
+    const { installPointsLab } = await import('../debug/PointsLab');
+    labHandle = installPointsLab(renderer, root);
+    root.dataset.lab = 'points';
   }
 
   if (lab === 'persist') {
