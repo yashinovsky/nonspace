@@ -46,6 +46,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=persist` is the M1.4 P7 phosphor lab (radar sweep + orbiting GRID/ICE bars). Use `&quality=medium` or `high` — SwiftShader `auto` is Low and skips persistence.
 - `?lab=points` is the M1.2 lightpoint / traffic lab (60k static points in one draw, Manhattan path-texture traffic). Screenshot: `docs/screenshots/m1-2-lightpoints.png`. Contract notes in plan §9.18.
 - `?lab=raster` is the M1.7 SMPTE test card through the raster CRT / NTSC pass (chroma bleed, 240 scanlines, aperture grille, barrel). Screenshot: `docs/screenshots/m1-7-smpte-raster-crt.png`.
+- `?lab=beam` is the M1.1 beam-line lab (palette, near-plane clip, sub-pixel width, vertex dwell, fog, 150k stress, dynamic batch). `&scene=` selects a fixture; `?debug` exposes σ / dwell / fog. Screenshot: `docs/screenshots/m1-1-beams.png`. Contract notes in plan §9.20.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -86,11 +87,11 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Flight controller, camera rig, soft hull collision                       | `src/player/{FlightController,CameraRig,Collision}.ts` |
 | Renderer service (HDR targets, PostChain, quality)                       | `src/render/Renderer.ts`                               |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.19. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.20. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
-M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain. Default boot is still a black canvas. Contract notes are in plan §9.16.
+M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain. Default boot is still a black canvas. Contract notes are in plan §9.16. M1.1 adds instanced beam lines (`createBeamBatch`, `beamLine.vert/.frag`); contract notes are in plan §9.20.
 
 | Piece                                          | File                                                                           |
 | ---------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -102,12 +103,14 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 | Phosphor persistence (M1.4)                    | `PersistencePass.ts`, `post/shaders/persistence.frag`                          |
 | Remaining M1 slots (identity stubs)            | `BloomPass.ts`, `BlackIceComposite.ts`, `VectorCrtPass.ts`, `RasterCrtPass.ts` |
 | Tonemap blit                                   | `FinalComposite.ts`                                                            |
+| Beam lines (M1.1)                              | `render/lines/BeamBatch.ts`, `beamLine.vert/.frag`, `render/palette.ts`        |
 
 - `?lab=render` — two amber cubes (HDR intensity 4 vs 0.55) through the HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m0-4-hdr-cube.png`.
 - `?lab=persist` — GRID radar arm + orbiting bars through PersistencePass. Trails shift blue-white → yellow-green. Screenshot: `docs/screenshots/m1-4-phosphor-trails.png`.
 - `?quality=low` (or `auto` / `medium` / `high`) — session override of `settings.graphics.quality` (not persisted).
 - `?debug` adds a graphics folder: quality, internal size, dynres, a GPU-load slider, and inject-20 ms buttons. Persistence tunables live in the `phosphor` folder.
-- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17.
+- `?lab=beam` — eight palette cubes plus a grid, through the same HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m1-1-beams.png`.
+- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. M1.2 must not edit `render/lines/*`.
 - M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.

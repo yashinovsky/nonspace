@@ -30,6 +30,16 @@ async function main(): Promise<void> {
   const checkpoint = params.get('checkpoint') ?? undefined;
 
   try {
+    if (lab === 'beam') {
+      const { isBeamScene, startBeamLab } = await import('./debug/BeamLab');
+      const sceneParam = params.get('scene');
+      await startBeamLab(root, {
+        debug,
+        qualityOverride,
+        scene: isBeamScene(sceneParam) ? sceneParam : undefined,
+      });
+      return;
+    }
     const { startApp } = await import('./app/App');
     await startApp({ root, debug, lab, qualityOverride, missionId, checkpoint });
   } catch (err) {
