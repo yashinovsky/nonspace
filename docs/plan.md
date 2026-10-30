@@ -1335,6 +1335,16 @@ Jack-in / jack-out sequences. Does not own `hud/*` (M3.2). Does not edit sibling
 - **Modes** (`app/modes/JackIn.ts`, `JackOut.ts`): JackIn `simulatesWhenCovered` so JackOut can push on top and collapse the live image. Jack-out is not skippable.
 - **Dev route:** `?lab=jack` (`&seq=full|short`, `&scene=in|out`, `&first=1`). Lazy `debug/JackLab.ts` chunk; default boot never fetches it. `window.__nonspaceJack` exposes `{ seek, playIn, playOut, sampleAt, collapse }`. Screenshot: `docs/screenshots/m2-7-jack-in.png`. Playwright freezes `setAnimationLoop` before snapshots and steps frames for the flash rule (≤ 3 flashes/s, low contrast). Dist budget is the default-boot graph (lab chunk excluded). No `.gz` fetch on this path (gunzip-if-magic remains M3.1 / M1.6).
 
+### 9.36 Contract notes from M4.2 (repo copy only)
+
+ICE model and visuals. Does not implement M4.3 (`BreachController`, `Grip.ts` as a deck module, `modes/Breach.ts`, `modes/Flatline.ts`, `deck/{NeuralLoad,Trace,Heat}`). Phase Lock math remains M4.1 / #5 (`breach/PhaseLock.ts`). Black ICE mask/composite remains M1.8 (§9.33). Construct grammar remains M2.1 (§9.21). Look Lab remains M1.9 (§9.34). Jack-in remains M2.7 (§9.35).
+
+- **`IceModel.ts`**: runtime on top of the §9.3 `IceDef` / `IceLayerDef` types. `createIceModel(def, { seed, events })` owns layer index, phase drift (sign flips every 2–5 s), telegraphed re-key scheduler (`rekeyEvery`, `telegraph`), lock meter via `PhaseLock.stepLockMeter` / `matchMetric`, local neural/trace for grip, and grip state (neural threshold or failed re-key while meter < 0.3). Posts `iceEngaged` / `iceRekeyTelegraph` / `iceRekey` / `iceLayerCracked` / `gripStart` / `gripEnd`. `setFrozen` is the Wintermute freeze hook. Does not emit flatline or burned (M4.3).
+- **`IceVisuals.ts`**: nested shells from `IceDef.shell` + class look (white 2 cubes, gray 4 counter-rotating octahedra, black 3 subtractive icosahedra). White/gray faces use `iceFacet.vert/.frag` (two hatch sets → moiré, additive, no hidden-line depth write). Edges are `BeamBatch`. Active facet + target/breaker Lissajous are dynamic beams. Black solids write `scenes.blackIce` **only while grip is live** so the mask blit is skipped on idle trio frames (SwiftShader). UV crawl edges stay in HDR. `grip` 0..1 grows M1.8 screen-edge tendrils.
+- **`fx/Shatter.ts`**: cracked layer segments fall/tumble for **1.2 s** (`SHATTER_DURATION`). Persistence trails come from M1.4 (use `?quality=high`).
+- **Content**: `content/ice/{white,gray,black}.ts` (`WHITE_ICE`, `GRAY_ICE`, `BLACK_ICE`) plus existing `presets.ts`.
+- **Dev route**: `?lab=ice` (`debug/IceLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `&scene=trio|white|gray|black|shatter|telegraph|grip`, `&gray=1`. Mock sfx `rekeyTelegraph` / `shatter` (click unlocks the real engine). `window.__nonspaceIce`. Playwright freezes `setAnimationLoop` before canvas snapshots (no live warmup). Screenshots: `docs/screenshots/m4-2-ice.png` (grayscale `m4-2-ice-gray.png`). Dist budget is the default-boot graph (lab chunk excluded). Gunzip `.gz` only when gzip magic is still present (unchanged Hershey helper; this lab does not fetch fonts).
+
 ---
 
 ## 10. Milestones and tasks

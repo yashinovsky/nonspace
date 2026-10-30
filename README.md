@@ -60,6 +60,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=blackice` is the M1.8 black ICE lab (subtractive shard that eats bloom, crawling ultraviolet edges, screen-edge grip tendrils). `&scene=shard|grip`. Screenshot: `docs/screenshots/m1-8-black-ice.png`. Contract notes in plan §9.33.
 - `?lab=look` is the M1.9 art-integration scene (grid, lattice, ESFA ziggurat, Mitsubishi cubes, T-A slabs, white ICE, black ICE shard, traffic, placeholder spiral arms, free-fly). `?gray=1` for grayscale. Screenshot: `docs/screenshots/m1-9-look-lab.png`. Contract notes in plan §9.34.
 - `?lab=jack` is the M2.7 jack-in / jack-out lab (5.5 s full, 1.2 s short, skippable after first viewing; 0.6 s CRT collapse). `&seq=full|short`, `&scene=in|out`, `&first=1`. Screenshot: `docs/screenshots/m2-7-jack-in.png`. Contract notes in plan §9.35.
+- `?lab=ice` is the M4.2 ICE model + visuals (white / gray / black shells, moiré hatch, Lissajous, 1.2 s shatter, re-key telegraph, black-ICE grip tendrils). `&scene=trio|white|gray|black|shatter|telegraph|grip`, `&gray=1`. Screenshot: `docs/screenshots/m4-2-ice.png`. Contract notes in plan §9.36.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -73,7 +74,7 @@ Shared contracts from plan §9 are typed stubs other tasks build against:
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Events + typed event bus           | `src/core/events.ts`                                                                                  |
 | Beam lines, points, palette        | `src/render/lines/BeamBatch.ts`, `src/render/points/PointBatch.ts`, `src/render/palette.ts`           |
-| ICE + Phase Lock metric            | `src/breach/IceModel.ts`, `src/breach/PhaseLock.ts`, `src/content/ice/presets.ts`                     |
+| ICE + Phase Lock metric            | `src/breach/{IceModel,IceVisuals,PhaseLock}.ts`, `src/content/ice/{white,gray,black,presets}.ts`      |
 | Softs                              | `src/content/softs.ts`                                                                                |
 | Missions (zod)                     | `src/narrative/schema.ts`                                                                             |
 | Mission runner + triggers          | `src/narrative/MissionRunner.ts`, `src/narrative/triggers.ts`                                         |
@@ -108,7 +109,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
 | Simstim feed, flip, gates, pain (M6.1)                                   | `src/simstim/*`, `src/app/modes/Simstim.ts`            |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look, jack), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.35. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look, jack, ice), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.36. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
@@ -126,6 +127,7 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 | Vector CRT composite (M1.6)                    | `VectorCrtPass.ts`, `post/shaders/vectorCrt.frag`, `tonemap.frag`                            |
 | Raster CRT / NTSC (M1.7)                       | `RasterCrtPass.ts`, `post/shaders/rasterCrt.frag`                                            |
 | Black ICE mask (M1.8)                          | `BlackIceComposite.ts`, `faces/blackIce.*`, `faces/uvEdge.ts`                                |
+| ICE facets + shatter (M4.2)                    | `faces/iceFacet.*`, `fx/Shatter.ts`, `breach/IceVisuals.ts`                                  |
 | Tonemap blit (skipped when CRT sets `encoded`) | `FinalComposite.ts`                                                                          |
 | Beam lines (M1.1)                              | `render/lines/BeamBatch.ts`, `beamLine.vert/.frag`, `render/palette.ts`                      |
 | Ground grid + lattice (M1.3)                   | `render/grid/GroundGrid.ts`, `LocalLattice.ts`, `groundGrid.vert/.frag`                      |
@@ -140,7 +142,7 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 - `?lab=beam` — eight palette cubes plus a grid, through the same HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m1-1-beams.png`.
 - `?lab=grid` — infinite ground grid (8/64/1024 u, analytic AA, checker, warp) plus the 64 u local lattice. Screenshot: `docs/screenshots/m1-3-grid.png`.
 - `?lab=text` — Hershey labels (world billboard + 16 px screen), Px437 ASCII, VFD 7/14-seg with 6% ghosts. Screenshot: `docs/screenshots/m3-1-text.png`.
-- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. Sector notes are plan §9.26. Simstim notes are plan §9.27. Teletext notes are plan §9.28. Bloom notes are plan §9.29. Text notes are plan §9.30. Vector CRT notes are plan §9.32. Black ICE notes are plan §9.33. Look Lab notes are plan §9.34. Jack-in / jack-out notes are plan §9.35. M1.2 must not edit `render/lines/*`.
+- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. Sector notes are plan §9.26. Simstim notes are plan §9.27. Teletext notes are plan §9.28. Bloom notes are plan §9.29. Text notes are plan §9.30. Vector CRT notes are plan §9.32. Black ICE notes are plan §9.33. Look Lab notes are plan §9.34. Jack-in / jack-out notes are plan §9.35. ICE model/visuals notes are plan §9.36. M1.2 must not edit `render/lines/*`.
 - `?lab=blackice` — black ICE shard in front of a hot construct: the solid is truly black (eats bloom), UV edges crawl, `?scene=grip` grows screen-edge tendrils. Screenshot: `docs/screenshots/m1-8-black-ice.png`.
 - `?lab=look` — M1.9 art scene through the full vector CRT chain. Screenshot: `docs/screenshots/m1-9-look-lab.png`.
 - M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.
