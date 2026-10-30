@@ -93,7 +93,7 @@ export default defineConfig(({ command }) => ({
   build: {
     target: 'es2022',
     sourcemap: false,
-    // Three.js alone is ~510 KB minified; the 1 MB dist budget is enforced by scripts/check-size.mjs.
+    // Three.js alone is ~510 KB minified; the 1 MB default-boot budget is enforced by scripts/check-size.mjs.
     chunkSizeWarningLimit: 600,
   },
   server: {
