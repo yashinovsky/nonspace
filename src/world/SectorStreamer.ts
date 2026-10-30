@@ -86,13 +86,33 @@ interface Slot {
   job?: Promise<void>;
 }
 
-export function neededSectors(sx: number, sz: number, radius = STREAM_RADIUS): SectorIndex[] {
-  const out: SectorIndex[] = [];
+/** Fill `out` with the (2r+1)² window. Reuses objects already in `out`. */
+export function fillNeededSectors(
+  out: SectorIndex[],
+  sx: number,
+  sz: number,
+  radius = STREAM_RADIUS,
+): number {
+  let i = 0;
   for (let dz = -radius; dz <= radius; dz++) {
     for (let dx = -radius; dx <= radius; dx++) {
-      out.push({ sx: sx + dx, sz: sz + dz });
+      const slot = out[i];
+      if (slot) {
+        slot.sx = sx + dx;
+        slot.sz = sz + dz;
+      } else {
+        out[i] = { sx: sx + dx, sz: sz + dz };
+      }
+      i++;
     }
   }
+  if (out.length > i) out.length = i;
+  return i;
+}
+
+export function neededSectors(sx: number, sz: number, radius = STREAM_RADIUS): SectorIndex[] {
+  const out: SectorIndex[] = [];
+  fillNeededSectors(out, sx, sz, radius);
   return out;
 }
 
@@ -122,6 +142,8 @@ export function createSectorStreamer(opts: SectorStreamerOptions): SectorStreame
   };
   let inflight = 0;
   const maxInflight = 4;
+  const wantScratch = new Set<string>();
+  const neededScratch: SectorIndex[] = [];
 
   const kick = (slot: Slot): void => {
     if (slot.job || slot.data) return;
@@ -188,10 +210,11 @@ export function createSectorStreamer(opts: SectorStreamerOptions): SectorStreame
       const { sx, sz } = worldToSector(x, z);
       stats.windowSx = sx;
       stats.windowSz = sz;
-      const want = new Set<string>();
-      for (const s of neededSectors(sx, sz, radius)) {
+      wantScratch.clear();
+      fillNeededSectors(neededScratch, sx, sz, radius);
+      for (const s of neededScratch) {
         const key = sectorKey(s.sx, s.sz);
-        want.add(key);
+        wantScratch.add(key);
         if (!slots.has(key)) {
           const slot: Slot = { key, sx: s.sx, sz: s.sz, state: 'pending' };
           slots.set(key, slot);
@@ -206,7 +229,7 @@ export function createSectorStreamer(opts: SectorStreamerOptions): SectorStreame
         }
       }
       let kicked = 0;
-      for (const key of want) {
+      for (const key of wantScratch) {
         if (inflight >= maxInflight) break;
         const slot = slots.get(key);
         if (slot && !slot.data && !slot.job) {
@@ -226,13 +249,14 @@ export function createSectorStreamer(opts: SectorStreamerOptions): SectorStreame
     preload(x, z) {
       const t0 = now();
       const { sx, sz } = worldToSector(x, z);
-      for (const s of neededSectors(sx, sz, radius)) {
+      fillNeededSectors(neededScratch, sx, sz, radius);
+      for (const s of neededScratch) {
         const key = sectorKey(s.sx, s.sz);
         if (!slots.has(key)) {
           slots.set(key, { key, sx: s.sx, sz: s.sz, state: 'pending' });
         }
       }
-      for (const s of neededSectors(sx, sz, radius)) {
+      for (const s of neededScratch) {
         if (inflight >= maxInflight) break;
         const slot = slots.get(sectorKey(s.sx, s.sz));
         if (slot && !slot.data && !slot.job) kick(slot);
@@ -242,7 +266,8 @@ export function createSectorStreamer(opts: SectorStreamerOptions): SectorStreame
     },
     readyAround(x, z) {
       const { sx, sz } = worldToSector(x, z);
-      for (const s of neededSectors(sx, sz, radius)) {
+      fillNeededSectors(neededScratch, sx, sz, radius);
+      for (const s of neededScratch) {
         if (!slots.get(sectorKey(s.sx, s.sz))?.data) return false;
       }
       return true;

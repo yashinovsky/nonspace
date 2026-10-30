@@ -115,6 +115,20 @@ export function pointSetCount(set: PointSet): number {
   return set.color.length;
 }
 
+/** View of the first `cap` points. Uses `subarray` so it does not copy. */
+export function clipPointSet(set: PointSet, cap: number): PointSet {
+  const n = pointSetCount(set);
+  const keep = cap < 0 ? 0 : cap < n ? cap | 0 : n;
+  if (keep === n) return set;
+  const out: PointSet = {
+    positions: set.positions.subarray(0, keep * 3),
+    color: set.color.subarray(0, keep),
+    intensity: set.intensity.subarray(0, keep),
+  };
+  if (set.size) out.size = set.size.subarray(0, keep);
+  return out;
+}
+
 export function projectPointSize(
   size: number,
   dist: number,

@@ -26,6 +26,8 @@ async function main(): Promise<void> {
   const lab = params.get('lab');
   const qualityParam = params.get('quality');
   const qualityOverride = isQualitySetting(qualityParam) ? qualityParam : undefined;
+  const forceRgba8 = params.get('hdr') === '0';
+  const skipAnimationLoop = params.has('noloop');
   const missionId = params.get('mission') ?? undefined;
   const checkpoint = params.get('checkpoint') ?? undefined;
 
@@ -51,7 +53,16 @@ async function main(): Promise<void> {
       return;
     }
     const { startApp } = await import('./app/App');
-    await startApp({ root, debug, lab, qualityOverride, missionId, checkpoint });
+    await startApp({
+      root,
+      debug,
+      lab,
+      qualityOverride,
+      forceRgba8,
+      skipAnimationLoop,
+      missionId,
+      checkpoint,
+    });
   } catch (err) {
     console.error(err);
     showUnsupported(root);

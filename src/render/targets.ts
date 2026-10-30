@@ -176,15 +176,20 @@ export function createRenderTargets(width: number, height: number, hdr: boolean)
   };
 }
 
+/** True when the GL context advertises a float/half-float color-buffer extension. */
+export function hasHdrColorBuffer(gl: { getExtension(name: string): unknown }): boolean {
+  return !!(
+    gl.getExtension('EXT_color_buffer_half_float') || gl.getExtension('EXT_color_buffer_float')
+  );
+}
+
 /**
  * True when a 1×1 RGBA16F target is a complete framebuffer. Call once after
  * constructing the WebGLRenderer. Falls back to RGBA8 when this is false.
  */
 export function probeHdr(renderer: WebGLRenderer): boolean {
   const gl = renderer.getContext() as WebGL2RenderingContext;
-  const hasExt =
-    !!gl.getExtension('EXT_color_buffer_half_float') || !!gl.getExtension('EXT_color_buffer_float');
-  if (!hasExt) return false;
+  if (!hasHdrColorBuffer(gl)) return false;
 
   const rt = createColorTarget(1, 1, { hdr: true, depth: false });
   try {

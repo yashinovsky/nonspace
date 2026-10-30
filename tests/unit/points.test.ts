@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { vec3 } from '../../src/core/math/vec3';
 import {
+  clipPointSet,
   createPointSet,
   DEFAULT_POINT_SIZE,
   POINT_MIN_SIZE,
@@ -103,5 +104,17 @@ describe('shaders', () => {
     expect(trafficVert).toContain('fract(uTime * aSpeed / len + aPhase)');
     expect(trafficVert).toContain('sampleTrafficPath');
     expect(trafficVert).not.toContain('#include');
+  });
+});
+
+describe('clipPointSet', () => {
+  it('returns a subarray view of the first N points without copying', () => {
+    const set = createPointSet(10, { size: true });
+    set.positions[0] = 3;
+    const clipped = clipPointSet(set, 4);
+    expect(pointSetCount(clipped)).toBe(4);
+    expect(clipped.positions.buffer).toBe(set.positions.buffer);
+    expect(clipPointSet(set, 10)).toBe(set);
+    expect(pointSetCount(clipPointSet(set, 0))).toBe(0);
   });
 });
