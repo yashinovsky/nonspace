@@ -1356,6 +1356,15 @@ HUD overlay. Edits `FinalComposite.ts` to sample `targets.hud` after the CRT pas
 - **Composite.** `Renderer.endFrame` draws `scenes.hud` into `targets.hud` and sets `ctx.hudDrawn`. `FinalComposite` keeps the original identity and collapse shaders (no `tHud` sampler) and swaps to a HUD overlay material (`c += hud * 1.12`, identity UVs so CRT collapse does not warp chrome) only when `hudDrawn` is set, so SwiftShader default boot does not pay an extra fullscreen sample. Barrel / jitter never sample the HUD.
 - **Dev route:** `?lab=hud` (`debug/HudLab.ts`, lazy `?lab=` chunk; default boot never fetches it). Mocks drive every widget; a matrix lattice sits behind so CRT barrel is visible against unwarped chrome. `window.__nonspaceHud`. Screenshot: `docs/screenshots/m3-2-hud.png`. Playwright freezes `setAnimationLoop` before any canvas snapshot and paints with `endFrame` (no live warmup — a spinning HUD + CRT loop starves sibling SwiftShader workers). Dist budget is the default-boot graph (lab chunk excluded).
 
+### 9.38 Contract notes from M6.2 (repo copy only)
+
+Sense/Net simstim content. Does not rewrite the M6.1 feed or `SimstimRenderer` shaders (`flatDither.frag`, chip clock, vignette, hands). Raster CRT remains M1.7 (§9.19). Feed / gates / flip remain M6.1 (§9.27). Jack-in remains M2.7 (§9.35). ICE remains M4.2 (§9.36). HUD remains M3.2 (§9.37). Straylight interiors remain M6.3.
+
+- **No glTF.** Blender is not in the environment; scenes are procedural boxes and arches (`render/simstim/kit.ts`, `content/simstim/senseNetScene.ts`), flat-shaded through the existing dither material. Each zone (lobby / corridor / vault) is ≤ 3k tris (`SCENE_TRI_CAP`). `SimstimTimeline.scene` is an id (`sensenet` / `lab:lobby`), not a `.glb` path.
+- **Timeline** (`content/simstim/senseNet.ts`): `senseNetTimeline()` walks lobby → corridor → vault in ~16 s (stub; M7.5 retimes the Moderns' panic to book-meat 4:00). Three gates (`lobby-door`, `corridor-lock`, `vault-seal`) with `holdUntilOpen`. Guard mannequins; eight crowd blobs unhide at `SENSE_NET_PANIC_AT` (9 s) and scatter (`pose: 'run'`). Alarm boxes blink at 1.5 Hz only while a crowd figure is running (under the §5.9 3 Hz cap). Molly lines are invented three-word stubs.
+- **Renderer hook.** `SimstimRenderer.load` still builds via the M6.1 material factory; it dispatches `buildSimstimScene(def.scene)` and poses `hidden` / `run`. PIP, flip, chip clock, and 320×240 raster CRT are unchanged.
+- **Dev routes:** `?lab=simstim` plays Sense/Net (lazy `SimstimLab` chunk; default boot does not fetch it). `&scene=lab` is the M6.1 one-gate lobby. `&t=` seeks meat time. `?mission=m2` is a structural stub (`narrative/mocks.ts` `mockM2Mission`) allowed in the production preview so e2e can hit it; campaign M2 remains M7.5. `F` cracks the open gate. Screenshot: `docs/screenshots/m6-2-sensenet-crt.png`. Dist budget is the default-boot graph (lab / `senseNet` chunks excluded).
+
 ---
 
 ## 10. Milestones and tasks

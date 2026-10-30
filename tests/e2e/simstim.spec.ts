@@ -43,7 +43,7 @@ test.describe('M6.1 simstim feed', () => {
   test('lab boots a dithered lobby through the raster CRT with a chip clock', async ({ page }) => {
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto('/?lab=simstim&quality=high');
+    await page.goto('/?lab=simstim&scene=lab&quality=high');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
     await expect(page.locator('#app')).toHaveAttribute('data-lab', 'simstim');
     await expect(page.getByTestId('simstim-lab')).toBeVisible();
@@ -118,7 +118,7 @@ test.describe('M6.1 simstim feed', () => {
   test('timeline meat-time, re-key while flipped, gate hit, pain echo', async ({ page }) => {
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto('/?lab=simstim&quality=high');
+    await page.goto('/?lab=simstim&scene=lab&quality=high');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
     await page.waitForFunction(handle);
 

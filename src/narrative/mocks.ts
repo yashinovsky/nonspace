@@ -142,10 +142,54 @@ export function mockSimstimMission(): MissionDef {
   };
 }
 
+/** Structural M2 stub so `?mission=m2` plays the Sense/Net timeline (M6.2). */
+export function mockM2Mission(): MissionDef {
+  const base = mockTriggerMission();
+  return {
+    ...base,
+    id: 'm2',
+    act: 2,
+    title: 'Sense/Net',
+    simstim: {
+      timeline: 'sense-net',
+      gates: [
+        {
+          id: 'lobby-door',
+          iceNode: 'sense-net-lobby',
+          tMeat: 3,
+          early: 1.5,
+          late: 1.5,
+          onEarly: [],
+          onLate: [],
+        },
+        {
+          id: 'corridor-lock',
+          iceNode: 'sense-net-corridor',
+          tMeat: 8,
+          early: 1.5,
+          late: 1.5,
+          onEarly: [],
+          onLate: [],
+        },
+        {
+          id: 'vault-seal',
+          iceNode: 'sense-net-vault',
+          tMeat: 13,
+          early: 1.5,
+          late: 1.5,
+          onEarly: [],
+          onLate: [],
+        },
+      ],
+    },
+  };
+}
+
 const FACTORIES: Record<string, () => MissionDef> = {
   'mock-triggers': mockTriggerMission,
   'mock-simstim': mockSimstimMission,
   mock: mockTriggerMission,
+  m2: mockM2Mission,
 };
 
 export function getMockMission(id: string): MissionDef | undefined {

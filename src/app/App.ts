@@ -120,7 +120,7 @@ export async function startApp({
   });
   modeRef.stack = modes;
 
-  const allowMissionRoute = debug || import.meta.env.DEV;
+  const allowMissionRoute = debug || import.meta.env.DEV || missionId === 'm2';
   if (allowMissionRoute && missionId) {
     const def = getMockMission(missionId);
     if (!def) {
@@ -234,10 +234,17 @@ export async function startApp({
     labHandle = await installVectorCrtLab(renderer);
     root.dataset.lab = 'vector';
   }
-  if (lab === 'simstim') {
+  if (lab === 'simstim' || missionId === 'm2') {
     const { installSimstimLab } = await import('../debug/SimstimLab');
-    labHandle = installSimstimLab(renderer, simstim, modes);
-    root.dataset.lab = 'simstim';
+    const q = new URLSearchParams(window.location.search);
+    const seekRaw = Number.parseFloat(q.get('t') ?? '');
+    labHandle = installSimstimLab(renderer, simstim, modes, {
+      scene: q.get('scene') ?? (missionId === 'm2' ? 'sensenet' : undefined),
+      mission: missionId === 'm2' ? mission : undefined,
+      seek: Number.isFinite(seekRaw) && seekRaw > 0 ? seekRaw : undefined,
+    });
+    if (lab === 'simstim') root.dataset.lab = 'simstim';
+    if (missionId === 'm2') root.dataset.mission = 'm2';
   }
 
   if (lab === 'sky') {
@@ -551,6 +558,6 @@ export async function startApp({
     },
   };
   if (beachMode) app.beach = beachMode.sim;
-  if (debug || lab) window.__nonspace = app;
+  if (debug || lab || missionId) window.__nonspace = app;
   return app;
 }
