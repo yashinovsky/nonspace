@@ -1066,6 +1066,17 @@ Typed stubs for 9.1–9.7 are committed at the paths above (under `src/`). Where
 - **Test doubles and fixtures** live in `src/testing/{mocks,fixtures}.ts` (recording beam/point batches, event recorder, recording audio engine, valid sample ICE/mission/timeline).
 - **Tooling**: ESLint uses a flat `eslint.config.js` (ESLint 9+) rather than `.eslintrc.cjs`; TypeScript is pinned to 6.0.x, the newest version typescript-eslint supports.
 
+### 9.9 Contract notes from M0.2 (repo copy only)
+
+- **`EventBus`** gains deferred delivery: `post(event)` queues, `flush()` emits the queue in order (including events posted during the flush), `pendingCount()`. The App flushes after every sim step, so sim code should `post`; `emit` stays synchronous. `clear()` also drops queued events.
+- **`Mode`** (`app/ModeStack.ts`) is 8.2's shape plus `readonly id: ModeId` and optional `covered(by)` / `uncovered()` hooks. `handleInput(frame: ModeInputFrame)`, where `ModeInputFrame` is `unknown` until M0.3's `InputFrame` replaces it.
+- **`ModeContext`** = `{ events, modes, settings, save }`. Later tasks append their services to this interface and to the App's construction of it.
+- **ModeStack rules**: the top mode gets input. Covered modes keep updating down to the first one with `simulatesWhenCovered: false`, which freezes along with everything below it. All modes render, bottom first. Transitions requested inside mode callbacks apply after the callback returns. `modeChanged` fires when the top changes between two modes (not on the first push or the last pop). Operations are `push`, `pop`, `replace` (swap top) and `reset(mode?)`.
+- **Loop** (`core/loop.ts`): `SIM_DT = 1/60`; `update(dt)` always gets `SIM_DT`; frames longer than 0.25 s are clamped (counted in `stats.droppedTime`); `paused` stops the sim but keeps rendering (for the Esc menu).
+- **RNG/hash**: `pcg32(seed, stream?)` returns a `Pcg32` (`nextU32`, `next`, `float`, `below`, `int` inclusive, `chance`, `pick`, `shuffle`, `normal`, `poisson`, `advance`, `getState`/`setState`). `hash2i(x, z, seed)` returns uint32 and truncates inputs to int32. Golden values are pinned in `tests/unit/hash.test.ts`.
+- **Save** adds `campaign.flags: Record<string, boolean>` (mission `setFlag` and `SoftDef.unlock`). Storage key `nonspace.save`, `SAVE_VERSION = 1`, `MIGRATIONS[n]` upgrades n → n+1. Corrupt saves are backed up to `nonspace.save.corrupt`, and saves from newer builds to `nonspace.save.v<N>`.
+- **Settings** live in the save blob, validated per field (defaults on bad values, numbers clamped): `reduceFlashing` (default on), `flashingPromptAnswered`, `reduceMotion`, `holdToToggle`, `difficulty` (`story|normal|hard`), `subtitles`, `phaseLock` assists (incl. `purist`), `audio` gains, `input` (sensitivity, invertY, deadzone), `graphics` (`quality: auto|low|medium|high`, `dynamicResolution`). Key bindings stay with `input/bindings.ts`. Use `settings.update(patch)` and `onChange`.
+
 ---
 
 ## 10. Milestones and tasks

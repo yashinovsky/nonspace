@@ -109,6 +109,63 @@ describe('event bus', () => {
     expect(bus.listenerCount()).toBe(0);
   });
 
+  it('post() defers delivery until flush(), in order', () => {
+    const bus = createEventBus();
+    const rec = recordEvents(bus);
+    bus.post({ type: 'traceChanged', value: 1 });
+    bus.post({ type: 'neuralChanged', value: 2 });
+    expect(rec.events).toEqual([]);
+    expect(bus.pendingCount()).toBe(2);
+    bus.flush();
+    expect(rec.events.map((e) => e.type)).toEqual(['traceChanged', 'neuralChanged']);
+    expect(bus.pendingCount()).toBe(0);
+  });
+
+  it('flush() drains events posted by listeners in the same flush; nested flush is a no-op', () => {
+    const bus = createEventBus();
+    const rec = recordEvents(bus);
+    bus.on('iceLayerCracked', () => {
+      bus.post({ type: 'softUsed', softId: 'probe' });
+      bus.flush();
+    });
+    bus.post({ type: 'iceLayerCracked', iceId: 'x', layer: 0 });
+    bus.post({ type: 'traceChanged', value: 5 });
+    bus.flush();
+    expect(rec.events.map((e) => e.type)).toEqual(['iceLayerCracked', 'traceChanged', 'softUsed']);
+  });
+
+  it('flush() keeps draining after a listener throws, then rethrows the first error', () => {
+    const bus = createEventBus();
+    const after = vi.fn();
+    bus.on('mollyPain', () => {
+      throw new Error('boom');
+    });
+    bus.on('softUsed', after);
+    bus.post({ type: 'mollyPain', amount: 1 });
+    bus.post({ type: 'softUsed', softId: 'a' });
+    expect(() => bus.flush()).toThrow('boom');
+    expect(after).toHaveBeenCalledOnce();
+    expect(bus.pendingCount()).toBe(0);
+  });
+
+  it('flush() stops a listener that re-posts forever', () => {
+    const bus = createEventBus();
+    bus.on('scanPulse', (e) => bus.post(e));
+    bus.post({ type: 'scanPulse', origin: { x: 0, y: 0, z: 0 } });
+    expect(() => bus.flush()).toThrow(/re-posting/);
+    expect(bus.pendingCount()).toBe(0);
+  });
+
+  it('clear() drops queued events', () => {
+    const bus = createEventBus();
+    const fn = vi.fn();
+    bus.post({ type: 'jackIn', missionId: 'm1' });
+    bus.clear();
+    bus.on('jackIn', fn);
+    bus.flush();
+    expect(fn).not.toHaveBeenCalled();
+  });
+
   it('lists every event type exactly once', () => {
     expect(new Set(GAME_EVENT_TYPES).size).toBe(GAME_EVENT_TYPES.length);
     expect(GAME_EVENT_TYPES).toContain('gripEnd');

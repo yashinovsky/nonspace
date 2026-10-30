@@ -58,4 +58,16 @@ Shared contracts from plan §9 are typed stubs other tasks build against:
 
 Test doubles (recording beam/point batches, event recorder, recording audio engine) and valid sample data are in `src/testing/`. Notes on how the stubs differ from the plan's literal TypeScript are in plan §9.8.
 
+## Core runtime
+
+| Piece                                                 | File                                       |
+| ----------------------------------------------------- | ------------------------------------------ |
+| Fixed 60 Hz sim loop with render interpolation        | `src/core/loop.ts`                         |
+| Mode stack (`Mode`, `ModeContext`)                    | `src/app/ModeStack.ts`                     |
+| Deferred events (`post` / `flush`)                    | `src/core/events.ts`                       |
+| PCG32 RNG and integer hashing                         | `src/core/rng.ts`, `src/core/hash.ts`      |
+| Versioned localStorage save with migrations; settings | `src/core/save.ts`, `src/core/settings.ts` |
+
+The App flushes posted events after every sim step. Under `?debug`, the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9.
+
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.
