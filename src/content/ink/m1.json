@@ -1,0 +1,41 @@
+{
+  "title": "m1",
+  "initial": "brief",
+  "variables": {},
+  "knots": {
+    "brief": {
+      "name": "brief",
+      "lines": [
+        "First jack in years. Chiba cluster. White ice on a black-clinic node."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "JACK IN",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "debrief": {
+      "name": "debrief",
+      "lines": [
+        "Clinic ledger in the deck. You remember how to fly. The board is still out there."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "DONE",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    }
+  }
+}

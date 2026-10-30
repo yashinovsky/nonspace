@@ -42,6 +42,13 @@ export const DEFAULT_ADDRESS_BOOK: readonly AddressEntry[] = addressBookFromLand
   },
   { id: 'chiba-node', name: 'Chiba node', coords: { region: 'CHBA', x: 412.9, z: 180.2, y: 160 } },
   { id: 'hosaka', name: 'Hosaka', coords: { region: 'CHBA', x: 408, z: 176.5, y: 640 } },
+  { id: 'ninsei', name: 'Ninsei', coords: { region: 'CHBA', x: 410.2, z: 178.4, y: 90 } },
+  { id: 'chatsubo', name: 'Chatsubo', coords: { region: 'CHBA', x: 411.5, z: 179.1, y: 40 } },
+  {
+    id: 'cheap-hotel',
+    name: 'Cheap Hotel',
+    coords: { region: 'CHBA', x: 413.4, z: 181.0, y: 55 },
+  },
   { id: 'ta-berne', name: 'T-A Berne', coords: { region: 'EURO', x: 246.4, z: 74.8, y: 3200 } },
   {
     id: 'turing-geneva',

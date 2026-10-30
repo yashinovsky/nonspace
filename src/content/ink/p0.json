@@ -1,0 +1,109 @@
+{
+  "title": "p0",
+  "initial": "start",
+  "variables": {},
+  "knots": {
+    "start": {
+      "name": "start",
+      "lines": [
+        "the color of television, tuned to a dead channel"
+      ],
+      "tags": [
+        "page:test"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "NIGHT CITY",
+          "divert": "night"
+        }
+      ],
+      "divert": null
+    },
+    "night": {
+      "name": "night",
+      "lines": [
+        "Chiba. Night City. You hustle the Chatsubo and call it living. The meat is a prison."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "LINDA",
+          "divert": "linda"
+        }
+      ],
+      "divert": null
+    },
+    "linda": {
+      "name": "linda",
+      "lines": [
+        "Linda takes the Hitachi RAM. Later, Deane's ginger. She does not come back."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "THE COFFIN",
+          "divert": "molly"
+        }
+      ],
+      "divert": null
+    },
+    "molly": {
+      "name": "molly",
+      "lines": [
+        "Cheap Hotel. A razorgirl waits in your coffin, lenses mirrored, fletcher on the sheet."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "THE HILTON",
+          "divert": "armitage"
+        }
+      ],
+      "divert": null
+    },
+    "armitage": {
+      "name": "armitage",
+      "lines": [
+        "Armitage at the Chiba Hilton. A job. New pancreas. Liver plugs, so you cannot get high."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "SURGERY",
+          "divert": "surgery"
+        }
+      ],
+      "divert": null
+    },
+    "surgery": {
+      "name": "surgery",
+      "lines": [
+        "Nerves restored. Fifteen toxin sacs as leverage. The deck is warm. Time to jack in."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "JACK IN",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    }
+  }
+}

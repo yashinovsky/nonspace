@@ -7,7 +7,11 @@ import { createSettingsStore, type SettingsStore, type QualitySetting } from '..
 import type { DebugGui } from '../debug/DebugGui';
 import { createGpuTimer, type GpuTimer } from '../debug/gpuTimer';
 import { createInput, type InputService } from '../input/Input';
-import { createMissionRunner, type MissionRunner } from '../narrative/MissionRunner';
+import {
+  createMissionRunner,
+  type MissionEffects,
+  type MissionRunner,
+} from '../narrative/MissionRunner';
 import { getMockMission } from '../narrative/mocks';
 import { createCameraRig, type CameraRig } from '../player/CameraRig';
 import { createCollisionWorld, type CollisionWorld } from '../player/Collision';
@@ -28,7 +32,7 @@ export interface AppOptions {
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
-  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m2/m5/m7 also in preview). */
+  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m2/m5/m7 also in preview; p0/m1 always). */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
   checkpoint?: string;
@@ -83,12 +87,14 @@ export async function startApp({
   const renderer = createRenderer({ parent: root, settings, qualityOverride });
   const collision = createCollisionWorld();
   const flight = createFlightController({ collision });
-  const flyCam = lab === 'sector' || lab === 'look' || lab === 'ai' || lab === 'jump';
+  const sliceMission = missionId === 'p0' || missionId === 'm1';
+  const flyCam =
+    lab === 'sector' || lab === 'look' || lab === 'ai' || lab === 'jump' || sliceMission;
   const cameraRig = createCameraRig({
     camera: flyCam ? renderer.cameras.matrix : undefined,
     aspect: window.innerWidth / Math.max(window.innerHeight, 1),
     near: flyCam ? 0.5 : undefined,
-    far: flyCam ? 60_000 : undefined,
+    far: flyCam ? (sliceMission ? 80_000 : 60_000) : undefined,
   });
   const input = createInput({
     settings,
@@ -108,6 +114,7 @@ export async function startApp({
   let ensureAi: () => Promise<AiPresenceHandle> = async () => {
     throw new Error('AI presence not ready');
   };
+  const sliceFx: { current: MissionEffects | null } = { current: null };
   const mission = createMissionRunner({
     events,
     save,
@@ -117,6 +124,16 @@ export async function startApp({
         if (id === 'beach' && stack && !stack.has('beach')) {
           stack.reset(createBeachMode());
         }
+        sliceFx.current?.forceMode?.(id);
+      },
+      say(who, line) {
+        sliceFx.current?.say?.(who, line);
+      },
+      music(state) {
+        sliceFx.current?.music?.(state);
+      },
+      sfx(id) {
+        sliceFx.current?.sfx?.(id);
       },
       wintermute(action) {
         void ensureAi().then((p) => p.applyWintermute(action));
@@ -152,8 +169,8 @@ export async function startApp({
   };
 
   const stimMission = missionId === 'm2' || missionId === 'm5' || missionId === 'm7';
-  const allowMissionRoute = debug || import.meta.env.DEV || stimMission;
-  if (allowMissionRoute && missionId) {
+  const allowMissionRoute = debug || import.meta.env.DEV || stimMission || sliceMission;
+  if (allowMissionRoute && missionId && !sliceMission) {
     const def = getMockMission(missionId);
     if (!def) {
       console.warn(`[nonspace] unknown mock mission '${missionId}'`);
@@ -184,11 +201,13 @@ export async function startApp({
       sectorLab?.update(dt);
       lookLab?.update(dt);
       jumpLab?.update(dt);
+      sliceHandle?.update(dt);
       modes.update(dt);
       events.flush();
     },
     render(alpha, frameDt) {
       modes.render(alpha);
+      sliceHandle?.render(alpha);
       if (flightLab) {
         // Flight lab draws with the raw WebGLRenderer and does not use PostChain.
         renderer.three.setRenderTarget(null);
@@ -224,6 +243,11 @@ export async function startApp({
     null;
   let jumpLab: { update(dt: number): void; render(alpha: number): void; dispose(): void } | null =
     null;
+  let sliceHandle: {
+    update(dt: number): void;
+    render(alpha: number): void;
+    dispose(): void;
+  } | null = null;
   if (lab === 'render') {
     const { installRenderLab } = await import('../debug/RenderLab');
     labHandle = installRenderLab(renderer);
@@ -490,6 +514,25 @@ export async function startApp({
       scene: isKuangScene(sceneParam) ? sceneParam : undefined,
       reduceFlashing: () => settings.value.reduceFlashing,
       reduceMotion: () => settings.value.reduceMotion,
+    });
+  }
+
+  if (sliceMission && !lab) {
+    const { startVerticalSlice } = await import('../campaign/verticalSlice');
+    sliceHandle = await startVerticalSlice({
+      root,
+      renderer,
+      events,
+      save,
+      settings,
+      input,
+      flight,
+      cameraRig,
+      modes,
+      mission,
+      missionId: missionId === 'm1' ? 'm1' : 'p0',
+      checkpoint,
+      effectsSlot: sliceFx,
     });
   }
 
@@ -778,6 +821,8 @@ export async function startApp({
       aiPresence?.dispose();
       aiPresence = null;
       jumpLab?.dispose();
+      sliceHandle?.dispose();
+      sliceHandle = null;
       modes.reset();
       simstim.dispose();
       mission.dispose();
