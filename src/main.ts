@@ -40,6 +40,16 @@ async function main(): Promise<void> {
       });
       return;
     }
+    if (lab === 'text') {
+      const { isTextScene, startTextLab } = await import('./debug/TextLab');
+      const sceneParam = params.get('scene');
+      await startTextLab(root, {
+        debug,
+        qualityOverride,
+        scene: isTextScene(sceneParam) ? sceneParam : undefined,
+      });
+      return;
+    }
     const { startApp } = await import('./app/App');
     await startApp({ root, debug, lab, qualityOverride, missionId, checkpoint });
   } catch (err) {

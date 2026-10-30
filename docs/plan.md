@@ -1287,6 +1287,16 @@ Bloom, halation and the Vector CRT tonemap stub. Does not edit sibling passes, `
 - **`VectorCrtPass` stub** (`render/post/VectorCrtPass.ts`): tonemap only (barrel/jitter/flicker/vignette/glass/grain remain M1.6). Shader `post/shaders/tonemap.frag` — Reinhard on luminance + desaturate-to-white above 1.0, matching FinalComposite. Sets **`ctx.encoded = 'ldr'`** and writes through `ctx.targets.post` ping-pong. CPU reference: `render/post/tonemap.ts` (`tonemapReinhardWhite`). Beach still skips CRT so FinalComposite tonemaps there. Raster CRT (M1.7) already tonemaps for simstim/interlude; this stub does not touch it.
 - **Dev route:** `?lab=render` (same HDR cubes). Hot cube (intensity 4) should read whiter than the nominal amber cube, with a controllable glow. Screenshot: `docs/screenshots/m1-5-bloom.png`. Dist budget follows the default-boot graph (lazy `?lab=` chunks excluded), same as sector streaming.
 
+### 9.30 Contract notes from M3.1 (repo copy only)
+
+Text rendering. Does not edit `render/lines/*` (consumes `BeamBatch` / `LineSet`) or `PostChain` / `FinalComposite` (HUD overlay is M3.2).
+
+- **`HersheyText.ts`**: `loadHersheyFont` / `parseHersheyPacked` read `public/fonts/hershey/simplex.bin.gz` (Hershey strokes). Duplex JSON is a unit-test fixture only. `layoutHershey` / `writeHershey` emit a `LineSet` in the XY plane (Y up, origin left/baseline) for `BeamBatch.setStatic`. `hersheyBillboard(out, origin, cameraPos)` is a cylindrical billboard (Y up, +Z faces the camera on XZ) for world labels. Screen-space Hershey is the same `LineSet` parented in camera space: `hersheyCapWorldForPixels(16, distance, fov, cssHeight)` sizes a 16 px cap at 1080p; use `HERSHEY_SCREEN_FLAGS` (`NO_FOG`). The HUD ortho camera is a bad fit for `BeamBatch` (perspective near-clip), so screen text is camera-attached in the matrix scene until M3.2.
+- **`BitmapText.ts`**: Px437 atlas from the IBM 8×8 ROM (`createPx437Texture`, nearest `DataTexture`, additive, palette index). `setText` is allocation-free up to `capacity`; `\n` wraps.
+- **`VfdText.ts` + `vfd.vert/.frag`**: 7- and 14-segment cells, `VFD_GHOST = 0.06`. Lit SDF segments plus ghost unlit segments when `ghost` is on. Full ASCII 32–126 (lowercase folds to upper).
+- **Conversion**: `scripts/convert-fonts.mjs` (JHF + 8×8 ROM → public assets). Attribution in `docs/CREDITS.md`.
+- **Dev route**: `?lab=text` (`&scene=all|hershey|bitmap|vfd`). Lazy-imported from `main.ts` so the default-boot graph never fetches Hershey / Px437 / VFD. `window.__nonspaceText` and `window.__nonspace.{renderer,textLab}`. Screenshot: `docs/screenshots/m3-1-text.png`.
+
 ---
 
 ## 10. Milestones and tasks
