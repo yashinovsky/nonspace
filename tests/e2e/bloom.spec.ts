@@ -29,6 +29,8 @@ interface BloomHandle {
     };
     info(): { textures: number; width: number; height: number };
     resize(w: number, h: number, dpr: number): void;
+    three: { setAnimationLoop(fn: null): void };
+    endFrame(dt: number, gpuMs: number | null): void;
   };
 }
 
@@ -67,17 +69,35 @@ function sampleHalf(png: PNG, left: boolean): { r: number; g: number; b: number;
   return { r: n ? r / n : 0, g: n ? g / n : 0, b: n ? b / n : 0, n };
 }
 
+async function freezeLoop(page: Page): Promise<void> {
+  // Freeze rAF so Playwright does not wait forever for a dirty WebGL canvas
+  // (CI timeout: "waiting for element to be stable" during locator.screenshot).
+  await page.evaluate(() => {
+    const app = (window as unknown as { __nonspace?: BloomHandle }).__nonspace;
+    app?.renderer.three.setAnimationLoop(null);
+  });
+}
+
+async function drawOnce(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const app = (window as unknown as { __nonspace?: BloomHandle }).__nonspace;
+    app?.renderer.endFrame(1 / 60, null);
+  });
+}
+
 test.describe('M1.5 bloom, halation and tonemap', () => {
   test('hot cube desaturates, bloom radius spreads, 1080p cost is logged', async ({ page }) => {
+    test.setTimeout(60_000);
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('/?lab=render&quality=high');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
     await page.waitForFunction(handle);
     await page.waitForTimeout(500);
+    await freezeLoop(page);
 
     const canvas = page.locator('#app > canvas');
-    const png1 = PNG.sync.read(await canvas.screenshot());
+    const png1 = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     const glow1 = glowCount(png1, 8, 70);
     const left = sampleHalf(png1, true);
     const right = sampleHalf(png1, false);
@@ -111,7 +131,7 @@ test.describe('M1.5 bloom, halation and tonemap', () => {
       const app = (window as unknown as { __nonspace: BloomHandle }).__nonspace;
       app.renderer.resize(1920, 1080, 1);
     });
-    await page.waitForTimeout(400);
+    await drawOnce(page);
     const stats1080 = await page.evaluate(() => {
       const app = (window as unknown as { __nonspace: BloomHandle }).__nonspace;
       const bloom = app.renderer.chain.getPass('bloom');
@@ -132,8 +152,8 @@ test.describe('M1.5 bloom, halation and tonemap', () => {
       app.renderer.resize(1280, 720, 1);
       app.renderer.chain.getPass('bloom').radius = 2;
     });
-    await page.waitForTimeout(300);
-    const png2 = PNG.sync.read(await canvas.screenshot());
+    await drawOnce(page);
+    const png2 = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     const glow2 = glowCount(png2, 8, 70);
     expect(glow2).toBeGreaterThan(glow1);
     expect(errors).toEqual([]);
