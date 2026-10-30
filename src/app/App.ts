@@ -22,7 +22,7 @@ import type { PersistencePass } from '../render/post/PersistencePass';
 import { isVectorCrtPass } from '../render/post/VectorCrtPass';
 import type { BeachSim } from '../render/beach/sim';
 import { createSimstimFeed, type SimstimFeed } from '../simstim/SimstimFeed';
-import { createBeachMode, type BeachMode } from './modes/Beach';
+import type { BeachMode } from './modes/Beach';
 import { createModeStack, type ModeStack } from './ModeStack';
 
 export interface AppOptions {
@@ -32,7 +32,7 @@ export interface AppOptions {
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
-  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m7 also in preview; p0–m5 always). */
+  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m7 also in preview; p0–m6 always). */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
   checkpoint?: string;
@@ -94,6 +94,7 @@ export async function startApp({
     missionId === 'm3' ||
     missionId === 'm4' ||
     missionId === 'm5';
+  const beachMission = missionId === 'm6';
   const flyCam =
     lab === 'sector' || lab === 'look' || lab === 'ai' || lab === 'jump' || sliceMission;
   const cameraRig = createCameraRig({
@@ -121,14 +122,39 @@ export async function startApp({
     throw new Error('AI presence not ready');
   };
   const sliceFx: { current: MissionEffects | null } = { current: null };
+  type SliceRun = {
+    update(dt: number): void;
+    render(alpha: number): void;
+    dispose(): void;
+    beach?: BeachSim;
+  };
+  const sliceRef: { current: SliceRun | null } = { current: null };
   const mission = createMissionRunner({
     events,
     save,
     effects: {
       forceMode(id) {
-        const stack = modeRef.stack;
-        if (id === 'beach' && stack && !stack.has('beach')) {
-          stack.reset(createBeachMode());
+        if (id === 'beach') {
+          sliceFx.current?.forceMode?.(id);
+          const stack = modeRef.stack;
+          if (!stack) return;
+          void import('../campaign/enterBeach').then(({ enterBeach }) =>
+            enterBeach({
+              root,
+              renderer,
+              events,
+              save,
+              settings,
+              input,
+              modes: stack,
+              mission,
+              effectsSlot: sliceFx,
+              source: 'm5',
+            }).then((run) => {
+              if (!sliceRef.current) sliceRef.current = run;
+            }),
+          );
+          return;
         }
         sliceFx.current?.forceMode?.(id);
       },
@@ -185,8 +211,9 @@ export async function startApp({
   };
 
   const stimMission = missionId === 'm7';
-  const allowMissionRoute = debug || import.meta.env.DEV || stimMission || sliceMission;
-  if (allowMissionRoute && missionId && !sliceMission) {
+  const allowMissionRoute =
+    debug || import.meta.env.DEV || stimMission || sliceMission || beachMission;
+  if (allowMissionRoute && missionId && !sliceMission && !beachMission) {
     const def = getMockMission(missionId);
     if (!def) {
       console.warn(`[nonspace] unknown mock mission '${missionId}'`);
@@ -217,13 +244,13 @@ export async function startApp({
       sectorLab?.update(dt);
       lookLab?.update(dt);
       jumpLab?.update(dt);
-      sliceHandle?.update(dt);
+      sliceRef.current?.update(dt);
       modes.update(dt);
       events.flush();
     },
     render(alpha, frameDt) {
       modes.render(alpha);
-      sliceHandle?.render(alpha);
+      sliceRef.current?.render(alpha);
       if (flightLab) {
         // Flight lab draws with the raw WebGLRenderer and does not use PostChain.
         renderer.three.setRenderTarget(null);
@@ -259,11 +286,6 @@ export async function startApp({
     null;
   let jumpLab: { update(dt: number): void; render(alpha: number): void; dispose(): void } | null =
     null;
-  let sliceHandle: {
-    update(dt: number): void;
-    render(alpha: number): void;
-    dispose(): void;
-  } | null = null;
   if (lab === 'render') {
     const { installRenderLab } = await import('../debug/RenderLab');
     labHandle = installRenderLab(renderer);
@@ -543,7 +565,27 @@ export async function startApp({
     });
   }
 
-  if (sliceMission && !lab) {
+  if (beachMission && !lab) {
+    const { enterBeach } = await import('../campaign/enterBeach');
+    try {
+      sliceRef.current = await enterBeach({
+        root,
+        renderer,
+        events,
+        save,
+        settings,
+        input,
+        modes,
+        mission,
+        checkpoint,
+        effectsSlot: sliceFx,
+        source: 'm6',
+      });
+    } catch (err) {
+      console.error('[nonspace] enterBeach failed', err);
+      throw err;
+    }
+  } else if (sliceMission && !lab) {
     const bootSlice = {
       root,
       renderer,
@@ -559,25 +601,25 @@ export async function startApp({
       effectsSlot: sliceFx,
     };
     const startM2 = async (): Promise<void> => {
-      sliceHandle?.dispose();
-      sliceHandle = null;
+      sliceRef.current?.dispose();
+      sliceRef.current = null;
       const { startSenseNetMission } = await import('../campaign/senseNet');
-      sliceHandle = await startSenseNetMission({ ...bootSlice, simstim });
+      sliceRef.current = await startSenseNetMission({ ...bootSlice, simstim });
     };
     if (missionId === 'm5') {
       const { startKuangGradeMission } = await import('../campaign/kuangGrade');
-      sliceHandle = await startKuangGradeMission({ ...bootSlice, simstim });
+      sliceRef.current = await startKuangGradeMission({ ...bootSlice, simstim });
     } else if (missionId === 'm4') {
       const { startTuringMission } = await import('../campaign/turing');
-      sliceHandle = await startTuringMission(bootSlice);
+      sliceRef.current = await startTuringMission(bootSlice);
     } else if (missionId === 'm3') {
       const { startConstructMission } = await import('../campaign/construct');
-      sliceHandle = await startConstructMission(bootSlice);
+      sliceRef.current = await startConstructMission(bootSlice);
     } else if (missionId === 'm2') {
       await startM2();
     } else {
       const { startVerticalSlice } = await import('../campaign/verticalSlice');
-      sliceHandle = await startVerticalSlice({
+      sliceRef.current = await startVerticalSlice({
         ...bootSlice,
         missionId: missionId === 'm1' ? 'm1' : 'p0',
         onContinueToM2: startM2,
@@ -599,6 +641,7 @@ export async function startApp({
 
   let beachMode: BeachMode | null = null;
   if (lab === 'beach') {
+    const { createBeachMode } = await import('./modes/Beach');
     beachMode = createBeachMode({ lab: true });
     modes.reset(beachMode);
     root.dataset.lab = 'beach';
@@ -846,11 +889,15 @@ export async function startApp({
     }
   };
   // Playwright sets navigator.webdriver. Do not start a live HUD+CRT rAF for
-  // ?lab=dixie / ?mission=m3|m4 — that billed sibling SwiftShader loop.spec / sector.spec.
+  // ?lab=dixie / ?mission=m3|m4|m5|m6 — that billed sibling SwiftShader loop.spec / sector.spec.
   const webdriver = typeof navigator !== 'undefined' && navigator.webdriver;
   if (
     webdriver &&
-    (lab === 'dixie' || missionId === 'm3' || missionId === 'm4' || missionId === 'm5')
+    (lab === 'dixie' ||
+      missionId === 'm3' ||
+      missionId === 'm4' ||
+      missionId === 'm5' ||
+      missionId === 'm6')
   ) {
     root.dataset.status = 'running';
     syncRoot();
@@ -858,6 +905,7 @@ export async function startApp({
     renderer.three.setAnimationLoop(frame);
   }
 
+  let publishedBeach: BeachSim | undefined;
   const app: App = {
     renderer,
     events,
@@ -871,6 +919,12 @@ export async function startApp({
     cameraRig,
     collision,
     simstim,
+    get beach() {
+      return publishedBeach ?? beachMode?.sim ?? sliceRef.current?.beach;
+    },
+    set beach(sim) {
+      publishedBeach = sim;
+    },
     dispose() {
       renderer.three.setAnimationLoop(null);
       window.removeEventListener('resize', resize);
@@ -881,8 +935,8 @@ export async function startApp({
       aiPresence?.dispose();
       aiPresence = null;
       jumpLab?.dispose();
-      sliceHandle?.dispose();
-      sliceHandle = null;
+      sliceRef.current?.dispose();
+      sliceRef.current = null;
       modes.reset();
       simstim.dispose();
       mission.dispose();
@@ -897,7 +951,6 @@ export async function startApp({
       if (window.__nonspace === app) delete window.__nonspace;
     },
   };
-  if (beachMode) app.beach = beachMode.sim;
   if (debug || lab || missionId) window.__nonspace = app;
   return app;
 }

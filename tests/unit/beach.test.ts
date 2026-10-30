@@ -123,4 +123,25 @@ describe('beach sim choices', () => {
     for (let i = 0; i < 120; i++) sim.step(SIM_DT);
     expect(sim.sunAngle).toBeGreaterThan(a0);
   });
+
+  it('facing the bass and walking reduces bass distance', () => {
+    const sim = createBeachSim();
+    sim.step(0);
+    const d0 = sim.debug.bassDistance;
+    sim.faceBass();
+    sim.input.thrust = 1;
+    for (let i = 0; i < 120; i++) sim.step(SIM_DT);
+    expect(d0).toBeGreaterThan(10);
+    expect(sim.debug.bassDistance).toBeLessThan(d0 - 2);
+  });
+
+  it('sitting through a fast sunset reaches Ending B without forceStay', () => {
+    const sim = createBeachSim();
+    sim.setPose(LINDA.x + 0.3, LINDA.z + 0.3);
+    sim.sitPressed = true;
+    sim.step(SIM_DT);
+    expect(sim.phase).toBe('sitting');
+    for (let i = 0; i < 60 * 30; i++) sim.step(SIM_DT);
+    expect(sim.phase).toBe('endingB');
+  });
 });

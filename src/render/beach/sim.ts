@@ -64,6 +64,8 @@ export interface BeachSim {
   forceStay(): BeachPulse;
   forceLeave(): BeachPulse;
   setPose(x: number, z: number, yaw?: number, pitch?: number): void;
+  /** Yaw toward the dub-bass exit so thrust walks the leak. */
+  faceBass(): void;
 }
 
 const SIT_OFFSET = { x: -1.15, z: 1.35 };
@@ -221,6 +223,12 @@ export function createBeachSim(): BeachSim {
       walk.prev.z = z;
       walk.prev.yaw = yaw;
       walk.prev.pitch = pitch;
+    },
+    faceBass() {
+      bassDirection(walk.pose.x, walk.pose.z, bassDir);
+      const yaw = Math.atan2(bassDir.x, -bassDir.z);
+      walk.pose.yaw = yaw;
+      walk.prev.yaw = yaw;
     },
   };
 
