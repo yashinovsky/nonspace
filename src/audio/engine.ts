@@ -14,7 +14,8 @@ import { createBusGraph, type AudioBusGraph } from './buses';
 import { bufferFramesOf, createGameAudioContext, getAudioContextCtor } from './context';
 import { createDixieVoice, type DixieVoice } from './dixieVoice';
 import { createModem, type ModemInfo, type ModemVoice } from './modem';
-import { midiToHz, phaseLockTones } from './music/Harmony';
+import { midiToHz, quantizeHz } from './music/Harmony';
+import { createPhaseLockVoice, type PhaseLockBed, type PhaseLockVoice } from './phaseLock';
 import { createMotifVoice, type MotifVoice } from './music/motifs';
 import { createMusicPlayer, type MusicPlayer } from './music/player';
 import { createSequencer, pulse, type Sequencer, type TempoClock } from './music/Sequencer';
@@ -50,6 +51,17 @@ export interface AudioDiagnostics {
   clock: { bpm: number; origin: number; beat: number };
   crossfade: { from: MusicState; to: MusicState; progress: number } | null;
   pulse: number;
+  phaseLock: {
+    running: boolean;
+    grip: boolean;
+    iceL: number;
+    iceR: number;
+    brkL: number;
+    brkR: number;
+    beatingHz: number;
+    cons: number;
+    m: number;
+  } | null;
 }
 
 interface MotifLive {
@@ -98,15 +110,15 @@ class EngineImpl {
   private sfxCatalog: SfxCatalog | null = null;
   private modemVoice: ModemVoice | null = null;
   private dixieVoice: DixieVoice | null = null;
+  private plVoice: PhaseLockVoice | null = null;
   private pl = {
     a: 2,
     b: 3,
     f0: 110,
     R: 1,
-    iceA: null as OscillatorNode | null,
-    iceB: null as OscillatorNode | null,
-    player: null as OscillatorNode | null,
-    gain: null as GainNode | null,
+    phi: 0,
+    Phi: 0,
+    pending: false,
   };
 
   constructor(opts?: CreateAudioEngineOptions) {
@@ -182,7 +194,15 @@ class EngineImpl {
     this.musicPlayer.tick(ctx.currentTime);
     this.musicTimer = setInterval(() => {
       if (this.ctx && this.musicPlayer) this.musicPlayer.tick(this.ctx.currentTime);
+      this.plVoice?.tick(0.025);
     }, 25);
+
+    if (this.pl.pending) {
+      this.plVoice?.start(this.pl.a, this.pl.b, this.pl.f0);
+      this.plVoice?.setTarget(this.pl.a, this.pl.b, this.pl.phi);
+      this.plVoice?.setPlayer(this.pl.R, this.pl.Phi);
+      this.syncPhaseLockVoice();
+    }
 
     this.unlocked = true;
   }
@@ -219,6 +239,7 @@ class EngineImpl {
     g.setBusGain('ui', a.sfx);
     g.setBusGain('ambience', a.sfx);
     g.setBusGain('voice', a.voice);
+    this.syncPhaseLockVoice();
   }
 
   sfx(id: SfxId, opts?: SfxOptions): void {
@@ -231,6 +252,7 @@ class EngineImpl {
     this.bpm = this.sequencer.clock.bpm;
     this.musicPlayer?.setMotifsDominant(s === 'approach');
     this.applyGripDuck();
+    this.syncPhaseLockVoice();
   }
 
   setTempo(bpm: number): void {
@@ -309,58 +331,68 @@ class EngineImpl {
   }
 
   private buildPhaseLock(ctx: AudioContext, dest: AudioNode): void {
-    const gain = ctx.createGain();
-    gain.gain.value = 0;
-    gain.connect(dest);
-    const iceA = ctx.createOscillator();
-    const iceB = ctx.createOscillator();
-    const player = ctx.createOscillator();
-    iceA.type = 'sine';
-    iceB.type = 'sine';
-    player.type = 'triangle';
-    iceA.connect(gain);
-    iceB.connect(gain);
-    player.connect(gain);
-    iceA.start();
-    iceB.start();
-    player.start();
-    this.pl.iceA = iceA;
-    this.pl.iceB = iceB;
-    this.pl.player = player;
-    this.pl.gain = gain;
+    this.plVoice?.dispose();
+    this.plVoice = createPhaseLockVoice(ctx, dest);
+    this.syncPhaseLockVoice();
+  }
+
+  private quantizedF0(f0: number): number {
+    return quantizeHz(Math.max(1, f0), this.root, this.mode);
+  }
+
+  private syncPhaseLockVoice(): void {
+    const voice = this.plVoice;
+    if (!voice) return;
+    const audible = !this.settings?.value.phaseLock.visualOnly;
+    voice.setAudible(audible);
+    voice.setGrip(this.musicState === 'grip' && voice.running());
+  }
+
+  private applyPhaseLock(): void {
+    const voice = this.plVoice;
+    if (!voice) return;
+    this.pl.f0 = this.quantizedF0(this.pl.f0);
+    if (this.pl.pending || voice.running()) {
+      voice.start(this.pl.a, this.pl.b, this.pl.f0);
+      voice.setTarget(this.pl.a, this.pl.b, this.pl.phi);
+      voice.setPlayer(this.pl.R, this.pl.Phi);
+    }
+    this.syncPhaseLockVoice();
+    if (voice.running()) this.setLockMeter(voice.snapshot().m);
   }
 
   phaseLockStart(a: number, b: number, f0: number): void {
     this.pl.a = a;
     this.pl.b = b;
-    this.pl.f0 = f0;
-    this.applyPhaseLock();
-    const t = this.ctx?.currentTime ?? 0;
-    this.pl.gain?.gain.setTargetAtTime(0.08, t, 0.04);
+    this.pl.f0 = this.quantizedF0(f0);
+    this.pl.pending = true;
+    this.plVoice?.start(a, b, this.pl.f0);
+    this.syncPhaseLockVoice();
   }
 
-  phaseLockTarget(a: number, b: number, _phi: number): void {
+  phaseLockTarget(a: number, b: number, phi: number): void {
     this.pl.a = a;
     this.pl.b = b;
-    this.applyPhaseLock();
+    this.pl.phi = phi;
+    this.plVoice?.setTarget(a, b, phi);
   }
 
-  phaseLockPlayer(R: number, _Phi: number): void {
+  phaseLockPlayer(R: number, Phi: number): void {
     this.pl.R = R;
-    this.applyPhaseLock();
+    this.pl.Phi = Phi;
+    this.plVoice?.setPlayer(R, Phi);
+    const snap = this.plVoice?.snapshot();
+    if (snap && this.plVoice?.running()) this.setLockMeter(snap.m);
   }
 
   phaseLockStop(): void {
-    const t = this.ctx?.currentTime ?? 0;
-    this.pl.gain?.gain.setTargetAtTime(0.0001, t, 0.04);
+    this.pl.pending = false;
+    this.plVoice?.stop();
+    this.syncPhaseLockVoice();
   }
 
-  private applyPhaseLock(): void {
-    const t = this.ctx?.currentTime ?? 0;
-    const tones = phaseLockTones(this.pl.a, this.pl.b, this.pl.f0, this.root, this.mode, this.pl.R);
-    this.pl.iceA?.frequency.setTargetAtTime(tones.iceA, t, 0.02);
-    this.pl.iceB?.frequency.setTargetAtTime(tones.iceB, t, 0.02);
-    this.pl.player?.frequency.setTargetAtTime(tones.player, t, 0.01);
+  phaseLockSnapshot(): PhaseLockBed | null {
+    return this.plVoice?.snapshot() ?? null;
   }
 
   modemStart(): void {
@@ -422,6 +454,34 @@ class EngineImpl {
         return cf ? { from: cf.fromState, to: cf.toState, progress: cf.progress } : null;
       })(),
       pulse: pulse(this.ctx?.currentTime ?? 0, this.sequencer.clock),
+      phaseLock: this.plVoice
+        ? (() => {
+            const s = this.plVoice!.snapshot();
+            return {
+              running: this.plVoice!.running(),
+              grip: this.plVoice!.gripping(),
+              iceL: s.iceL,
+              iceR: s.iceR,
+              brkL: s.brkL,
+              brkR: s.brkR,
+              beatingHz: s.beatingHz,
+              cons: s.cons,
+              m: s.m,
+            };
+          })()
+        : this.pl.pending
+          ? {
+              running: true,
+              grip: this.musicState === 'grip',
+              iceL: this.pl.a * this.pl.f0,
+              iceR: this.pl.b * this.pl.f0,
+              brkL: this.pl.a * this.pl.f0,
+              brkR: this.pl.R * this.pl.a * this.pl.f0,
+              beatingHz: Math.abs(this.pl.R * this.pl.a - this.pl.b) * this.pl.f0,
+              cons: 0,
+              m: 0,
+            }
+          : null,
     };
   }
 
@@ -543,6 +603,9 @@ class EngineImpl {
     this.modemVoice = null;
     this.dixieVoice?.dispose();
     this.dixieVoice = null;
+    this.plVoice?.dispose();
+    this.plVoice = null;
+    this.pl.pending = false;
     this.fm?.dispose();
     this.sub?.dispose();
     this.drums?.dispose();
@@ -621,6 +684,7 @@ export function getAudioEngineHandle(engine: AudioEngine): EngineLabHandle | nul
     modemInfo: () => impl.modemInfo(),
     pulse: (t) => pulse(t, impl.sequencer.clock),
     setLockMeter: (m) => impl.setLockMeter(m),
+    phaseLockSnapshot: () => impl.phaseLockSnapshot(),
   };
 }
 
@@ -640,4 +704,5 @@ export interface EngineLabHandle {
   modemInfo(): ModemInfo;
   pulse(t: number): number;
   setLockMeter(m: number): void;
+  phaseLockSnapshot(): PhaseLockBed | null;
 }

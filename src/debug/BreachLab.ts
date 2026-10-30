@@ -6,6 +6,8 @@
  */
 
 import { createBreachMode } from '../app/modes/Breach';
+import { disposeAudioEngine, type AudioEngine } from '../audio/AudioEngine';
+import { bindSfxToEvents } from '../audio/sfx/bind';
 import { createFlatlineMode, type FlatlineMode } from '../app/modes/Flatline';
 import { createJackOutMode } from '../app/modes/JackOut';
 import type { ModeStack } from '../app/ModeStack';
@@ -86,6 +88,8 @@ export interface BreachLabHandle {
   stepInput(dt: number, patch?: { mouseDx?: number; mouseDy?: number; fine?: boolean }): void;
   advance(dt: number): void;
   paint(): void;
+  /** True after click-unlock of the real engine (lazy). */
+  audioRunning: boolean;
 }
 
 declare global {
@@ -174,6 +178,8 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
   let display: IceModel = createIceModel(DEFS[iceClass], { seed: 1 });
   let flatMode: FlatlineMode | null = null;
   let burned = false;
+  let audio: AudioEngine | null = null;
+  let unbindAudio: (() => void) | null = null;
 
   const rig: CameraRig = createCameraRig({ camera: renderer.cameras.matrix });
   flight.collision.add(sphereHull('lab-ice', 'ice', 0, 0, 0, 12));
@@ -363,7 +369,23 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
     paintHud();
   };
 
+  const ensureAudio = async (): Promise<void> => {
+    if (audio) return;
+    const { createAudioEngine } = await import('../audio/AudioEngine');
+    const eng = createAudioEngine({ settings });
+    await eng.unlock();
+    audio = eng;
+    unbindAudio = bindSfxToEvents(events, eng);
+    breach.setAudio(eng);
+    Object.assign(modes.ctx, { audio: eng });
+  };
+
+  overlay.addEventListener('click', () => {
+    void ensureAudio();
+  });
+
   overlay.querySelector('[data-testid="breach-engage"]')!.addEventListener('click', () => {
+    void ensureAudio();
     doEngage();
     paintHud();
   });
@@ -541,6 +563,9 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
       paintHud();
       sync();
     },
+    get audioRunning() {
+      return audio !== null;
+    },
   };
 
   window.__nonspaceBreach = handle;
@@ -562,6 +587,13 @@ export function installBreachLab(opts: BreachLabOptions): BreachLab {
     dispose() {
       overlay.remove();
       dropModes();
+      unbindAudio?.();
+      unbindAudio = null;
+      if (audio) {
+        breach.setAudio(undefined);
+        disposeAudioEngine(audio);
+        audio = null;
+      }
       visuals?.dispose();
       hud.dispose();
       flight.collision.remove('lab-ice');

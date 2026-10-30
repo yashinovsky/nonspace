@@ -68,6 +68,7 @@ export function createBreachMode(opts: BreachModeOptions): BreachMode {
     breach,
     enter(next) {
       ctx = next;
+      if (next.audio) breach.setAudio(next.audio);
       paintHud();
     },
     exit() {
