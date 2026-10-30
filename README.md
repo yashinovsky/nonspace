@@ -24,6 +24,16 @@ A browser WebGL2 game set in the cyberspace of William Gibson's _Neuromancer_. T
 
 CI (`.github/workflows/ci.yml`) runs lint, unit tests, build (with the size check) and the e2e smoke on every PR.
 
+### Auto-merge for agent branches
+
+`.github/workflows/auto-merge.yml` squash-merges a PR into `main` when the CI workflow finishes successfully, but only if all of these hold:
+
+- the PR's head branch is in this repository (never a fork) and starts with `cursor/`;
+- the PR is open and not a draft;
+- the PR's head commit is still the one CI tested (`--match-head-commit`), so a later push waits for its own CI run.
+
+It runs on `workflow_run`, so it only takes effect from the copy on `main`, and its token has only `contents: write` and `pull-requests: write`. Marking a draft ready for review re-runs CI, which then lets it merge. To keep a `cursor/*` PR open, mark it as a draft. Merges made with the workflow token don't trigger further workflow runs, so CI doesn't re-run on `main` after an auto-merge.
+
 ## Debug
 
 - `?debug` opens a Tweakpane panel with FPS, frame time and GPU time. GPU time needs `EXT_disjoint_timer_query_webgl2` and shows `n/a` without it (e.g. SwiftShader). Tweakpane is lazy-loaded, so it costs nothing without the flag.

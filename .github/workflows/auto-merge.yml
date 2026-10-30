@@ -1,0 +1,55 @@
+name: Auto-merge
+
+# Squash-merges same-repo, non-draft PRs from `cursor/*` branches once CI succeeds.
+# workflow_run only fires for the copy of this file on the default branch.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: auto-merge-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    name: Squash-merge cursor/* PR
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'cursor/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge if still eligible
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          pr=$(gh pr list --repo "$REPO" --state open --head "$HEAD_BRANCH" \
+            --json number,isDraft,isCrossRepository,headRefOid,baseRefName \
+            --jq "[.[] | select(.headRefOid == \"$HEAD_SHA\")] | first // empty")
+          if [ -z "$pr" ]; then
+            echo "No open PR whose head is $HEAD_SHA on $HEAD_BRANCH; nothing to merge."
+            exit 0
+          fi
+          number=$(jq -r .number <<<"$pr")
+          if [ "$(jq -r .isCrossRepository <<<"$pr")" != "false" ]; then
+            echo "PR #$number comes from a fork; skipping."
+            exit 0
+          fi
+          if [ "$(jq -r .isDraft <<<"$pr")" != "false" ]; then
+            echo "PR #$number is a draft; skipping."
+            exit 0
+          fi
+          echo "Squash-merging PR #$number at $HEAD_SHA"
+          # --match-head-commit refuses the merge if someone pushed after CI ran.
+          gh pr merge "$number" --repo "$REPO" --squash --match-head-commit "$HEAD_SHA"
