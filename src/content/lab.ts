@@ -22,9 +22,8 @@ import type { Beam } from '../render/lines/BeamBatch';
 import { BEAM_HEX } from '../render/palette';
 import type { Renderer } from '../render/Renderer';
 import type { ConstructGeometry } from '../world/constructs/grammar';
-import { beamLuma, type CorpPulse } from './corps';
+import type { CorpPulse } from './corps';
 import {
-  corpShapeDistance,
   generateLandmarkParts,
   getLandmark,
   LANDMARK_IDS,
@@ -64,23 +63,20 @@ declare global {
 interface Tweaks {
   id: LandmarkId;
   grayscale: boolean;
-  spin: boolean;
   play: boolean;
   bpm: number;
   yaw: number;
   pitch: number;
   dolly: number;
-  showFaces: boolean;
 }
 
 function beamColor(beam: number, intensity: number, gray: boolean): Color {
-  const idx = beam as Beam;
-  const hex = BEAM_HEX[idx] ?? 0xa8d8ff;
+  const hex = BEAM_HEX[beam as Beam] ?? 0xa8d8ff;
   const r = ((hex >> 16) & 255) / 255;
   const g = ((hex >> 8) & 255) / 255;
   const b = (hex & 255) / 255;
   if (gray) {
-    const y = Math.min(1, beamLuma(idx) * intensity);
+    const y = Math.min(1, (0.2126 * r + 0.7152 * g + 0.0722 * b) * intensity);
     return new Color().setRGB(y, y, y);
   }
   return new Color().setRGB(
@@ -194,13 +190,11 @@ export function installHeraldryLab(
   const t: Tweaks = {
     id: id0,
     grayscale: opts.gray === '1' || opts.gray === 'true',
-    spin: false,
     play: true,
     bpm: Number.isFinite(bpm0) && bpm0 > 0 ? bpm0 : DEFAULT_BPM,
     yaw: 0.62,
     pitch: 0.42,
     dolly: 2.7,
-    showFaces: true,
   };
 
   const cam = renderer.cameras.matrix;
@@ -217,15 +211,6 @@ export function installHeraldryLab(
   const extras = new Group();
   holder.add(extras);
 
-  const readout = {
-    corp: '',
-    rhythm: '',
-    intensity: '1.000',
-    eighth: '0',
-    segments: '0',
-    grayOk: '—',
-  };
-
   let clock: TempoClock = createTempoClock(t.bpm, 0);
   let simT = 0;
   let pulse = landmarkPulse(t.id, 0, clock);
@@ -234,7 +219,6 @@ export function installHeraldryLab(
   let lastEighth = -1;
   let lastId: LandmarkId | null = null;
   let lastGray = t.grayscale;
-  let lastFaces = t.showFaces;
 
   const ring = new LineSegments(
     ringGeometry(1),
@@ -304,33 +288,21 @@ export function installHeraldryLab(
     const eighthChanged = ledger && pulse.eighth !== lastEighth;
     const idChanged = t.id !== lastId;
     const grayChanged = t.grayscale !== lastGray;
-    const facesChanged = t.showFaces !== lastFaces;
-    if (!force && !idChanged && !grayChanged && !eighthChanged && !facesChanged) return;
+    if (!force && !idChanged && !grayChanged && !eighthChanged) return;
     for (const v of views) {
       holder.remove(v.group);
       disposeObject(v.group);
     }
     views = [];
     parts = generateLandmarkParts(t.id, { lod: 'near', t: simT, tempo: clock, seed: 1 });
-    const def = getLandmark(t.id)!;
     for (const geom of parts) {
       const view = buildPart(geom, t.grayscale);
-      if (!t.showFaces && view.faceMat) {
-        view.faceMat.visible = false;
-      }
       holder.add(view.group);
       views.push(view);
     }
     lastEighth = pulse.eighth;
     lastId = t.id;
     lastGray = t.grayscale;
-    lastFaces = t.showFaces;
-    let segs = 0;
-    for (const g of parts) segs += g.stats.segments;
-    readout.segments = String(segs);
-    readout.corp = def.corp;
-    readout.rhythm = landmarkRhythm(def);
-    readout.grayOk = String(corpShapeDistance().min);
     applyPulse();
     frameCamera();
     syncHandle();
@@ -342,30 +314,19 @@ export function installHeraldryLab(
   pane.addBinding(t, 'id', { options: idOpts, label: 'landmark' }).on('change', () => {
     rebuild(true);
   });
-  pane.addBinding(t, 'grayscale', { label: 'grayscale' }).on('change', () => rebuild(true));
+  pane.addBinding(t, 'grayscale').on('change', () => rebuild(true));
   pane.addBinding(t, 'play');
   pane.addBinding(t, 'bpm', { min: 40, max: 160, step: 1 }).on('change', () => {
     clock = createTempoClock(t.bpm, 0);
   });
-  pane.addBinding(t, 'spin');
-  pane.addBinding(t, 'showFaces', { label: 'faces' }).on('change', () => rebuild(true));
   pane.addBinding(t, 'yaw', { min: -Math.PI, max: Math.PI }).on('change', frameCamera);
   pane.addBinding(t, 'pitch', { min: 0.05, max: 1.2 }).on('change', frameCamera);
-  pane.addBinding(t, 'dolly', { min: 1.4, max: 6, label: 'distance' }).on('change', frameCamera);
-
-  const info = pane.addFolder({ title: 'rhythm' });
-  info.addBinding(readout, 'corp', { readonly: true });
-  info.addBinding(readout, 'rhythm', { readonly: true });
-  info.addBinding(readout, 'intensity', { readonly: true });
-  info.addBinding(readout, 'eighth', { readonly: true });
-  info.addBinding(readout, 'segments', { readonly: true });
-  info.addBinding(readout, 'grayOk', { readonly: true, label: 'shape Δ' });
+  pane.addBinding(t, 'dolly', { min: 1.4, max: 6 }).on('change', frameCamera);
 
   const overlay = document.createElement('div');
   overlay.dataset.testid = 'heraldry-lab';
-  overlay.style.cssText =
-    'position:fixed;left:1rem;bottom:1rem;z-index:20;pointer-events:none;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;color:#a8d8ff;letter-spacing:0.12em';
-  overlay.textContent = 'HERALDRY  ·  M2.2';
+  overlay.style.cssText = 'position:fixed;left:8px;bottom:8px;color:#a8d8ff';
+  overlay.textContent = 'HERALDRY';
   root.appendChild(overlay);
 
   const handle: HeraldryLabHandle = {
@@ -426,18 +387,11 @@ export function installHeraldryLab(
       pulse = landmarkPulse(t.id, simT, clock);
       rebuild(false);
       applyPulse();
-
-      if (t.spin) {
-        t.yaw += dt * 0.18;
-        if (t.yaw > Math.PI) t.yaw -= Math.PI * 2;
-      }
       frameCamera();
-      readout.intensity = pulse.intensity.toFixed(3);
-      readout.eighth = String(pulse.eighth);
       root.dataset.landmark = t.id;
       root.dataset.grayscale = t.grayscale ? '1' : '0';
       root.dataset.intensity = pulse.intensity.toFixed(3);
-      overlay.textContent = `HERALDRY  ·  ${t.id}  ·  ${readout.rhythm}  ·  ${t.grayscale ? 'GRAY' : 'COLOR'}`;
+      overlay.textContent = `HERALDRY  ·  ${t.id}`;
       syncHandle();
     },
     dispose() {

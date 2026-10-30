@@ -8,7 +8,7 @@ import type { TempoClock } from '../audio/music/Sequencer';
 import type { Vec3 } from '../core/math/vec3';
 import { Beam, createLineSet, type LineSet } from '../render/lines/BeamBatch';
 import { createPointSet, type PointSet } from '../render/points/PointBatch';
-import { SECTOR_SIZE, WORLD_SECTORS_X, WORLD_SECTORS_Z, type MatrixCoord } from '../world/coords';
+import { SECTOR_SIZE, type MatrixCoord } from '../world/coords';
 import {
   generate,
   type ConstructGeometry,
@@ -50,7 +50,8 @@ export interface LandmarkPart {
 
 export interface LandmarkDef {
   id: LandmarkId;
-  name: string;
+  /** Display name; defaults to the corp name when omitted. */
+  name?: string;
   corp: CorpId;
   coords: MatrixCoord;
   /** Far-LOD point size weight (plan §8.6). */
@@ -78,7 +79,6 @@ export const LANDMARKS: readonly LandmarkDef[] = [
           d: 11,
           symmetry: true,
         },
-        color: Beam.TA,
       },
     ],
   },
@@ -100,7 +100,6 @@ export const LANDMARKS: readonly LandmarkDef[] = [
           d: 14,
           symmetry: true,
         },
-        color: Beam.TA,
       },
       {
         spec: { kind: 'box', w: 4, h: 4, d: 4, subdivisions: 1, hatch: true },
@@ -111,38 +110,27 @@ export const LANDMARKS: readonly LandmarkDef[] = [
   },
   {
     id: 'mitsubishi-boa',
-    name: 'Mitsubishi Bank of America',
     corp: 'mitsubishi',
     coords: { region: 'BAMA', x: 172.0, z: 94.1, y: 380 },
     importance: 6,
-    parts: [
-      {
-        spec: { kind: 'cubeStack', n: 5, m: 6, k: 5, gap: 0.28, blinkMask: true },
-        color: Beam.MITSU,
-      },
-    ],
+    parts: [{ spec: CORPS.mitsubishi.spec }],
   },
   {
     id: 'esfa',
-    name: 'Eastern Seaboard Fission Authority',
     corp: 'esfa',
     coords: { region: 'BAMA', x: 160.5, z: 100.0, y: 520 },
     importance: 7,
-    parts: [
-      { spec: { kind: 'ziggurat', steps: 7, base: 36, stepH: 3.2, inset: 2 }, color: Beam.ESFA },
-    ],
+    parts: [{ spec: CORPS.esfa.spec }],
   },
   {
     id: 'sense-net',
-    name: 'Sense/Net',
     corp: 'senseNet',
     coords: { region: 'BAMA', x: 168.25, z: 96.4, y: 420 },
     importance: 6,
-    parts: [{ spec: { kind: 'mast', height: 42, sections: 7, dishes: 4 }, color: Beam.AMBER }],
+    parts: [{ spec: CORPS.senseNet.spec }],
   },
   {
     id: 'hosaka',
-    name: 'Hosaka',
     corp: 'hosaka',
     coords: { region: 'CHBA', x: 408.0, z: 176.5, y: 640 },
     importance: 6,
@@ -156,7 +144,6 @@ export const LANDMARKS: readonly LandmarkDef[] = [
           radius: 9,
           hatch: true,
         },
-        color: Beam.GRID,
       },
       {
         spec: {
@@ -178,7 +165,7 @@ export const LANDMARKS: readonly LandmarkDef[] = [
     corp: 'turing',
     coords: { region: 'EURO', x: 248.0, z: 72.0, y: 1800 },
     importance: 5,
-    parts: [{ spec: { kind: 'geodesic', frequency: 3, radius: 12 }, color: Beam.MIL }],
+    parts: [{ spec: CORPS.turing.spec }],
   },
   {
     id: 'chiba-node',
@@ -186,9 +173,7 @@ export const LANDMARKS: readonly LandmarkDef[] = [
     corp: 'minor',
     coords: { region: 'CHBA', x: 412.9, z: 180.2, y: 160 },
     importance: 3,
-    parts: [
-      { spec: { kind: 'tower', sides: 4, height: 14, taper: 0.26, rings: 4 }, color: Beam.GRID },
-    ],
+    parts: [{ spec: { kind: 'tower', sides: 4, height: 14, taper: 0.26, rings: 4 } }],
   },
   {
     id: 'hosaka-m3',
@@ -206,7 +191,6 @@ export const LANDMARKS: readonly LandmarkDef[] = [
           radius: 6,
           hatch: false,
         },
-        color: Beam.GRID,
       },
     ],
   },
@@ -390,7 +374,7 @@ export function generateLandmarkParts(
     generate(partSpec(def, part, opts), {
       lod,
       seed: opts.seed ?? 1,
-      color: part.color,
+      color: part.color ?? CORPS[def.corp].hues[0],
       intensity: part.intensity,
       importance: def.importance,
     }),
@@ -408,90 +392,12 @@ export function generateLandmark(
     return generate(partSpec(def, part, opts), {
       lod: 'far',
       seed: opts.seed ?? 1,
-      color: part.color,
+      color: part.color ?? CORPS[def.corp].hues[0],
       intensity: part.intensity,
       importance: def.importance,
     });
   }
   return mergeGeometries(generateLandmarkParts(id, opts));
-}
-
-/**
- * Scale-invariant 3D occupancy of line endpoints, segment samples and points.
- * Used by the grayscale-distinguishability check (shape, not hue).
- */
-export function occupancy3(geom: ConstructGeometry, bins = 8): Uint8Array {
-  const n = Math.max(2, bins | 0);
-  const occ = new Uint8Array(n * n * n);
-  const { min, max } = geom.bounds;
-  const dx = Math.max(1e-6, max.x - min.x);
-  const dy = Math.max(1e-6, max.y - min.y);
-  const dz = Math.max(1e-6, max.z - min.z);
-  const plot = (x: number, y: number, z: number): void => {
-    const i = Math.min(n - 1, Math.max(0, ((x - min.x) / dx) * n) | 0);
-    const j = Math.min(n - 1, Math.max(0, ((y - min.y) / dy) * n) | 0);
-    const k = Math.min(n - 1, Math.max(0, ((z - min.z) / dz) * n) | 0);
-    occ[i + n * (j + n * k)] = 1;
-  };
-  const lines = geom.lines.positions;
-  for (let s = 0; s < lines.length; s += 6) {
-    const ax = lines[s]!,
-      ay = lines[s + 1]!,
-      az = lines[s + 2]!;
-    const bx = lines[s + 3]!,
-      by = lines[s + 4]!,
-      bz = lines[s + 5]!;
-    for (let t = 0; t <= 4; t++) {
-      const u = t / 4;
-      plot(ax + (bx - ax) * u, ay + (by - ay) * u, az + (bz - az) * u);
-    }
-  }
-  const pts = geom.points.positions;
-  for (let p = 0; p < pts.length; p += 3) plot(pts[p]!, pts[p + 1]!, pts[p + 2]!);
-  return occ;
-}
-
-export function hamming(a: Uint8Array, b: Uint8Array): number {
-  const n = Math.min(a.length, b.length);
-  let d = 0;
-  for (let i = 0; i < n; i++) if (a[i] !== b[i]) d++;
-  d += Math.abs(a.length - b.length);
-  return d;
-}
-
-/**
- * Corp default specs must differ by occupancy (shape), not hue. Returns the
- * minimum pairwise Hamming distance; AC passes if this is ≥ `minHamming`.
- */
-export function corpShapeDistance(minHamming = 12): { min: number; ok: boolean } {
-  const ids: CorpId[] = [
-    'tessierAshpool',
-    'mitsubishi',
-    'esfa',
-    'senseNet',
-    'hosaka',
-    'turing',
-    'military',
-    'minor',
-  ];
-  const occ = ids.map((id) => occupancy3(generate(CORPS[id].spec, { lod: 'near', seed: 1 })));
-  let min = Infinity;
-  for (let i = 0; i < occ.length; i++) {
-    for (let j = i + 1; j < occ.length; j++) {
-      min = Math.min(min, hamming(occ[i]!, occ[j]!));
-    }
-  }
-  return { min, ok: min >= minHamming };
-}
-
-export function assertLandmarkCoords(def: LandmarkDef): void {
-  const { x, z, y, region } = def.coords;
-  if (x < 0 || x >= WORLD_SECTORS_X) throw new RangeError(`${def.id} x out of world`);
-  if (z < 0 || z >= WORLD_SECTORS_Z) throw new RangeError(`${def.id} z out of world`);
-  if (y < 0 || y > 12_000) throw new RangeError(`${def.id} y out of ceiling`);
-  if (!(REGION_CODES as readonly string[]).includes(region)) {
-    throw new RangeError(`${def.id} unknown region ${region}`);
-  }
 }
 
 /** Live corp pulse for a landmark (rhythm override + tempo clock). */

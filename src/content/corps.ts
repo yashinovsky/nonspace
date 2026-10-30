@@ -15,7 +15,7 @@ import { hash2i, hashString } from '../core/hash';
 import { pcg32 } from '../core/rng';
 import { Beam } from '../render/lines/BeamBatch';
 import { BEAM_HEX } from '../render/palette';
-import type { PrimitiveKind, PrimitiveSpec } from '../world/constructs/primitives';
+import type { PrimitiveSpec } from '../world/constructs/primitives';
 
 export const CORP_IDS = [
   'tessierAshpool',
@@ -44,70 +44,41 @@ export const RHYTHM_KINDS = [
 export type RhythmKind = (typeof RHYTHM_KINDS)[number];
 
 export interface CorpHeraldry {
-  id: CorpId;
   name: string;
-  /** Primary §8.6 primitive. Landmarks may still compose extras. */
-  grammar: PrimitiveKind;
   /** Beam indices; first is the body hue. Extra entries are inner/heart hues. */
   hues: readonly Beam[];
   rhythm: RhythmKind;
-  /** Default authored spec for this corp's look. */
+  /** Default authored spec for this corp's look (`kind` is the §8.6 grammar). */
   spec: PrimitiveSpec;
-  notes: string;
 }
-
-/** T-A: long low slabs; Straylight is a taller stack of the same grammar. */
-const TA_SPEC: PrimitiveSpec = {
-  kind: 'slabTerrace',
-  count: 6,
-  spacing: 1.6,
-  w: 28,
-  h: 2,
-  d: 9,
-  symmetry: true,
-};
 
 export const CORPS: Record<CorpId, CorpHeraldry> = {
   tessierAshpool: {
-    id: 'tessierAshpool',
     name: 'Tessier-Ashpool S.A.',
-    grammar: 'slabTerrace',
     hues: [Beam.TA],
     rhythm: 'breathe',
-    spec: TA_SPEC,
-    notes: 'Old money: stillness. Breathing ±15% at 0.1 Hz.',
+    spec: { kind: 'slabTerrace', count: 6, spacing: 1.6, w: 28, h: 2, d: 9, symmetry: true },
   },
   mitsubishi: {
-    id: 'mitsubishi',
     name: 'Mitsubishi Bank of America',
-    grammar: 'cubeStack',
     hues: [Beam.MITSU],
     rhythm: 'ledger',
     spec: { kind: 'cubeStack', n: 5, m: 6, k: 5, gap: 0.28, blinkMask: true },
-    notes: 'Green cubes. Ledger ticks on eighths.',
   },
   esfa: {
-    id: 'esfa',
     name: 'Eastern Seaboard Fission Authority',
-    grammar: 'ziggurat',
     hues: [Beam.ESFA],
     rhythm: 'reactor',
     spec: { kind: 'ziggurat', steps: 7, base: 36, stepH: 3.2, inset: 2 },
-    notes: 'Stepped scarlet pyramid. 1 Hz throb plus apex shimmer.',
   },
   senseNet: {
-    id: 'senseNet',
     name: 'Sense/Net',
-    grammar: 'mast',
     hues: [Beam.AMBER],
     rhythm: 'broadcast',
     spec: { kind: 'mast', height: 42, sections: 7, dishes: 4 },
-    notes: 'Lattice masts, rotating dishes, amber ring every 2 bars.',
   },
   hosaka: {
-    id: 'hosaka',
     name: 'Hosaka',
-    grammar: 'nestedPoly',
     hues: [Beam.GRID, Beam.ICE],
     rhythm: 'ticks',
     spec: {
@@ -118,43 +89,29 @@ export const CORPS: Record<CorpId, CorpHeraldry> = {
       radius: 9,
       hatch: true,
     },
-    notes: 'Nested octahedra. Precise 4/4 ticks.',
   },
   turing: {
-    id: 'turing',
     name: 'Turing Registry',
-    grammar: 'geodesic',
     hues: [Beam.MIL],
     rhythm: 'radar',
     spec: { kind: 'geodesic', frequency: 3, radius: 12 },
-    notes: 'Geodesic lattice. Radar sweep at 0.25 Hz.',
   },
   military: {
-    id: 'military',
     name: 'Military systems',
-    grammar: 'spiralArms',
     hues: [Beam.MIL],
     rhythm: 'drift',
     spec: { kind: 'spiralArms', arms: 3, points: 160, pitch: 0.22 },
-    notes: 'Skybox only: logarithmic spiral arms, slow rotation.',
   },
   minor: {
-    id: 'minor',
     name: 'Minor node',
-    grammar: 'tower',
     hues: [Beam.GRID],
     rhythm: 'tempo',
     spec: { kind: 'tower', sides: 4, height: 16, taper: 0.28, rings: 4 },
-    notes: 'Procedural city lights. Rhythm from the tempo set.',
   },
 };
 
 export function isCorpId(v: string): v is CorpId {
   return (CORP_IDS as readonly string[]).includes(v);
-}
-
-export function getCorp(id: CorpId): CorpHeraldry {
-  return CORPS[id];
 }
 
 export function asTempoClock(tempo: number | TempoClock = DEFAULT_BPM): TempoClock {
@@ -317,9 +274,4 @@ export function beamLuma(beam: Beam): number {
   const g = ((hex >> 8) & 255) / 255;
   const b = (hex & 255) / 255;
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-export function grayscaleRgb(beam: Beam, intensity = 1): { r: number; g: number; b: number } {
-  const y = Math.min(1, beamLuma(beam) * intensity);
-  return { r: y, g: y, b: y };
 }

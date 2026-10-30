@@ -14,20 +14,80 @@ import {
   pulse,
 } from '../../src/content/corps';
 import {
-  assertLandmarkCoords,
-  corpShapeDistance,
   generateLandmark,
   getLandmark,
-  hamming,
   LANDMARK_IDS,
   LANDMARKS,
   landmarkPulse,
   landmarkRhythm,
   landmarkWorldPos,
-  occupancy3,
+  REGION_CODES,
+  type LandmarkDef,
 } from '../../src/content/landmarks';
 import { Beam } from '../../src/render/lines/BeamBatch';
-import { SECTOR_SIZE } from '../../src/world/coords';
+import { generate } from '../../src/world/constructs/grammar';
+import { SECTOR_SIZE, WORLD_SECTORS_X, WORLD_SECTORS_Z } from '../../src/world/coords';
+
+/** Scale-invariant occupancy for the grayscale-distinguishability AC. */
+function occupancy3(geom: ReturnType<typeof generate>, bins = 8): Uint8Array {
+  const n = Math.max(2, bins | 0);
+  const occ = new Uint8Array(n * n * n);
+  const { min, max } = geom.bounds;
+  const dx = Math.max(1e-6, max.x - min.x);
+  const dy = Math.max(1e-6, max.y - min.y);
+  const dz = Math.max(1e-6, max.z - min.z);
+  const plot = (x: number, y: number, z: number): void => {
+    const i = Math.min(n - 1, Math.max(0, ((x - min.x) / dx) * n) | 0);
+    const j = Math.min(n - 1, Math.max(0, ((y - min.y) / dy) * n) | 0);
+    const k = Math.min(n - 1, Math.max(0, ((z - min.z) / dz) * n) | 0);
+    occ[i + n * (j + n * k)] = 1;
+  };
+  const lines = geom.lines.positions;
+  for (let s = 0; s < lines.length; s += 6) {
+    const ax = lines[s]!,
+      ay = lines[s + 1]!,
+      az = lines[s + 2]!;
+    const bx = lines[s + 3]!,
+      by = lines[s + 4]!,
+      bz = lines[s + 5]!;
+    for (let t = 0; t <= 4; t++) {
+      const u = t / 4;
+      plot(ax + (bx - ax) * u, ay + (by - ay) * u, az + (bz - az) * u);
+    }
+  }
+  const pts = geom.points.positions;
+  for (let p = 0; p < pts.length; p += 3) plot(pts[p]!, pts[p + 1]!, pts[p + 2]!);
+  return occ;
+}
+
+function hamming(a: Uint8Array, b: Uint8Array): number {
+  const n = Math.min(a.length, b.length);
+  let d = 0;
+  for (let i = 0; i < n; i++) if (a[i] !== b[i]) d++;
+  d += Math.abs(a.length - b.length);
+  return d;
+}
+
+function corpShapeDistance(minHamming = 12): { min: number; ok: boolean } {
+  const occ = CORP_IDS.map((id) => occupancy3(generate(CORPS[id].spec, { lod: 'near', seed: 1 })));
+  let min = Infinity;
+  for (let i = 0; i < occ.length; i++) {
+    for (let j = i + 1; j < occ.length; j++) {
+      min = Math.min(min, hamming(occ[i]!, occ[j]!));
+    }
+  }
+  return { min, ok: min >= minHamming };
+}
+
+function assertLandmarkCoords(def: LandmarkDef): void {
+  const { x, z, y, region } = def.coords;
+  if (x < 0 || x >= WORLD_SECTORS_X) throw new RangeError(`${def.id} x out of world`);
+  if (z < 0 || z >= WORLD_SECTORS_Z) throw new RangeError(`${def.id} z out of world`);
+  if (y < 0 || y > 12_000) throw new RangeError(`${def.id} y out of ceiling`);
+  if (!(REGION_CODES as readonly string[]).includes(region)) {
+    throw new RangeError(`${def.id} unknown region ${region}`);
+  }
+}
 
 describe('corp heraldry', () => {
   it('covers every CorpId with a unique grammar', () => {
@@ -35,10 +95,9 @@ describe('corp heraldry', () => {
     for (const id of CORP_IDS) {
       expect(isCorpId(id)).toBe(true);
       const corp = CORPS[id];
-      expect(corp.id).toBe(id);
       expect(corp.hues.length).toBeGreaterThan(0);
-      expect(corp.spec.kind).toBe(corp.grammar);
-      grammars.add(corp.grammar);
+      expect(corp.spec.kind).toBeTruthy();
+      grammars.add(corp.spec.kind);
     }
     expect(grammars.size).toBe(CORP_IDS.length);
   });
