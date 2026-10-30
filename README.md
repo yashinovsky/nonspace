@@ -9,18 +9,18 @@ A browser WebGL2 game set in the cyberspace of William Gibson's _Neuromancer_. T
 
 ## Commands
 
-| Command               | What it does                                                               |
-| --------------------- | -------------------------------------------------------------------------- |
-| `npm install`         | Install dependencies                                                       |
-| `npm run dev`         | Vite dev server at http://localhost:5173 (add `?debug` for the perf panel) |
-| `npm run build`       | Typecheck, build to `dist/`, and fail if `dist/` exceeds 1 MB              |
-| `npm run preview`     | Serve the built `dist/` at http://localhost:4173                           |
-| `npm test`            | Vitest unit tests (`tests/unit`)                                           |
-| `npm run e2e:install` | One-time: install Playwright's Chromium and system deps                    |
-| `npm run e2e`         | Build, serve, and run Playwright smoke tests in headless Chromium (WebGL2) |
-| `npm run lint`        | ESLint + Prettier check                                                    |
-| `npm run format`      | Prettier write                                                             |
-| `npm run typecheck`   | `tsc` for app code and for configs/e2e/scripts                             |
+| Command               | What it does                                                                 |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `npm install`         | Install dependencies                                                         |
+| `npm run dev`         | Vite dev server at http://localhost:5173 (add `?debug` for the perf panel)   |
+| `npm run build`       | Typecheck, build to `dist/`, and fail if the default-boot graph exceeds 1 MB |
+| `npm run preview`     | Serve the built `dist/` at http://localhost:4173                             |
+| `npm test`            | Vitest unit tests (`tests/unit`)                                             |
+| `npm run e2e:install` | One-time: install Playwright's Chromium and system deps                      |
+| `npm run e2e`         | Build, serve, and run Playwright smoke tests in headless Chromium (WebGL2)   |
+| `npm run lint`        | ESLint + Prettier check                                                      |
+| `npm run format`      | Prettier write                                                               |
+| `npm run typecheck`   | `tsc` for app code and for configs/e2e/scripts                               |
 
 CI (`.github/workflows/ci.yml`) runs lint, unit tests, build (with the size check) and the e2e smoke on every PR.
 
@@ -52,6 +52,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=beach` is M7.10 / M6 "The Beach": first-person walk, SDF raymarch (half-res), Linda, sun cycle, checkerboard tell, dub-bass exit. `window.__nonspace.beach` is the sim handle. Contract notes in plan §9.23.
 - `?lab=grid` is the M1.3 ground grid + local lattice lab (analytic AA, checker, Wintermute warp, camera-centred 64 u lattice). `&scene=cruise|graze|high|warp|lattice`. Screenshot: `docs/screenshots/m1-3-grid.png`. Contract notes in plan §9.24.
 - `?lab=heraldry` is the M2.2 corp heraldry set (nine authored landmarks, mock tempo clock, grayscale toggle). `?id=esfa` (or any landmark id) selects the construct; `?gray=1` forces grayscale. Screenshot: `docs/screenshots/m2-2-heraldry.png`. Contract notes in plan §9.25.
+- `?lab=sector` is the M2.3 sector streamer (5×5 window, worker gen, budgeted upload, far-LOD landmarks always on). `?seed=` and `?autofly=1` (boost along +X) are optional. Screenshot: `docs/screenshots/m2-3-sector-stream.png`. Contract notes in plan §9.26.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -61,23 +62,24 @@ The folder skeleton follows plan §8.11. Empty directories hold a `.gitkeep` unt
 
 Shared contracts from plan §9 are typed stubs other tasks build against:
 
-| Contract                           | File                                                                                          |
-| ---------------------------------- | --------------------------------------------------------------------------------------------- |
-| Events + typed event bus           | `src/core/events.ts`                                                                          |
-| Beam lines, points, palette        | `src/render/lines/BeamBatch.ts`, `src/render/points/PointBatch.ts`, `src/render/palette.ts`   |
-| ICE + Phase Lock metric            | `src/breach/IceModel.ts`, `src/breach/PhaseLock.ts`, `src/content/ice/presets.ts`             |
-| Softs                              | `src/content/softs.ts`                                                                        |
-| Missions (zod)                     | `src/narrative/schema.ts`                                                                     |
-| Mission runner + triggers          | `src/narrative/MissionRunner.ts`, `src/narrative/triggers.ts`                                 |
-| Simstim timelines                  | `src/content/simstim/types.ts`                                                                |
-| Audio API + no-op engine           | `src/audio/AudioEngine.ts`                                                                    |
-| Web Audio engine (M5.1)            | `src/audio/{AudioEngine,engine,buses,spatial}.ts`, `src/audio/worklets/`, `src/audio/voices/` |
-| SFX catalog, modem, Dixie (M5.2)   | `src/audio/sfx/`, `src/audio/modem.ts`, `src/audio/dixieVoice.ts`                             |
-| Adaptive music (M5.3)              | `src/audio/music/{Sequencer,Harmony,player,motifs}.ts`, `src/audio/music/patterns/`           |
-| Flight, camera, hull collision     | `src/player/{FlightController,CameraRig,Collision}.ts`                                        |
-| Construct grammar (M2.1)           | `src/world/constructs/{grammar,primitives,lod}.ts`                                            |
-| Sky (spiral arms + constellations) | `src/world/sky/{SpiralArms,FarConstellations,Sky}.ts`                                         |
-| Corp heraldry + landmarks (M2.2)   | `src/content/{corps,landmarks}.ts`                                                            |
+| Contract                           | File                                                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Events + typed event bus           | `src/core/events.ts`                                                                                  |
+| Beam lines, points, palette        | `src/render/lines/BeamBatch.ts`, `src/render/points/PointBatch.ts`, `src/render/palette.ts`           |
+| ICE + Phase Lock metric            | `src/breach/IceModel.ts`, `src/breach/PhaseLock.ts`, `src/content/ice/presets.ts`                     |
+| Softs                              | `src/content/softs.ts`                                                                                |
+| Missions (zod)                     | `src/narrative/schema.ts`                                                                             |
+| Mission runner + triggers          | `src/narrative/MissionRunner.ts`, `src/narrative/triggers.ts`                                         |
+| Simstim timelines                  | `src/content/simstim/types.ts`                                                                        |
+| Audio API + no-op engine           | `src/audio/AudioEngine.ts`                                                                            |
+| Web Audio engine (M5.1)            | `src/audio/{AudioEngine,engine,buses,spatial}.ts`, `src/audio/worklets/`, `src/audio/voices/`         |
+| SFX catalog, modem, Dixie (M5.2)   | `src/audio/sfx/`, `src/audio/modem.ts`, `src/audio/dixieVoice.ts`                                     |
+| Adaptive music (M5.3)              | `src/audio/music/{Sequencer,Harmony,player,motifs}.ts`, `src/audio/music/patterns/`                   |
+| Flight, camera, hull collision     | `src/player/{FlightController,CameraRig,Collision}.ts`                                                |
+| Construct grammar (M2.1)           | `src/world/constructs/{grammar,primitives,lod}.ts`                                                    |
+| Sky (spiral arms + constellations) | `src/world/sky/{SpiralArms,FarConstellations,Sky}.ts`                                                 |
+| Corp heraldry + landmarks (M2.2)   | `src/content/{corps,landmarks}.ts`                                                                    |
+| Sector streaming (M2.3)            | `src/world/{coords,Sector,SectorStreamer,sectorWorker,densityMap,landmarks}.ts`, `traffic/routing.ts` |
 
 Test doubles (recording beam/point batches, event recorder, recording audio engine) and valid sample data are in `src/testing/`. Notes on how the stubs differ from the plan's literal TypeScript are in plan §9.8.
 
@@ -96,7 +98,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Renderer service (HDR targets, PostChain, quality)                       | `src/render/Renderer.ts`                               |
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky, beach, grid, heraldry), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.25. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky, beach, grid, heraldry, sector), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.26. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
@@ -123,7 +125,7 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 - `?debug` adds a graphics folder: quality, internal size, dynres, a GPU-load slider, and inject-20 ms buttons. Persistence tunables live in the `phosphor` folder.
 - `?lab=beam` — eight palette cubes plus a grid, through the same HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m1-1-beams.png`.
 - `?lab=grid` — infinite ground grid (8/64/1024 u, analytic AA, checker, warp) plus the 64 u local lattice. Screenshot: `docs/screenshots/m1-3-grid.png`.
-- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. M1.2 must not edit `render/lines/*`.
+- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. Sector notes are plan §9.26. M1.2 must not edit `render/lines/*`.
 - M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.

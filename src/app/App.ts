@@ -19,7 +19,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach` / `grid` / `heraldry`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -78,7 +78,10 @@ export async function startApp({
   const collision = createCollisionWorld();
   const flight = createFlightController({ collision });
   const cameraRig = createCameraRig({
+    camera: lab === 'sector' ? renderer.cameras.matrix : undefined,
     aspect: window.innerWidth / Math.max(window.innerHeight, 1),
+    near: lab === 'sector' ? 0.5 : undefined,
+    far: lab === 'sector' ? 60_000 : undefined,
   });
   const input = createInput({
     settings,
@@ -124,11 +127,12 @@ export async function startApp({
     update(dt) {
       const frame = input.sample(dt);
       modes.handleInput(frame);
-      if (flightLab || lab === 'sky') {
+      if (flightLab || sectorLab || lab === 'sky') {
         flight.step(frame, dt, { reduceMotion: settings.value.reduceMotion });
       }
       mission.update(dt);
       labHandle?.update(dt);
+      sectorLab?.update(dt);
       modes.update(dt);
       events.flush();
     },
@@ -140,6 +144,7 @@ export async function startApp({
         renderer.three.clear(true, true, false);
         flightLab.render(alpha);
       } else {
+        sectorLab?.render(alpha);
         renderer.endFrame(frameDt, gpuTimer?.lastMs ?? null);
       }
     },
@@ -160,6 +165,8 @@ export async function startApp({
   document.addEventListener('visibilitychange', onVisibility);
 
   let labHandle: { update(dt: number): void; dispose(): void } | null = null;
+  let sectorLab: { update(dt: number): void; render(alpha: number): void; dispose(): void } | null =
+    null;
   if (lab === 'render') {
     const { installRenderLab } = await import('../debug/RenderLab');
     labHandle = installRenderLab(renderer);
@@ -179,6 +186,17 @@ export async function startApp({
       id: q.get('id') ?? undefined,
       gray: q.get('gray') ?? undefined,
       bpm: q.get('bpm') ?? undefined,
+    });
+  } else if (lab === 'sector') {
+    const { installSectorLab } = await import('../world/lab');
+    const q = new URLSearchParams(window.location.search);
+    sectorLab = await installSectorLab({
+      renderer,
+      flight,
+      cameraRig,
+      root,
+      seed: q.get('seed'),
+      autofly: q.get('autofly') === '1' || q.get('autofly') === 'true',
     });
   }
   if (lab === 'points') {
@@ -363,6 +381,7 @@ export async function startApp({
       window.removeEventListener('resize', resize);
       document.removeEventListener('visibilitychange', onVisibility);
       labHandle?.dispose();
+      sectorLab?.dispose();
       modes.reset();
       mission.dispose();
       events.clear();
