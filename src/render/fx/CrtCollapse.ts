@@ -1,11 +1,11 @@
 import type { Renderer } from '../Renderer';
-import { IDENTITY_CRT_COLLAPSE, type CrtCollapseState } from '../post/pass';
+import { IDENTITY_CRT_COLLAPSE, isIdentityCrtCollapse, type CrtCollapseState } from '../post/pass';
 
 /** Jack-out CRT power-off (plan §5.9). Image → line → dot → black in 0.6 s. */
 export const CRT_COLLAPSE_DURATION = 0.6;
 
 export type { CrtCollapseState };
-export { IDENTITY_CRT_COLLAPSE };
+export { IDENTITY_CRT_COLLAPSE, isIdentityCrtCollapse };
 
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v;

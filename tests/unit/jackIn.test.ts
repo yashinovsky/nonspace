@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   CRT_COLLAPSE_DURATION,
   crtCollapseLuma,
+  isIdentityCrtCollapse,
   sampleCrtCollapse,
   sampleCrtCollapseLuma,
 } from '../../src/render/fx/CrtCollapse';
+import { IDENTITY_CRT_COLLAPSE } from '../../src/render/post/pass';
 import {
   JACK_IN_FULL,
   JACK_IN_SHORT,
@@ -74,6 +76,9 @@ describe('jack-in timing', () => {
 
 describe('CRT collapse', () => {
   it('lasts 0.6 s and squashes Y then X then fades', () => {
+    expect(isIdentityCrtCollapse(IDENTITY_CRT_COLLAPSE)).toBe(true);
+    expect(isIdentityCrtCollapse(sampleCrtCollapse(0))).toBe(true);
+    expect(isIdentityCrtCollapse(sampleCrtCollapse(0.3))).toBe(false);
     expect(CRT_COLLAPSE_DURATION).toBe(0.6);
     const t0 = sampleCrtCollapse(0);
     expect(t0.scaleX).toBeCloseTo(1, 3);

@@ -110,6 +110,16 @@ export const IDENTITY_CRT_COLLAPSE: CrtCollapseState = {
   fade: 1,
 };
 
+/** True when squash is a no-op — FinalComposite must skip the collapse shader. */
+export function isIdentityCrtCollapse(state: CrtCollapseState): boolean {
+  return (
+    state.scaleX === IDENTITY_CRT_COLLAPSE.scaleX &&
+    state.scaleY === IDENTITY_CRT_COLLAPSE.scaleY &&
+    state.glow === IDENTITY_CRT_COLLAPSE.glow &&
+    state.fade === IDENTITY_CRT_COLLAPSE.fade
+  );
+}
+
 export interface PostPass {
   readonly name: string;
   readonly slot: PostSlot;

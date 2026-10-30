@@ -12,6 +12,7 @@ export {
   createFullscreenMaterial,
   createIdentityPass,
   IDENTITY_CRT_COLLAPSE,
+  isIdentityCrtCollapse,
   POST_SLOTS,
   type BlitFn,
   type Blitter,
