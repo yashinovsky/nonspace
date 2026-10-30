@@ -9,10 +9,13 @@ async function main(): Promise<void> {
     return;
   }
 
-  const debug = new URLSearchParams(window.location.search).has('debug');
+  const params = new URLSearchParams(window.location.search);
+  const debug = params.has('debug');
+  const missionId = params.get('mission') ?? undefined;
+  const checkpoint = params.get('checkpoint') ?? undefined;
   try {
     const { startApp } = await import('./app/App');
-    await startApp({ root, debug });
+    await startApp({ root, debug, missionId, checkpoint });
   } catch (err) {
     console.error(err);
     showUnsupported(root);

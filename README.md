@@ -37,6 +37,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 ## Debug
 
 - `?debug` opens a Tweakpane panel with FPS, frame time and GPU time. GPU time needs `EXT_disjoint_timer_query_webgl2` and shows `n/a` without it (e.g. SwiftShader). Tweakpane is lazy-loaded, so it costs nothing without the flag.
+- `?mission=<id>&checkpoint=<id>` (dev builds, or with `?debug`) loads a mock mission into the runner and optionally seeks a checkpoint. Mocks live in `src/narrative/mocks.ts`; `mock-triggers` exercises every trigger kind. Campaign content is a later task.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -53,6 +54,7 @@ Shared contracts from plan §9 are typed stubs other tasks build against:
 | ICE + Phase Lock metric     | `src/breach/IceModel.ts`, `src/breach/PhaseLock.ts`, `src/content/ice/presets.ts`           |
 | Softs                       | `src/content/softs.ts`                                                                      |
 | Missions (zod)              | `src/narrative/schema.ts`                                                                   |
+| Mission runner + triggers   | `src/narrative/MissionRunner.ts`, `src/narrative/triggers.ts`                               |
 | Simstim timelines           | `src/content/simstim/types.ts`                                                              |
 | Audio API + no-op engine    | `src/audio/AudioEngine.ts`                                                                  |
 
@@ -67,7 +69,8 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Deferred events (`post` / `flush`)                    | `src/core/events.ts`                       |
 | PCG32 RNG and integer hashing                         | `src/core/rng.ts`, `src/core/hash.ts`      |
 | Versioned localStorage save with migrations; settings | `src/core/save.ts`, `src/core/settings.ts` |
+| Mission runner (triggers, objectives, checkpoints)    | `src/narrative/MissionRunner.ts`           |
 
-The App flushes posted events after every sim step. Under `?debug`, the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9.
+The App flushes posted events after every sim step. Under `?debug`, the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.10.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.

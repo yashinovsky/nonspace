@@ -1,6 +1,7 @@
 import type { EventBus } from '../core/events';
 import type { SaveStore } from '../core/save';
 import type { SettingsStore } from '../core/settings';
+import type { MissionRunner } from '../narrative/MissionRunner';
 
 /** Mode ids from plan §8.2. */
 export const MODE_IDS = [
@@ -33,6 +34,8 @@ export interface ModeContext {
   readonly modes: ModeStack;
   readonly settings: SettingsStore;
   readonly save: SaveStore;
+  /** M7.1. Optional so parallel tasks don't have to construct a runner. */
+  readonly mission?: MissionRunner;
 }
 
 /** Plan §8.2. Implement as a class or plain object; one instance may be on the stack at a time. */
