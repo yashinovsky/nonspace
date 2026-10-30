@@ -54,7 +54,9 @@ test.describe('M2.4 sky', () => {
     await page.waitForTimeout(400);
 
     const canvas = page.locator('#app > canvas');
-    const groundPng = PNG.sync.read(await canvas.screenshot());
+    // Ground shot while the loop is still running (`setView` + spin need rAF).
+    // `animations: 'allow'` so Playwright does not wait for a dirty canvas.
+    const groundPng = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     const ground = litStats(groundPng);
     expect(ground.max).toBeGreaterThan(24);
     expect(ground.lit).toBeGreaterThan(300);
@@ -99,7 +101,23 @@ test.describe('M2.4 sky', () => {
     expect(ceilingRange / groundRange).toBeGreaterThan(0.95);
     expect(ceilingRange / groundRange).toBeLessThan(1);
 
-    const ceilingPng = PNG.sync.read(await canvas.screenshot());
+    // Freeze before the ceiling snapshot — 40k points spinning on SwiftShader
+    // starve sibling loop / grid / points workers.
+    await page.evaluate(() => {
+      const app = (
+        window as unknown as {
+          __nonspace?: {
+            renderer: {
+              three: { setAnimationLoop(fn: null): void };
+              endFrame(dt: number, gpuMs: number | null): void;
+            };
+          };
+        }
+      ).__nonspace;
+      app?.renderer.three.setAnimationLoop(null);
+      app?.renderer.endFrame(1 / 60, null);
+    });
+    const ceilingPng = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     const ceiling = litStats(ceilingPng);
     expect(ceiling.lit).toBeGreaterThan(200);
     writeFileSync(CEILING_SHOT, PNG.sync.write(ceilingPng));

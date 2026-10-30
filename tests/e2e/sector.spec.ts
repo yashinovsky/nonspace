@@ -81,7 +81,7 @@ test.describe('M2.3 sector streaming lab', () => {
 
     await page.waitForTimeout(400);
     const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot());
+    const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     let maxChannel = 0;
     let lit = 0;
     for (let i = 0; i < png.data.length; i += 4) {

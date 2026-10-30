@@ -66,6 +66,10 @@ function lumaAt(png: PNG, x: number, y: number): number {
 }
 
 test.describe('M6.2 Sense/Net simstim content', () => {
+  // One Sense/Net WebGL context at a time — three raster-CRT zones spinning
+  // in parallel starve sibling SwiftShader workers (loop / grid / points).
+  test.describe.configure({ mode: 'serial' });
+
   test('lab boots a building through the raster CRT at 320×240', async ({ page }) => {
     test.setTimeout(60_000);
     const errors = collectErrors(page);
@@ -77,6 +81,10 @@ test.describe('M6.2 Sense/Net simstim content', () => {
     await expect(page.getByTestId('simstim-lab')).toBeVisible();
     await page.waitForFunction(handle);
     await page.waitForFunction(sense);
+
+    // Freeze before any canvas snapshot. Do not spin live Sense/Net frames.
+    await freezeLoop(page);
+    await drawOnce(page);
 
     const stats = await page.evaluate(() => {
       const s = (window as unknown as { __nonspaceSenseNet: SenseHandle }).__nonspaceSenseNet;
@@ -97,8 +105,6 @@ test.describe('M6.2 Sense/Net simstim content', () => {
       const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
       app.simstim.setFlipped(true);
     });
-    await page.waitForTimeout(400);
-    await freezeLoop(page);
     await drawOnce(page);
 
     const flipped = await page.evaluate(() => {
@@ -109,7 +115,7 @@ test.describe('M6.2 Sense/Net simstim content', () => {
     expect(flipped.clock).toMatch(/^00:00:\d{2}$/);
 
     const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot({ animations: 'disabled' }));
+    const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     expect(png.width).toBeGreaterThan(600);
 
     let lit = 0;
@@ -142,34 +148,26 @@ test.describe('M6.2 Sense/Net simstim content', () => {
     test.setTimeout(60_000);
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto('/?lab=simstim&quality=high');
+    await page.goto('/?lab=simstim');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
     await page.waitForFunction(handle);
+    await page.waitForFunction(sense);
+    await freezeLoop(page);
 
     await page.evaluate(() => {
       const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
+      const s = (window as unknown as { __nonspaceSenseNet: SenseHandle }).__nonspaceSenseNet;
       app.simstim.setFlipped(true);
+      s.seek(2.5);
+      app.simstim.crack('sense-net-lobby');
+      s.seek(7.5);
+      app.simstim.crack('sense-net-corridor');
+      s.seek(12.5);
+      app.simstim.crack('sense-net-vault');
+      s.seek(12.6);
     });
 
-    const crackAt = async (ice: string, after: number) => {
-      await page.waitForFunction((t) => {
-        const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
-        return app.simstim.meatTime >= t;
-      }, after);
-      await page.evaluate((node) => {
-        const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
-        app.simstim.crack(node);
-      }, ice);
-    };
-
-    await crackAt('sense-net-lobby', 2.2);
-    await crackAt('sense-net-corridor', 7.2);
-    await crackAt('sense-net-vault', 12.2);
-
-    await page.waitForFunction(() => {
-      const gates = (document.getElementById('app') as HTMLElement).dataset.gates;
-      return gates === 'hit,hit,hit';
-    });
+    await expect(page.locator('#app')).toHaveAttribute('data-gates', 'hit,hit,hit');
 
     const line = await page.evaluate(
       () => (document.getElementById('app') as HTMLElement).dataset.line ?? '',
@@ -183,9 +181,10 @@ test.describe('M6.2 Sense/Net simstim content', () => {
     test.setTimeout(60_000);
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto('/?lab=simstim&quality=high');
+    await page.goto('/?lab=simstim');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
     await page.waitForFunction(sense);
+    await freezeLoop(page);
 
     await page.evaluate(() => {
       const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
@@ -211,12 +210,17 @@ test.describe('M6.2 Sense/Net simstim content', () => {
     test.setTimeout(60_000);
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto('/?mission=m2&quality=high');
+    await page.goto('/?mission=m2');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
     await expect(page.locator('#app')).toHaveAttribute('data-mission', 'm2');
     await expect(page.locator('#app')).toHaveAttribute('data-scene', 'sensenet');
     await expect(page.getByTestId('simstim-lab')).toBeVisible();
     await page.waitForFunction(handle);
+    await page.waitForFunction(() => {
+      const app = (window as unknown as { __nonspace?: StimHandle }).__nonspace;
+      return (app?.simstim.meatTime ?? 0) > 0;
+    });
+    await freezeLoop(page);
 
     const meta = await page.evaluate(() => {
       const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;

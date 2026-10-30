@@ -27,7 +27,12 @@ interface StimHandle {
     crack(ice: string): void;
     pain: { hurt(n: number): void; neural: number };
   };
-  renderer: { postMode: string; pipEnabled: boolean };
+  renderer: {
+    postMode: string;
+    pipEnabled: boolean;
+    three: { setAnimationLoop(fn: null): void };
+    endFrame(dt: number, gpuMs: number | null): void;
+  };
   events: { flush(): void };
 }
 
@@ -76,7 +81,11 @@ test.describe('M6.1 simstim feed', () => {
       const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
       app.simstim.setFlipped(true);
     });
-    await page.waitForTimeout(350);
+    await page.evaluate(() => {
+      const app = (window as unknown as { __nonspace?: StimHandle }).__nonspace;
+      app?.renderer.three.setAnimationLoop(null);
+      app?.renderer.endFrame(1 / 60, null);
+    });
 
     const flipped = await page.evaluate(() => {
       const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
@@ -86,7 +95,7 @@ test.describe('M6.1 simstim feed', () => {
     expect(flipped.on).toBe(true);
 
     const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot());
+    const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     expect(png.width).toBeGreaterThan(600);
 
     let lit = 0;

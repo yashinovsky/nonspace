@@ -25,6 +25,8 @@ interface GridHandle {
     internalWidth: number;
     internalHeight: number;
     quality: { latticeRadius: number; tier: string };
+    three: { setAnimationLoop(fn: null): void };
+    endFrame(dt: number, gpuMs: number | null): void;
   };
 }
 
@@ -65,9 +67,14 @@ test.describe('M1.3 ground grid and local lattice', () => {
     await expect(page.getByTestId('grid-lab')).toBeVisible();
     await page.waitForFunction(app);
     await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      const h = (window as unknown as { __nonspace?: GridHandle }).__nonspace;
+      h?.renderer.three.setAnimationLoop(null);
+      h?.renderer.endFrame(1 / 60, null);
+    });
 
     const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot());
+    const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     const cruise = stats(png);
     expect(cruise.max).toBeGreaterThan(30);
     expect(cruise.lit).toBeGreaterThan(800);
@@ -107,7 +114,7 @@ test.describe('M1.3 ground grid and local lattice', () => {
     await page.waitForTimeout(400);
 
     const canvas = page.locator('#app > canvas');
-    const graze = stats(PNG.sync.read(await canvas.screenshot()));
+    const graze = stats(PNG.sync.read(await canvas.screenshot({ animations: 'allow' })));
     expect(graze.skyMax).toBeLessThan(24);
     expect(graze.bottomLit).toBeGreaterThan(200);
     expect(graze.max).toBeGreaterThan(20);
@@ -116,7 +123,7 @@ test.describe('M1.3 ground grid and local lattice', () => {
     await expect(page.locator('#app')).toHaveAttribute('data-scene', 'high');
     await expect(page.locator('#app')).toHaveAttribute('data-altitude', /5000/);
     await page.waitForTimeout(350);
-    const high = stats(PNG.sync.read(await canvas.screenshot()));
+    const high = stats(PNG.sync.read(await canvas.screenshot({ animations: 'allow' })));
     expect(high.lit).toBeGreaterThan(400);
     expect(high.max).toBeGreaterThan(20);
 
@@ -127,7 +134,7 @@ test.describe('M1.3 ground grid and local lattice', () => {
     );
     expect(warpDelta).toBeGreaterThan(5);
     await page.waitForTimeout(300);
-    const warp = stats(PNG.sync.read(await canvas.screenshot()));
+    const warp = stats(PNG.sync.read(await canvas.screenshot({ animations: 'allow' })));
     expect(warp.lit).toBeGreaterThan(400);
 
     const before = Number.parseInt(
