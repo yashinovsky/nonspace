@@ -3,8 +3,9 @@ import { PNG } from 'pngjs';
 
 /**
  * M8.2: Low-tier RGBA8 fallback on a no-float-RT browser config, plus the
- * §8.7 quality knobs this environment can prove. Freezes rAF (SwiftShader);
- * does not spin 1080p High or share the sector hitch lock.
+ * §8.7 quality knobs this environment can prove. Uses `?noloop` so App never
+ * starts rAF (SwiftShader); paints with endFrame; dropPage in finally.
+ * Does not spin 1080p High or share the sector hitch lock (#48).
  */
 
 function collectErrors(page: Page): string[] {
@@ -95,16 +96,20 @@ async function stubNoFloatRt(page: Page): Promise<void> {
 }
 
 test.describe('M8.2 quality / performance', () => {
+  // One WebGL context at a time. A live ?lab=render rAF billed sibling
+  // SwiftShader workers (loop.spec lag / sky 40k screenshot).
+  test.describe.configure({ mode: 'serial' });
+
   test('Low-tier RGBA8 fallback on a no-float-RT config still paints', async ({ page }) => {
     const errors = collectErrors(page);
     try {
       await stubNoFloatRt(page);
       await page.setViewportSize({ width: 1280, height: 720 });
-      await page.goto('/?lab=render&hdr=0');
-      await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
-      await expect(page.locator('#app')).toHaveAttribute('data-lab', 'render');
+      await page.goto('/?lab=render&hdr=0&noloop');
       await page.waitForFunction(handle);
       await freezeLoop(page);
+      await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
+      await expect(page.locator('#app')).toHaveAttribute('data-lab', 'render');
       await paint(page);
 
       await expect(page.locator('#app')).toHaveAttribute('data-tier', 'low');
@@ -150,7 +155,8 @@ test.describe('M8.2 quality / performance', () => {
       expect(meta.size[0]).toBeLessThan(1280);
 
       const canvas = page.locator('#app > canvas');
-      const png = PNG.sync.read(await canvas.screenshot({ animations: 'disabled' }));
+      // `allow`: do not wait for canvas stability (SwiftShader siblings).
+      const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
       let maxChannel = 0;
       let lit = 0;
       for (let i = 0; i < png.data.length; i += 4) {
@@ -172,10 +178,10 @@ test.describe('M8.2 quality / performance', () => {
     const errors = collectErrors(page);
     try {
       await page.setViewportSize({ width: 1280, height: 720 });
-      await page.goto('/?lab=render&quality=medium');
-      await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
+      await page.goto('/?lab=render&quality=medium&noloop');
       await page.waitForFunction(handle);
       await freezeLoop(page);
+      await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
       await paint(page);
 
       const result = await page.evaluate(() => {

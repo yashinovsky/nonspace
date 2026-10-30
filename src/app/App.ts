@@ -37,6 +37,8 @@ export interface AppOptions {
   qualityOverride?: QualitySetting;
   /** `?hdr=0` / no-float-RT tests. Forces RGBA8 internals. */
   forceRgba8?: boolean;
+  /** `?noloop` — e2e paint-only; do not start a live rAF (SwiftShader siblings). */
+  skipAnimationLoop?: boolean;
   /** `?mission=` — mock id, loaded only in dev or with `?debug` (p0–m7 campaign always). */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
@@ -79,6 +81,7 @@ export async function startApp({
   lab,
   qualityOverride,
   forceRgba8,
+  skipAnimationLoop,
   missionId,
   checkpoint,
 }: AppOptions): Promise<App> {
@@ -694,10 +697,11 @@ export async function startApp({
 
   let gui: DebugGui | null = null;
   // Always attach the GPU timer so dynamic resolution sees real frame times
-  // outside `?debug` / Look Lab. Null on SwiftShader (no timer query).
-  const gpuTimer: GpuTimer | null = createGpuTimer(
-    renderer.three.getContext() as WebGL2RenderingContext,
-  );
+  // outside `?debug` / Look Lab. Skip SwiftShader — timer queries there stall
+  // sibling e2e workers, and dynres already ignores null samples.
+  const gpuTimer: GpuTimer | null = /swiftshader/i.test(renderer.caps.renderer)
+    ? null
+    : createGpuTimer(renderer.three.getContext() as WebGL2RenderingContext);
   if (debug) {
     const { createDebugGui } = await import('../debug/DebugGui');
     gui = createDebugGui({ gpuTimerAvailable: gpuTimer !== null });
@@ -936,15 +940,17 @@ export async function startApp({
   };
   // Playwright sets navigator.webdriver. Do not start a live HUD+CRT rAF for
   // ?lab=dixie / ?mission=m3|m4|m5|m6 — that billed sibling SwiftShader loop.spec / sector.spec.
+  // `?noloop` is the M8.2 paint-only hook so quality.spec never spins ?lab=render.
   const webdriver = typeof navigator !== 'undefined' && navigator.webdriver;
   if (
-    webdriver &&
-    (lab === 'dixie' ||
-      missionId === 'm3' ||
-      missionId === 'm4' ||
-      missionId === 'm5' ||
-      missionId === 'm6' ||
-      missionId === 'm7')
+    skipAnimationLoop ||
+    (webdriver &&
+      (lab === 'dixie' ||
+        missionId === 'm3' ||
+        missionId === 'm4' ||
+        missionId === 'm5' ||
+        missionId === 'm6' ||
+        missionId === 'm7'))
   ) {
     root.dataset.status = 'running';
     syncRoot();
