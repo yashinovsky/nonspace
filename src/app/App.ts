@@ -11,6 +11,7 @@ import { createCameraRig, type CameraRig } from '../player/CameraRig';
 import { createCollisionWorld, type CollisionWorld } from '../player/Collision';
 import { createFlightController, type FlightController } from '../player/FlightController';
 import { createRenderer, type Renderer } from '../render/Renderer';
+import { isBlackIceComposite } from '../render/post/BlackIceComposite';
 import type { PersistencePass } from '../render/post/PersistencePass';
 import { isVectorCrtPass } from '../render/post/VectorCrtPass';
 import type { BeachSim } from '../render/beach/sim';
@@ -21,7 +22,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -264,6 +265,15 @@ export async function startApp({
     });
     root.dataset.lab = 'grid';
   }
+  if (lab === 'blackice') {
+    const { installBlackIceLab, isBlackIceScene } = await import('../debug/BlackIceLab');
+    const q = new URLSearchParams(window.location.search);
+    const sceneParam = q.get('scene');
+    labHandle = installBlackIceLab(renderer, root, {
+      scene: isBlackIceScene(sceneParam) ? sceneParam : undefined,
+      grip: q.get('grip') ?? undefined,
+    });
+  }
 
   let inputLab: { dispose(): void } | null = null;
   if (lab === 'input') {
@@ -422,6 +432,13 @@ export async function startApp({
       });
     }
     beachMode?.attachDebug(gui.pane);
+    const icePass = renderer.chain.getPass('blackIce');
+    if (isBlackIceComposite(icePass)) {
+      const ice = gui.pane.addFolder({ title: 'black ice' });
+      ice.addBinding(icePass, 'strength', { min: 0, max: 1, step: 0.01 });
+      ice.addBinding(icePass, 'edgeIntensity', { min: 0, max: 4, step: 0.05, label: 'UV edge' });
+      ice.addBinding(icePass, 'grip', { min: 0, max: 1, step: 0.01 });
+    }
   }
 
   let last = performance.now();

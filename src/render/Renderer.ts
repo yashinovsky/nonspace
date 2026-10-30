@@ -212,6 +212,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
     encoded: 'hdr',
     exposure: 1,
     vectorLoad: 0,
+    blackIceDrawn: false,
   };
 
   const debugState = {
@@ -350,6 +351,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
       ctx.exposure = exposure;
       ctx.quality = quality;
       ctx.vectorLoad = vectorLoadOverride ?? 0;
+      ctx.blackIceDrawn = false;
 
       cameras.matrix.getWorldQuaternion(scratchQuat);
       ctx.angularVelocity = dt > 1e-6 ? lastQuat.angleTo(scratchQuat) / dt : 0;
@@ -377,11 +379,13 @@ export function createRenderer(opts: RendererOptions): Renderer {
           if (scenes.sky.children.length > 0) three.render(scenes.sky, cameras.matrix);
           if (scenes.matrix.children.length > 0) three.render(scenes.matrix, cameras.matrix);
 
-          if (scenes.blackIce.children.length > 0) {
+          const iceDrawn = scenes.blackIce.children.length > 0;
+          if (iceDrawn) {
             three.setRenderTarget(targets.blackIceMask);
             three.clear(true, true, false);
             three.render(scenes.blackIce, cameras.matrix);
           }
+          ctx.blackIceDrawn = iceDrawn;
         }
         if (vectorLoadOverride === null) {
           ctx.vectorLoad = Math.min(1, three.info.render.calls / 32);

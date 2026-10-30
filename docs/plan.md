@@ -1308,6 +1308,16 @@ Vector CRT composite. Extends the M1.5 `VectorCrtPass` tonemap stub; does not re
 - **Hershey.** Mild CRT (k = 0.015, ≤ 0.25 px jitter, ≤ 3% flicker, multiplicative grain) keeps 16 px cap-height simplex readable at 1080p. The vector lab loads `simplex.bin.gz` through M3.1 `loadHersheyFont` (gunzip only when gzip magic is still present).
 - **Dev route:** `?lab=vector` (lazy `debug/VectorCrtLab.ts` chunk; default boot does not fetch it). Lattice + Hershey `NONSPACE` through the pass. Screenshot: `docs/screenshots/m1-6-vector-crt.png`. Dist budget is the default-boot graph (labs excluded), same as sector streaming.
 
+### 9.33 Contract notes from M1.8 (repo copy only)
+
+Black ICE mask pipeline. Replaces the bloom-add stub in `BlackIceComposite.ts`. Does not edit sibling passes, `PostChain.ts`, `targets.ts`, `VectorCrtPass.ts`, or `tonemap.frag`. Bloom remains M1.5 (§9.29). Text remains M3.1 (§9.30). Vector CRT remains M1.6 (§9.32). Cast `chain.getPass('blackIce')` to `BlackIceComposite` for tunables.
+
+- **Solids** (`render/faces/blackIce.vert/.frag`, `BlackIceSolid`): write coverage 1 into `targets.blackIceMask` (R8). Log-depth matches the matrix camera. Put meshes on `renderer.scenes.blackIce`. `Renderer.endFrame` clears and draws the mask only when that scene has children, and sets `ctx.blackIceDrawn` so a live mask RT cannot force a blit on default boot.
+- **UV edge material** (`render/faces/uvEdge.vert` + `beamLine.frag` via `createUvEdgeMaterial`): same instanced ribbons as M1.1 (`createBeamBatch({ material })`). Colour is ultraviolet `#8A2BFF` (not a palette slot). `crawlOffset` displaces endpoints like slow lightning; CPU twin in `blackIceMath.ts`. Edge lines go in `scenes.matrix` (HDR, then bloom).
+- **Composite** (`BlackIceComposite.ts`, `post/shaders/blackIceComposite.frag`): `col = (input + bloom) * (1 - mask * strength)`, then add a crawling UV silhouette from `fwidth(mask)` so the edge survives bloom-eat. `grip` 0..1 grows subtractive screen-edge tendrils with a thin UV fringe (plan §5.5). Skip (return `input`) when there is no bloom, grip is 0, and no ICE was drawn this frame — SwiftShader cannot afford an extra fullscreen blit on every default-boot frame. Stub RTs without `.texture` also skip. Reduce Motion freezes crawl/tendril time.
+- **CPU** (`render/faces/blackIceMath.ts`): `applyMask`, `tendrilCoverage`, `crawlOffset`. Strength default 1 = truly black, including bloom.
+- **Dev route**: `?lab=blackice` (`debug/BlackIceLab.ts`, lazy `?lab=` chunk). `&scene=shard|grip` or `&grip=1`. Hot amber construct behind a black octahedral shard. `window.__nonspaceBlackIce`. Screenshot: `docs/screenshots/m1-8-black-ice.png`. Dist budget is the default-boot graph (lab chunk excluded).
+
 ---
 
 ## 10. Milestones and tasks
