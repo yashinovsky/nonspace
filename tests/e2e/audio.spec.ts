@@ -1,4 +1,12 @@
 import { expect, test, type ConsoleMessage, type Page } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const SCREENSHOT = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../docs/screenshots/m5-4-phase-lock-audio.png',
+);
 
 interface AudioDiag {
   unlocked: boolean;
@@ -121,6 +129,32 @@ test('?lab=audio adaptive music states crossfade and expose pulse', async ({ pag
       { timeout: 3_000 },
     )
     .toBe('approach');
+
+  expect(errors).toEqual([]);
+});
+
+test('?lab=audio Phase Lock lock paints a CPU waveform without live rAF', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await page.goto('/?lab=audio');
+  await expect(page.locator('#app')).toHaveAttribute('data-status', 'audio-lab');
+
+  await page.evaluate(() => {
+    (
+      window as unknown as {
+        __nonspaceAudio?: { paintPhaseLock(mode: 'lock' | 'mismatch' | 'rekey' | 'grip'): void };
+      }
+    ).__nonspaceAudio?.paintPhaseLock('lock');
+  });
+  await expect(page.locator('#app')).toHaveAttribute('data-pl', 'lock');
+  await expect(page.getByTestId('audio-pl-readout')).toContainText('lock');
+  await expect(page.getByTestId('audio-pl-scope')).toBeVisible();
+
+  mkdirSync(dirname(SCREENSHOT), { recursive: true });
+  await page.getByTestId('audio-pl-scope').screenshot({ path: SCREENSHOT, animations: 'disabled' });
+
+  await page.getByTestId('audio-pl-mismatch').click();
+  await expect(page.locator('#app')).toHaveAttribute('data-pl', 'mismatch');
+  await expect(page.getByTestId('audio-pl-readout')).toContainText('beat');
 
   expect(errors).toEqual([]);
 });

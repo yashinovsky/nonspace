@@ -1,3 +1,11 @@
+import type { AudioEngine } from '../audio/AudioEngine';
+import {
+  PHASE_LOCK_F0,
+  syncPhaseLockEngine,
+  telegraphProgress,
+  type PhaseLockDriveInput,
+  type PhaseLockSession,
+} from '../audio/phaseLock';
 import type { EventBus } from '../core/events';
 import type { SaveStore } from '../core/save';
 import { createHeat, type Heat } from '../deck/Heat';
@@ -141,6 +149,8 @@ export interface BreachController {
   markCheckpoint(): void;
   restoreCheckpoint(): void;
   setPurist(on: boolean): void;
+  /** M5.4: attach/replace the §9.7 engine. Null stops the bed. */
+  setAudio(next: AudioEngine | undefined): void;
 }
 
 export interface BreachControllerOptions {
@@ -150,6 +160,10 @@ export interface BreachControllerOptions {
   trace?: Trace;
   heat?: Heat;
   purist?: boolean;
+  /** Optional §9.7 engine. Phase Lock math is unchanged; this only drives tones. */
+  audio?: AudioEngine;
+  /** Mission-key f0 in Hz (default A2 = 110). */
+  f0?: number;
 }
 
 function emptyKnobs(): BreachKnobs {
@@ -174,6 +188,38 @@ export function createBreachController(opts: BreachControllerOptions = {}): Brea
   let lastOutcome: BreachOutcome = { kind: 'none' };
   let checkpoint: BreachCheckpoint = { neural: neural.value, trace: trace.value };
   let flatlineEmitted = false;
+  let audio = opts.audio;
+  const f0 = opts.f0 ?? PHASE_LOCK_F0;
+  const plSession: PhaseLockSession = { started: false, music: null };
+
+  const driveInput = (): PhaseLockDriveInput | null => {
+    if (!ice || ice.state.status !== 'engaged') return null;
+    const cur = ice.state.current;
+    const [a, b] = cur.ratio;
+    const tel = cur.telegraph;
+    return {
+      engaged: true,
+      a,
+      b,
+      phi: cur.phi,
+      R: knobs.R,
+      Phi: knobs.Phi + cur.roll,
+      telegraph: tel
+        ? {
+            nextA: tel.next[0],
+            nextB: tel.next[1],
+            k: telegraphProgress(ice.state.t, tel.start, tel.end),
+          }
+        : null,
+      grip: grip.active,
+      meter: cur.meter,
+    };
+  };
+
+  const syncAudio = (): void => {
+    if (!audio) return;
+    syncPhaseLockEngine(audio, plSession, driveInput(), f0);
+  };
 
   const syncKnobs = (): void => {
     knobs.R = knobToR(knobs.lnR, purist);
@@ -204,6 +250,7 @@ export function createBreachController(opts: BreachControllerOptions = {}): Brea
     finishGrip();
     ice = null;
     anchor = null;
+    syncAudio();
     const out: BreachOutcome = { kind: 'flatline', scripted };
     lastOutcome = out;
     if (!flatlineEmitted) {
@@ -218,6 +265,7 @@ export function createBreachController(opts: BreachControllerOptions = {}): Brea
     finishGrip();
     ice = null;
     anchor = null;
+    syncAudio();
     heat.applyRunEnd(trace.value, true);
     const out: BreachOutcome = { kind: 'burned' };
     lastOutcome = out;
@@ -288,12 +336,14 @@ export function createBreachController(opts: BreachControllerOptions = {}): Brea
       knobs.lnR = 0;
       knobs.Phi = 0;
       syncKnobs();
+      syncAudio();
     },
     disengage() {
       ice?.disengage();
       finishGrip();
       ice = null;
       anchor = null;
+      syncAudio();
     },
     canJackOut() {
       return !grip.jackOutBlocked;
@@ -330,6 +380,7 @@ export function createBreachController(opts: BreachControllerOptions = {}): Brea
           return emitFlatline(false);
         }
         if (trace.burned) return emitBurned();
+        syncAudio();
         return lastOutcome;
       }
 
@@ -343,6 +394,7 @@ export function createBreachController(opts: BreachControllerOptions = {}): Brea
       if (!ice || ice.state.status !== 'engaged') return;
       const ev = ice.forceGrip(reason);
       handleIceEvents(ev);
+      syncAudio();
     },
     forceFlatline(scripted = false) {
       return emitFlatline(scripted);
@@ -362,6 +414,14 @@ export function createBreachController(opts: BreachControllerOptions = {}): Brea
       anchor = null;
       flatlineEmitted = false;
       lastOutcome = { kind: 'none' };
+      syncAudio();
+    },
+    setAudio(next) {
+      if (audio && audio !== next && plSession.started) audio.phaseLock.stop();
+      audio = next;
+      plSession.started = false;
+      plSession.music = null;
+      syncAudio();
     },
     setPurist(on) {
       purist = on;

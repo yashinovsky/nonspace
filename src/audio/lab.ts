@@ -1,10 +1,15 @@
 import { createAudioEngine, getAudioDiagnostics, getAudioEngineHandle } from './AudioEngine';
 import type { AudioDiagnostics, AudioEngine, EngineLabHandle, Handle } from './AudioEngine';
+import { beatingHz, phaseConsonance, phaseLockBed } from './phaseLock';
+
+export type PhaseLockLabMode = 'lock' | 'mismatch' | 'rekey' | 'grip';
 
 export interface AudioLabHandle {
   engine: AudioEngine;
   lab: EngineLabHandle;
   diagnostics(): AudioDiagnostics | null;
+  /** CPU-painted scope; no rAF. */
+  paintPhaseLock(mode: PhaseLockLabMode): void;
 }
 
 declare global {
@@ -46,7 +51,7 @@ export async function startAudioLab(root: HTMLElement): Promise<AudioLabHandle> 
   page.className = 'audio-lab';
   page.innerHTML = `
     <h1>NONSPACE</h1>
-    <p class="sub">Audio engine lab · M5.1 / M5.3 · <kbd>?lab=audio</kbd></p>
+    <p class="sub">Audio engine lab · M5.1 / M5.3 / M5.4 · <kbd>?lab=audio</kbd></p>
     <p class="gate" data-testid="audio-gate">Click anywhere (or Unlock) to start the AudioContext.</p>
     <section>
       <h2>ENGINE</h2>
@@ -92,11 +97,23 @@ export async function startAudioLab(root: HTMLElement): Promise<AudioLabHandle> 
       <p class="sub" data-testid="audio-pulse">pulse —</p>
     </section>
     <section>
-      <h2>STUBS (M5.2–M5.4)</h2>
+      <h2>PHASE LOCK (M5.4)</h2>
+      <p class="sub" data-testid="audio-pl-readout">idle</p>
+      <canvas data-testid="audio-pl-scope" width="640" height="240"
+        style="display:block;width:min(40rem,100%);height:auto;background:#000;border:1px solid #1a3348;margin:0 0 0.6rem"></canvas>
+      <div class="row">
+        <button type="button" data-testid="audio-pl-lock">Lock 3:2</button>
+        <button type="button" data-testid="audio-pl-mismatch">Mismatch (beat)</button>
+        <button type="button" data-testid="audio-pl-rekey">Re-key slide</button>
+        <button type="button" data-testid="audio-pl-grip">Grip</button>
+        <button type="button" data-testid="audio-pl-stop">Stop</button>
+      </div>
+    </section>
+    <section>
+      <h2>SFX / MODEM</h2>
       <div class="row">
         <button type="button" data-testid="audio-sfx">SFX shatter</button>
         <button type="button" data-testid="audio-pl-start">Phase Lock start</button>
-        <button type="button" data-testid="audio-pl-stop">Phase Lock stop</button>
         <button type="button" data-testid="audio-modem-start">Modem start</button>
         <button type="button" data-testid="audio-modem-stop">Modem stop</button>
       </div>
@@ -115,6 +132,70 @@ export async function startAudioLab(root: HTMLElement): Promise<AudioLabHandle> 
   let orbitT = 0;
 
   const pulseEl = page.querySelector('[data-testid="audio-pulse"]') as HTMLElement;
+  const scope = page.querySelector('[data-testid="audio-pl-scope"]') as HTMLCanvasElement;
+  const plReadout = page.querySelector('[data-testid="audio-pl-readout"]') as HTMLElement;
+  const paintScope = (mode: PhaseLockLabMode): void => {
+    const a = mode === 'rekey' ? 2.4 : 2;
+    const b = mode === 'rekey' ? 3.4 : 3;
+    const R = mode === 'mismatch' ? 1.12 : 1.5;
+    const phi = 0;
+    const Phi = mode === 'mismatch' ? 0.9 : 0;
+    const bed = phaseLockBed(a, b, 110, 45, 'minor', R, Phi, phi);
+    const beat = beatingHz(a, b, R, bed.f0);
+    const cons = phaseConsonance(Phi, phi);
+    plReadout.textContent = `${mode}  ice ${bed.iceL.toFixed(1)}/${bed.iceR.toFixed(1)} Hz  beat ${beat.toFixed(1)} Hz  cons ${cons.toFixed(2)}`;
+    root.dataset.pl = mode;
+
+    const c = scope.getContext('2d');
+    if (!c) return;
+    const w = scope.width;
+    const h = scope.height;
+    c.fillStyle = '#000';
+    c.fillRect(0, 0, w, h);
+    const midY = h * 0.5;
+    const leftW = w * 0.42;
+    const n = 480;
+    c.lineWidth = 1.15;
+    const stroke = (color: string, fn: (i: number) => [number, number]): void => {
+      c.strokeStyle = color;
+      c.beginPath();
+      for (let i = 0; i < n; i++) {
+        const [x, y] = fn(i);
+        if (i === 0) c.moveTo(x, y);
+        else c.lineTo(x, y);
+      }
+      c.stroke();
+    };
+    const tOf = (i: number): number => (i / n) * Math.PI * 8;
+    stroke('#3a5a72', (i) => [4 + (i / n) * (leftW - 8), midY]);
+    stroke('#E4FFFF', (i) => {
+      const t = tOf(i);
+      return [4 + (i / n) * (leftW - 8), midY - Math.sin(a * t + phi) * (h * 0.18)];
+    });
+    stroke('#FFB000', (i) => {
+      const t = tOf(i);
+      return [4 + (i / n) * (leftW - 8), midY - Math.sin(R * a * t + Phi) * (h * 0.18)];
+    });
+    const cx = leftW + (w - leftW) * 0.5;
+    const cy = h * 0.52;
+    const s = Math.min(w - leftW, h) * 0.38;
+    const liss = (aa: number, bb: number, ph: number, color: string): void => {
+      stroke(color, (i) => {
+        const t = (i / (n - 1)) * Math.PI * 2 * Math.max(aa, bb);
+        return [cx + Math.sin(aa * t + ph) * s, cy + Math.sin(bb * t) * s];
+      });
+    };
+    liss(a, b, phi, mode === 'grip' ? '#8A2BFF' : '#E4FFFF');
+    liss(a, R * a, Phi, '#F4F0E0');
+    c.fillStyle = '#6a8aaa';
+    c.font = '11px ui-monospace, Menlo, Consolas, monospace';
+    c.fillText(mode === 'lock' ? 'CONSONANCE  3:2' : mode.toUpperCase(), leftW + 12, 16);
+    if (mode === 'grip') {
+      c.fillStyle = '#8A2BFF';
+      c.fillText('GRIP  ring-mod + heartbeat', leftW + 12, 32);
+    }
+  };
+
   const paint = (): void => {
     const d = lab.diagnostics();
     diagEl.textContent = JSON.stringify(d, null, 2);
@@ -231,13 +312,45 @@ export async function startAudioLab(root: HTMLElement): Promise<AudioLabHandle> 
   on('audio-sfx', () => {
     void unlock().then(() => engine.sfx('shatter'));
   });
-  on('audio-pl-start', () => {
+  const runPl = (mode: PhaseLockLabMode): void => {
     void unlock().then(() => {
-      engine.phaseLock.start(2, 3, 110);
-      engine.phaseLock.setPlayer(1.5, 0);
+      if (mode === 'grip') {
+        engine.phaseLock.start(2, 3, 110);
+        engine.phaseLock.setTarget(2, 3, 0);
+        engine.phaseLock.setPlayer(1.5, 0);
+        engine.music.setState('grip');
+      } else if (mode === 'rekey') {
+        engine.phaseLock.start(2, 3, 110);
+        engine.phaseLock.setPlayer(1.5, 0);
+        engine.phaseLock.setTarget(3, 4, 0.4);
+        engine.sfx('rekeyTelegraph');
+      } else if (mode === 'mismatch') {
+        engine.music.setState('breach');
+        engine.phaseLock.start(2, 3, 110);
+        engine.phaseLock.setTarget(2, 3, 0);
+        engine.phaseLock.setPlayer(1.12, 0.9);
+      } else {
+        engine.music.setState('breach');
+        engine.phaseLock.start(2, 3, 110);
+        engine.phaseLock.setTarget(2, 3, 0);
+        engine.phaseLock.setPlayer(1.5, 0);
+      }
+      paintScope(mode);
+      paint();
     });
+    paintScope(mode);
+  };
+  on('audio-pl-lock', () => runPl('lock'));
+  on('audio-pl-mismatch', () => runPl('mismatch'));
+  on('audio-pl-rekey', () => runPl('rekey'));
+  on('audio-pl-grip', () => runPl('grip'));
+  on('audio-pl-start', () => runPl('lock'));
+  on('audio-pl-stop', () => {
+    engine.phaseLock.stop();
+    engine.music.setState('silent');
+    root.dataset.pl = 'idle';
+    plReadout.textContent = 'idle';
   });
-  on('audio-pl-stop', () => engine.phaseLock.stop());
   on('audio-modem-start', () => {
     void unlock().then(() => engine.modem.start());
   });
@@ -250,6 +363,7 @@ export async function startAudioLab(root: HTMLElement): Promise<AudioLabHandle> 
     engine,
     lab,
     diagnostics: () => getAudioDiagnostics(engine),
+    paintPhaseLock: (mode) => paintScope(mode),
   };
   window.__nonspaceAudio = handle;
   return handle;
