@@ -189,6 +189,7 @@ export interface Hud {
   setPipLink(on: boolean): void;
   setGrip(remaining: number | null): void;
   setLock(lock: ReticleLock | null): void;
+  setSofts(slots: readonly SoftSlot[]): void;
   setBlips(blips: readonly RadarBlip[]): void;
   print(text: string, opts?: TerminalPrintOpts): void;
   clearTerminal(): void;
@@ -421,6 +422,15 @@ export function createHud(opts: CreateHudOptions): Hud {
     },
     setLock(lock) {
       state.lock = lock;
+    },
+    setSofts(next) {
+      for (let i = 0; i < 4; i++) {
+        const src = next[i];
+        const dst = state.softs[i] ?? (state.softs[i] = { label: '--', cooldown: 0 });
+        dst.label = src?.label ?? '--';
+        dst.cooldown = src?.cooldown ?? 0;
+      }
+      if (state.softs.length > 4) state.softs.length = 4;
     },
     setBlips(blips) {
       const dst = state.blips;

@@ -7,7 +7,13 @@ import type { InputFrame } from '../input/Input';
 import type { Vec3 } from '../core/math/vec3';
 import { clampLnR, knobToR, wrapPositive } from './PhaseLock';
 import { createGrip, GRIP_SECONDS, type Grip, type GripReason } from './Grip';
-import { createIceModel, type IceDef, type IceModel, type IceSimEvent } from './IceModel';
+import {
+  createIceModel,
+  type IceDef,
+  type IceModel,
+  type IceSimEvent,
+  type IceSoftMods,
+} from './IceModel';
 
 /** Engage ICE when facing a facet within this many world units (plan §3.9). */
 export const ENGAGE_RANGE = 60;
@@ -103,6 +109,10 @@ export function stepKnobs(
 export interface BreachStepOpts {
   /** ICE hull contact while not engaged (plan §3.3). */
   iceContact?: boolean;
+  /** M4.4: mutate knobs after player input, before IceModel.step (MIMIC). */
+  afterKnobs?: (knobs: BreachKnobs, ice: IceModel, dt: number) => void;
+  /** M4.4: CLAMP / DAMPER / DECOY multipliers for this step. */
+  iceMods?: IceSoftMods;
 }
 
 export interface BreachController {
@@ -299,7 +309,15 @@ export function createBreachController(opts: BreachControllerOptions = {}): Brea
         knobs.lnR = moved.lnR;
         knobs.Phi = moved.Phi;
         syncKnobs();
-        const ev = ice.step(dt, { R: knobs.R, Phi: knobs.Phi });
+        stepOpts?.afterKnobs?.(knobs, ice, dt);
+        syncKnobs();
+        const ev = ice.step(dt, {
+          R: knobs.R,
+          Phi: knobs.Phi,
+          freezeDrift: stepOpts?.iceMods?.freezeDrift,
+          feedbackMul: stepOpts?.iceMods?.feedbackMul,
+          traceMul: stepOpts?.iceMods?.traceMul,
+        });
         applyIceMeters();
         const cracked = handleIceEvents(ev);
         const gripTick = grip.step(dt);
