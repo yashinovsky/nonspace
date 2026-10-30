@@ -1,7 +1,9 @@
 {
   "title": "m1",
   "initial": "brief",
-  "variables": {},
+  "variables": {
+    "go_m2": 0
+  },
   "knots": {
     "brief": {
       "name": "brief",
@@ -32,6 +34,29 @@
         {
           "index": 1,
           "text": "DONE",
+          "divert": "END"
+        },
+        {
+          "index": 2,
+          "text": "SENSE/NET",
+          "divert": "sense_net"
+        }
+      ],
+      "divert": null
+    },
+    "sense_net": {
+      "name": "sense_net",
+      "lines": [
+        "~go_m2=1",
+        "Armitage wants the Flatline construct. Molly walks Sense/Net as a tourist. You run cover."
+      ],
+      "tags": [
+        "page:text"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "JACK IN",
           "divert": "END"
         }
       ],

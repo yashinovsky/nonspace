@@ -1,8 +1,14 @@
 import { BoxGeometry, Group, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { describe, expect, it } from 'vitest';
 import {
+  panicRekeyEvery,
+  remapSenseNetTime,
+  SENSE_NET_CAMPAIGN_GATES,
+  SENSE_NET_CAMPAIGN_PANIC_AT,
   SENSE_NET_GATES,
   SENSE_NET_PANIC_AT,
+  SENSE_NET_PANIC_S,
+  senseNetCampaignTimeline,
   senseNetTimeline,
 } from '../../src/content/simstim/senseNet';
 import { buildSenseNet } from '../../src/content/simstim/senseNetScene';
@@ -34,13 +40,15 @@ describe('M6.2 Sense/Net content', () => {
     expect(SENSE_NET_PANIC_AT).toBe(9);
   });
 
-  it('matches the ?mission=m2 stub gates', () => {
+  it('keeps the lab stub gates on the mock (campaign M2 uses retimed windows)', () => {
     const m2 = mockM2Mission();
     expect(m2.id).toBe('m2');
     expect(m2.simstim?.timeline).toBe('sense-net');
     expect(m2.simstim?.gates.map((g) => `${g.id}:${g.iceNode}:${g.tMeat}`)).toEqual(
       SENSE_NET_GATES.map((g) => `${g.id}:${g.iceNode}:${g.tMeat}`),
     );
+    expect(SENSE_NET_CAMPAIGN_GATES.map((g) => g.tMeat)).toEqual([80, 200, 280]);
+    expect(SENSE_NET_CAMPAIGN_GATES.every((g) => g.early === 20 && g.late === 15)).toBe(true);
   });
 
   it('keeps each zone under 3k tris', () => {
@@ -90,5 +98,24 @@ describe('M6.2 Sense/Net content', () => {
     expect(seen).toContain('Moderns. Move.');
     expect(seen).toContain('Construct. Going.');
     expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  it('retimes the campaign walk so panic is meat 4:00', () => {
+    expect(remapSenseNetTime(0)).toBe(0);
+    expect(remapSenseNetTime(3)).toBe(80);
+    expect(remapSenseNetTime(8)).toBe(200);
+    expect(remapSenseNetTime(9)).toBe(SENSE_NET_CAMPAIGN_PANIC_AT);
+    expect(remapSenseNetTime(13)).toBe(280);
+    expect(SENSE_NET_CAMPAIGN_PANIC_AT).toBe(240);
+    expect(SENSE_NET_PANIC_S).toBe(90);
+    expect(panicRekeyEvery([7, 10])).toEqual([14, 20]);
+
+    const camp = senseNetCampaignTimeline();
+    expect(camp.scene).toBe('sensenet');
+    expect(camp.figures.filter((f) => f.rig === 'crowd')).toHaveLength(8);
+    const panicKey = camp.figures
+      .find((f) => f.id === 'crowd-0')
+      ?.keys.find((k) => k.pose === 'run');
+    expect(panicKey?.t).toBe(SENSE_NET_CAMPAIGN_PANIC_AT);
   });
 });

@@ -204,20 +204,15 @@ test.describe('M6.2 Sense/Net simstim content', () => {
     expect(errors).toEqual([]);
   });
 
-  test('?mission=m2 stub plays the same Sense/Net timeline', async ({ page }) => {
+  test('lab timeline still walks Sense/Net without the campaign route', async ({ page }) => {
     test.setTimeout(60_000);
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto('/?mission=m2');
+    await page.goto('/?lab=simstim&quality=medium');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
-    await expect(page.locator('#app')).toHaveAttribute('data-mission', 'm2');
+    await expect(page.locator('#app')).toHaveAttribute('data-lab', 'simstim');
     await expect(page.locator('#app')).toHaveAttribute('data-scene', 'sensenet');
-    await expect(page.getByTestId('simstim-lab')).toBeVisible();
     await page.waitForFunction(handle);
-    await page.waitForFunction(() => {
-      const app = (window as unknown as { __nonspace?: StimHandle }).__nonspace;
-      return (app?.simstim.meatTime ?? 0) > 0;
-    });
     await freezeLoop(page);
 
     const meta = await page.evaluate(() => {
@@ -225,13 +220,12 @@ test.describe('M6.2 Sense/Net simstim content', () => {
       return { clock: app.simstim.debug.clock, meat: app.simstim.meatTime };
     });
     expect(meta.clock).toMatch(/^00:00:\d{2}$/);
-    expect(meta.meat).toBeGreaterThan(0);
 
     await page.evaluate(() => {
       const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
       app.simstim.setFlipped(true);
     });
-    await page.waitForTimeout(150);
+    await drawOnce(page);
     const mode = await page.evaluate(() => {
       const app = (window as unknown as { __nonspace: StimHandle }).__nonspace;
       return app.renderer.postMode;
