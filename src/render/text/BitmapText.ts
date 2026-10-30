@@ -105,7 +105,8 @@ export function createPx437Texture(): DataTexture {
     for (let y = 0; y < cell; y++) {
       const bits = rom[code * cell + y] ?? 0;
       for (let x = 0; x < cell; x++) {
-        if (((bits >> (7 - x)) & 1) === 0) continue;
+        // font8x8: LSB is the leftmost pixel of each row.
+        if (((bits >> x) & 1) === 0) continue;
         const i = ((row * cell + y) * width + (col * cell + x)) * 4;
         data[i] = 255;
         data[i + 1] = 255;

@@ -31,7 +31,7 @@ void main() {
  *   blackIce     BlackIceComposite.ts   M1.8
  *   crt          VectorCrtPass.ts       M1.6  (matrix)
  *                RasterCrtPass.ts       M1.7  (simstim / interlude)
- *   final        FinalComposite.ts      M0.4  (HUD overlay later)
+ *   final        FinalComposite.ts      M0.4 / M2.7 collapse / M3.2 HUD overlay
  */
 export const POST_SLOTS = ['persistence', 'bloom', 'blackIce', 'crt', 'final'] as const;
 export type PostSlot = (typeof POST_SLOTS)[number];
@@ -93,6 +93,13 @@ export interface PostContext {
    * FinalComposite remaps UVs toward the centre. Owned by `fx/CrtCollapse.ts`.
    */
   crtCollapse?: CrtCollapseState;
+  /**
+   * True this frame if `scenes.hud` had children and wrote `targets.hud`.
+   * FinalComposite swaps to a HUD overlay material only when this is set;
+   * default boot keeps the original final shader (no extra `tHud` sample —
+   * SwiftShader cannot afford it).
+   */
+  hudDrawn?: boolean;
 }
 
 /** CRT power-off squash (plan §5.9 / §8.5). Identity leaves the blit untouched. */
