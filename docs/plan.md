@@ -1224,6 +1224,16 @@ Beach renderer and M6 "The Beach". Files: `render/beach/*`, `app/modes/Beach.ts`
 - **Raymarch** (`beach.frag`): 64-step cap, half-res + bilinear upscale, hard shadows, one mirror bounce on water/wet sand, Linda/boy CSG (spheres/capsules/ellipsoids), Whitted checker under the sand. Look: 1980–83 raytraced CG (Whitted / Point Reyes / Adam Powers), not synthwave, not later cyberpunk.
 - **Dev route**: `?lab=beach`. `window.__nonspace.beach` is the `BeachSim` (debug readout, `forceStay` / `forceLeave`, `setPose`). Combine with `?debug` for the beach Tweakpane folder.
 
+### 9.24 Contract notes from M1.3 (repo copy only)
+
+Ground grid and local lattice. Parallel look-lane tasks must not edit `render/grid/*`. Lattice consumes `createBeamBatch` from M1.1; it does not change `render/lines/*`. §9.23 is M7.10 beach.
+
+- **`createGroundGrid(palette, opts?)`** (`render/grid/GroundGrid.ts`) draws an infinite y=0 plane as a fullscreen triangle whose fragment shader ray-intersects the ground (a finite following quad covers the sky when the far plane clips it). `groundGrid.vert/.frag`: pristine-grid analytic AA via `fwidth` on three periods (8 / 64 / 1024 u). Each level fades with `densityFade(deriv) = 1 - smoothstep(0.25, 0.75, deriv)` so grazing altitudes 2–5,000 u do not moiré. Distance fog `exp(-0.00018 * max(dist - 120, 0))` goes to black (no horizon glow). Rays that miss y=0 discard, so the sky is true black. Checker cells at `CHECKER_INTENSITY` 0.02, gone by 220 u and also density-faded. Additive (`One, One`), depth test on, depth write off, log-depth of the hit. Palette slot 0 (`GRID`). `follow()` is a no-op.
+- **Warp field**: `uniform vec4 uWarp[4]` as `(x, z, radius, strength)`. CPU twin `warpXZ`. Positive strength pushes coordinates radially; negative pulls. Strength 0 is identity. Lab `?lab=grid&scene=warp` loads four control points.
+- **`createLocalLattice(palette, opts?)`** (`render/grid/LocalLattice.ts`) is a camera-centred 64 u beam window. Half-extent is `ceil(radius / 64) + 1` cells, capped so segment count ≤ 6000 (Low radius 120, High 200 from `quality.latticeRadius`). Spherical Hermite fade to 0 at `radius` (`LATTICE_FADE_INNER` 0.55). New lines at a cell snap sit outside the radius so they do not pop. Dynamic `BeamBatch` (`Beam.GRID`, `NO_FOG`), no per-frame allocs.
+- **CPU helpers** (unit-tested, same math as the shaders): `densityFade`, `pristineLine`, `gridDistanceFade`, `checkerCell`, `checkerNearFade`, `warpXZ`, `snapToLattice`, `latticeHalfCells`, `latticeFade`, `forEachLatticeSegment`.
+- **Dev route**: `?lab=grid` (`debug/GridLab.ts`) via `App.ts`. `&scene=cruise|graze|high|warp|lattice`. `window.__nonspaceGrid`. Screenshot: `docs/screenshots/m1-3-grid.png`.
+
 ---
 
 ## 10. Milestones and tasks

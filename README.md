@@ -50,6 +50,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=grammar` is the M2.1 construct grammar (all §8.6 primitives, LOD far/mid/near, live param sliders). `?g=ziggurat` (or any primitive id) selects the shape; `?lod=` and `?seed=` are optional. Draws with a Three.js line fallback (does not require BeamBatch). Screenshot: `docs/screenshots/m2-1-grammar-ziggurat.png`. Contract notes in plan §9.21.
 - `?lab=sky` is the M2.4 spiral-arm sky (40k MIL points in one draw, 0.1× parallax, far constellations). `1` ground / `2` ceiling / `3` fly. Screenshot: `docs/screenshots/m2-4-sky-arms.png`. Contract notes in plan §9.22.
 - `?lab=beach` is M7.10 / M6 "The Beach": first-person walk, SDF raymarch (half-res), Linda, sun cycle, checkerboard tell, dub-bass exit. `window.__nonspace.beach` is the sim handle. Contract notes in plan §9.23.
+- `?lab=grid` is the M1.3 ground grid + local lattice lab (analytic AA, checker, Wintermute warp, camera-centred 64 u lattice). `&scene=cruise|graze|high|warp|lattice`. Screenshot: `docs/screenshots/m1-3-grid.png`. Contract notes in plan §9.24.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -93,11 +94,11 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Renderer service (HDR targets, PostChain, quality)                       | `src/render/Renderer.ts`                               |
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky, beach), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.23. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky, beach, grid), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.24. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
-M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain. Default boot is still a black canvas. Contract notes are in plan §9.16. M1.1 adds instanced beam lines (`createBeamBatch`, `beamLine.vert/.frag`); contract notes are in plan §9.20.
+M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain. Default boot is still a black canvas. Contract notes are in plan §9.16. M1.1 adds instanced beam lines (`createBeamBatch`, `beamLine.vert/.frag`); contract notes are in plan §9.20. M1.3 adds the infinite ground grid and local 3D lattice (`render/grid/`); contract notes are in plan §9.24.
 
 | Piece                                          | File                                                                           |
 | ---------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -110,6 +111,7 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 | Remaining M1 slots (identity stubs)            | `BloomPass.ts`, `BlackIceComposite.ts`, `VectorCrtPass.ts`, `RasterCrtPass.ts` |
 | Tonemap blit                                   | `FinalComposite.ts`                                                            |
 | Beam lines (M1.1)                              | `render/lines/BeamBatch.ts`, `beamLine.vert/.frag`, `render/palette.ts`        |
+| Ground grid + lattice (M1.3)                   | `render/grid/GroundGrid.ts`, `LocalLattice.ts`, `groundGrid.vert/.frag`        |
 
 - `?lab=render` — two amber cubes (HDR intensity 4 vs 0.55) through the HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m0-4-hdr-cube.png`.
 - `?lab=persist` — GRID radar arm + orbiting bars through PersistencePass. Trails shift blue-white → yellow-green. Screenshot: `docs/screenshots/m1-4-phosphor-trails.png`.
@@ -118,7 +120,8 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 - `?quality=low` (or `auto` / `medium` / `high`) — session override of `settings.graphics.quality` (not persisted).
 - `?debug` adds a graphics folder: quality, internal size, dynres, a GPU-load slider, and inject-20 ms buttons. Persistence tunables live in the `phosphor` folder.
 - `?lab=beam` — eight palette cubes plus a grid, through the same HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m1-1-beams.png`.
-- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. M1.2 must not edit `render/lines/*`.
+- `?lab=grid` — infinite ground grid (8/64/1024 u, analytic AA, checker, warp) plus the 64 u local lattice. Screenshot: `docs/screenshots/m1-3-grid.png`.
+- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. M1.2 must not edit `render/lines/*`.
 - M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.

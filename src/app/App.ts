@@ -19,7 +19,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach` / `grid`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -199,6 +199,14 @@ export async function startApp({
     const { installPersistLab } = await import('../debug/PersistLab');
     labHandle = installPersistLab(renderer);
     root.dataset.lab = 'persist';
+  }
+  if (lab === 'grid') {
+    const { installGridLab, isGridScene } = await import('../debug/GridLab');
+    const sceneParam = new URLSearchParams(window.location.search).get('scene');
+    labHandle = installGridLab(renderer, root, {
+      scene: isGridScene(sceneParam) ? sceneParam : undefined,
+    });
+    root.dataset.lab = 'grid';
   }
 
   let inputLab: { dispose(): void } | null = null;
