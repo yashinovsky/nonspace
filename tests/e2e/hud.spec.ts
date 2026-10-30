@@ -117,7 +117,7 @@ test.describe('M3.2 HUD', () => {
       (el as HTMLElement).style.visibility = 'hidden';
     });
     const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot({ animations: 'disabled' }));
+    const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     expect(png.width).toBeGreaterThan(600);
     let lit = 0;
     let maxC = 0;
@@ -162,7 +162,7 @@ test.describe('M3.2 HUD', () => {
       a.renderer.chain.vectorCrt.params.enableBarrel = false;
     });
     await draw(page, 0);
-    const pngOff = PNG.sync.read(await canvas.screenshot({ animations: 'disabled' }));
+    const pngOff = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
     const cornerOff = regionLit(pngOff, tlPx.x - pad, tlPx.y - pad, tlPx.x + pad, tlPx.y + pad);
     expect(cornerOff).toBeGreaterThan(8);
 
