@@ -45,6 +45,13 @@ export interface SectorStreamer {
   readonly landmarks: readonly LandmarkDef[];
   readonly stats: StreamerStats;
   update(x: number, y: number, z: number, dt?: number): void;
+  /**
+   * Kick the 5×5 window around a destination without unloading the current
+   * player window (coordinate-jump preload, M2.6).
+   */
+  preload(x: number, z: number): void;
+  /** True when every sector in the 5×5 around (x,z) has data. */
+  readyAround(x: number, z: number): boolean;
   get(sx: number, sz: number): SectorData | undefined;
   view(sx: number, sz: number): unknown;
   loadedKeys(): string[];
@@ -215,6 +222,30 @@ export function createSectorStreamer(opts: SectorStreamerOptions): SectorStreame
       // Hitch AC is worker-gen (off-thread) + budgeted upload, not vitest/GC noise.
       if (billed > hitch) stats.hitchesOver4ms++;
       recount();
+    },
+    preload(x, z) {
+      const t0 = now();
+      const { sx, sz } = worldToSector(x, z);
+      for (const s of neededSectors(sx, sz, radius)) {
+        const key = sectorKey(s.sx, s.sz);
+        if (!slots.has(key)) {
+          slots.set(key, { key, sx: s.sx, sz: s.sz, state: 'pending' });
+        }
+      }
+      for (const s of neededSectors(sx, sz, radius)) {
+        if (inflight >= maxInflight) break;
+        const slot = slots.get(sectorKey(s.sx, s.sz));
+        if (slot && !slot.data && !slot.job) kick(slot);
+      }
+      pumpUploads(t0);
+      recount();
+    },
+    readyAround(x, z) {
+      const { sx, sz } = worldToSector(x, z);
+      for (const s of neededSectors(sx, sz, radius)) {
+        if (!slots.get(sectorKey(s.sx, s.sz))?.data) return false;
+      }
+      return true;
     },
     get(sx, sz) {
       return slots.get(sectorKey(sx, sz))?.data;

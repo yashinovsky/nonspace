@@ -24,7 +24,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core` / `phaselock3d` / `softs` / `ai`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core` / `phaselock3d` / `softs` / `ai` / `jump`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -83,7 +83,7 @@ export async function startApp({
   const renderer = createRenderer({ parent: root, settings, qualityOverride });
   const collision = createCollisionWorld();
   const flight = createFlightController({ collision });
-  const flyCam = lab === 'sector' || lab === 'look' || lab === 'ai';
+  const flyCam = lab === 'sector' || lab === 'look' || lab === 'ai' || lab === 'jump';
   const cameraRig = createCameraRig({
     camera: flyCam ? renderer.cameras.matrix : undefined,
     aspect: window.innerWidth / Math.max(window.innerHeight, 1),
@@ -183,6 +183,7 @@ export async function startApp({
       labHandle?.update(dt);
       sectorLab?.update(dt);
       lookLab?.update(dt);
+      jumpLab?.update(dt);
       modes.update(dt);
       events.flush();
     },
@@ -196,6 +197,7 @@ export async function startApp({
       } else {
         sectorLab?.render(alpha);
         lookLab?.render(alpha);
+        jumpLab?.render(alpha);
         renderer.endFrame(frameDt, gpuTimer?.lastMs ?? null);
       }
     },
@@ -219,6 +221,8 @@ export async function startApp({
   let sectorLab: { update(dt: number): void; render(alpha: number): void; dispose(): void } | null =
     null;
   let lookLab: { update(dt: number): void; render(alpha: number): void; dispose(): void } | null =
+    null;
+  let jumpLab: { update(dt: number): void; render(alpha: number): void; dispose(): void } | null =
     null;
   if (lab === 'render') {
     const { installRenderLab } = await import('../debug/RenderLab');
@@ -456,6 +460,20 @@ export async function startApp({
       root,
       scene: isAiScene(sceneParam) ? sceneParam : undefined,
       reduceFlashing: () => settings.value.reduceFlashing,
+    });
+  }
+  if (lab === 'jump') {
+    const { installJumpLab } = await import('../debug/JumpLab');
+    const q = new URLSearchParams(window.location.search);
+    jumpLab = installJumpLab({
+      renderer,
+      flight,
+      cameraRig,
+      modes,
+      input,
+      root,
+      scene: q.get('scene'),
+      reduceMotion: () => settings.value.reduceMotion,
     });
   }
 
@@ -743,6 +761,7 @@ export async function startApp({
       lookLab?.dispose();
       aiPresence?.dispose();
       aiPresence = null;
+      jumpLab?.dispose();
       modes.reset();
       simstim.dispose();
       mission.dispose();

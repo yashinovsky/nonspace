@@ -6,6 +6,7 @@
 export {
   createDeckPanel,
   createDeckPanelMode,
+  addressBookFromLandmarks,
   DECK_TABS,
   DEFAULT_ADDRESS_BOOK,
   hashMarks,

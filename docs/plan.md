@@ -1422,6 +1422,17 @@ Phase Lock audio coupling. Does not rewrite Phase Lock math (`breach/PhaseLock.t
 - **Wiring.** Optional `audio` on `createBreachController` / `setAudio`. Each sim step drives `start` / `setTarget` / `setPlayer` / `stop` from ICE state (including telegraph blend and observed phase `Phi + roll`). `modes/Breach.ts` attaches `ModeContext.audio` on enter. `?lab=breach` lazy-unlocks the real engine on click and binds M5.2 SFX; default boot never constructs an engine for this.
 - **Dev route:** `?lab=audio` Phase Lock section (CPU Lissajous / waveform canvas, lock / mismatch / re-key / grip). No live rAF. Screenshot: `docs/screenshots/m5-4-phase-lock-audio.png`. Dist budget is the default-boot graph (the audio lab chunk stays `?lab=`-only).
 
+### 9.45 Contract notes from M2.6 (repo copy only)
+
+Coordinate jump and address book. Does not rewrite `FlightController` (writes pose via `setPose`). Does not rewrite `hud/DeckPanel.ts` — extends the existing COORD tab. Does not edit PersistencePass / FinalComposite / GroundGrid shaders (jump writes `decayScale` on the pass; streaks are world-space beams). Deck chrome remains M3.3 (§9.40). Straylight simstim remains M6.3 (§9.41). Watchers remain M4.6 (§9.42). Softs remain M4.4 (§9.43). Phase Lock audio remains M5.4 (§9.44). Core interior remains M4.5 (§9.46). AI presences remain M7.3 (§9.48). Sector streaming remains M2.3 (§9.26).
+
+- **`CoordinateJump.ts`** (`player/CoordinateJump.ts`): align 0.4 s then streak **1.5–3 s** (log-scaled by travel). Arrival is at rest **300 u** from the target, looking at it. Blocked in grip, inside a core (`inCore`), and at trace ≥ 100. `preload(x,y,z)` is called from align through streak; `arrive` switches the streamer window on landing.
+- **`JumpStreak.ts`** (`render/fx/JumpStreak.ts`): additive GRID/ICE longitudinal lines + a growing destination lightpoint (1984 vector, not Cyberpunk 2077). `sampleJumpStreak` is the CPU twin (FOV +25°, persistence `decayScale` 0.35, gentler under Reduce Motion).
+- **Address book**: live COORD list in `DeckPanel` (`DEFAULT_ADDRESS_BOOK` / `addressBookFromLandmarks` / `addAddress`). Invalid parse → `BAD COORD` + `onError` (deck error beep). `onJump` may return an error string (`BLOCKED GRIP` / `CORE` / `TRACE`).
+- **Streamer**: `preload` / `readyAround` keep the player window loaded while the dest 5×5 generates.
+- **Dev route:** `?lab=jump` (`debug/JumpLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `&scene=idle|streak|arrive`. `window.__nonspaceJump`. Screenshot: `docs/screenshots/m2-6-jump.png`. Playwright freezes `setAnimationLoop` before any snapshot and paints with `tick` + one `endFrame` — no live warmup, no 1080p `quality=high` spin (that starves sibling SwiftShader `grid.spec` graze / `sector.spec` hitchesOver4ms). Dist budget is the default-boot graph (lab chunk excluded).
+
+
 
 ### 9.46 Contract notes from M4.5 (repo copy only)
 

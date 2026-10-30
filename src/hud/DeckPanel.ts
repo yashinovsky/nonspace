@@ -17,21 +17,48 @@ export type DeckTab = (typeof DECK_TABS)[number];
 export interface AddressEntry {
   name: string;
   coord: string;
+  id?: string;
 }
 
-/** Landmark-derived stubs; M2.6 owns the live address book. */
-export const DEFAULT_ADDRESS_BOOK: readonly AddressEntry[] = [
-  { name: 'Sense/Net', coord: formatMatrixCoord({ region: 'BAMA', x: 168.25, z: 96.4, y: 420 }) },
-  { name: 'ESFA', coord: formatMatrixCoord({ region: 'BAMA', x: 160.5, z: 100, y: 520 }) },
-  { name: 'Mitsubishi BoA', coord: formatMatrixCoord({ region: 'BAMA', x: 172, z: 94.1, y: 380 }) },
-  { name: 'Chiba node', coord: formatMatrixCoord({ region: 'CHBA', x: 412.9, z: 180.2, y: 160 }) },
-  { name: 'Hosaka', coord: formatMatrixCoord({ region: 'CHBA', x: 408, z: 176.5, y: 640 }) },
-  { name: 'Turing Geneva', coord: formatMatrixCoord({ region: 'EURO', x: 248, z: 72, y: 1800 }) },
+/** Build the COORD address book from landmark-like records (M2.6). */
+export function addressBookFromLandmarks(
+  entries: readonly { id?: string; name: string; coords: MatrixCoord }[],
+): AddressEntry[] {
+  return entries.map((e) => ({
+    id: e.id,
+    name: e.name,
+    coord: formatMatrixCoord(e.coords),
+  }));
+}
+
+/** Live book: authored landmark coords (plan §3.4). M2.6 owns this list. */
+export const DEFAULT_ADDRESS_BOOK: readonly AddressEntry[] = addressBookFromLandmarks([
+  { id: 'sense-net', name: 'Sense/Net', coords: { region: 'BAMA', x: 168.25, z: 96.4, y: 420 } },
+  { id: 'esfa', name: 'ESFA', coords: { region: 'BAMA', x: 160.5, z: 100, y: 520 } },
   {
-    name: 'Villa Straylight',
-    coord: formatMatrixCoord({ region: 'ORBT', x: 320, z: 40, y: 5600 }),
+    id: 'mitsubishi-boa',
+    name: 'Mitsubishi BoA',
+    coords: { region: 'BAMA', x: 172, z: 94.1, y: 380 },
   },
-];
+  { id: 'chiba-node', name: 'Chiba node', coords: { region: 'CHBA', x: 412.9, z: 180.2, y: 160 } },
+  { id: 'hosaka', name: 'Hosaka', coords: { region: 'CHBA', x: 408, z: 176.5, y: 640 } },
+  { id: 'ta-berne', name: 'T-A Berne', coords: { region: 'EURO', x: 246.4, z: 74.8, y: 3200 } },
+  {
+    id: 'turing-geneva',
+    name: 'Turing Geneva',
+    coords: { region: 'EURO', x: 248, z: 72, y: 1800 },
+  },
+  {
+    id: 'hosaka-m3',
+    name: 'Hosaka node (M3)',
+    coords: { region: 'BAMA', x: 180.12, z: 102.4, y: 280 },
+  },
+  {
+    id: 'ta-straylight',
+    name: 'Villa Straylight',
+    coords: { region: 'ORBT', x: 320, z: 40, y: 5600 },
+  },
+]);
 
 export function hashMarks(n: number): string {
   if (!(n > 0)) return 'NONE';
@@ -48,9 +75,12 @@ export interface DeckPanel {
   readonly log: readonly string[];
   readonly inRun: boolean;
   readonly link: boolean;
+  readonly addressBook: readonly AddressEntry[];
   setTab(tab: DeckTab): void;
   setInRun(on: boolean): void;
   setLink(on: boolean): void;
+  setAddressBook(entries: readonly AddressEntry[]): void;
+  addAddress(entry: AddressEntry): void;
   pushLog(line: string): void;
   show(): void;
   hide(): void;
@@ -66,8 +96,11 @@ export interface DeckPanelOptions {
   events?: EventBus;
   campaign?: () => CampaignState;
   addressBook?: readonly AddressEntry[];
-  /** Called with a parsed coord on Enter. M2.6 wires the jump. */
-  onJump?: (coord: MatrixCoord) => void;
+  /**
+   * Called with a parsed coord on Enter. Return `false` / an error string to
+   * keep the deck open (blocked jump). M2.6 wires CoordinateJump here.
+   */
+  onJump?: (coord: MatrixCoord) => void | boolean | string;
   onError?: () => void;
   /** Esc while the deck is open (settings). */
   onSettings?: () => void;
@@ -77,7 +110,7 @@ export interface DeckPanelOptions {
 
 export function createDeckPanel(opts: DeckPanelOptions = {}): DeckPanel {
   ensureCrtStyles();
-  const book = opts.addressBook ?? DEFAULT_ADDRESS_BOOK;
+  const book: AddressEntry[] = [...(opts.addressBook ?? DEFAULT_ADDRESS_BOOK)];
   let root: HTMLElement | null = null;
   let screen: HTMLElement | null = null;
   let tabRow: HTMLElement | null = null;
@@ -113,10 +146,17 @@ export function createDeckPanel(opts: DeckPanelOptions = {}): DeckPanel {
       paint();
       return false;
     }
+    const result = opts.onJump?.(parsed);
+    if (result === false || typeof result === 'string') {
+      lastJump = null;
+      lastError = typeof result === 'string' ? result : 'BLOCKED';
+      opts.onError?.();
+      paint();
+      return false;
+    }
     lastError = null;
     lastJump = parsed;
     panel.pushLog(`JUMP  ${formatMatrixCoord(parsed)}`);
-    opts.onJump?.(parsed);
     paint();
     return true;
   };
@@ -167,13 +207,22 @@ export function createDeckPanel(opts: DeckPanelOptions = {}): DeckPanel {
     for (const entry of book) {
       const btn = el(
         'button',
-        { class: 'ns-btn', type: 'button', 'data-testid': `addr-${entry.name}` },
+        {
+          class: 'ns-btn',
+          type: 'button',
+          'data-testid': `addr-${entry.id ?? entry.name}`,
+          'data-addr': entry.id ?? entry.name,
+        },
         `${entry.name}  ${entry.coord}`,
       );
       btn.addEventListener('click', () => {
         lastError = null;
         startCapture(entry.coord);
         paint();
+      });
+      btn.addEventListener('dblclick', () => {
+        startCapture(entry.coord);
+        submitCoord(entry.coord);
       });
       host.appendChild(btn);
       host.appendChild(document.createTextNode(' '));
@@ -292,6 +341,9 @@ export function createDeckPanel(opts: DeckPanelOptions = {}): DeckPanel {
     get link() {
       return link;
     },
+    get addressBook() {
+      return book;
+    },
     setTab(next) {
       if (next === tab) return;
       if (tab === 'COORD') stopCapture();
@@ -306,6 +358,16 @@ export function createDeckPanel(opts: DeckPanelOptions = {}): DeckPanel {
     setLink(on) {
       link = on;
       if (open && tab === 'PING') paint();
+    },
+    setAddressBook(entries) {
+      book.length = 0;
+      book.push(...entries);
+      if (open && tab === 'COORD') paint();
+    },
+    addAddress(entry) {
+      if (book.some((e) => e.coord === entry.coord && e.name === entry.name)) return;
+      book.push(entry);
+      if (open && tab === 'COORD') paint();
     },
     pushLog(line) {
       log.push(line);

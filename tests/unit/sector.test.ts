@@ -245,4 +245,29 @@ describe('SectorStreamer', () => {
     expect(streamer.landmarks.length).toBeGreaterThan(0);
     streamer.dispose();
   });
+
+  it('preload keeps the player window and marks dest 5×5 ready', async () => {
+    const backend = createDeferredBackend((sx, sz, seed) => gen(sx, sz, seed));
+    const streamer = createSectorStreamer({ backend, worldSeed: 1 });
+    const start = landmarkWorld(FALLBACK_LANDMARKS[2]!);
+    streamer.update(start.x, start.y, start.z);
+    for (let i = 0; i < 40; i++) {
+      backend.flush(8);
+      await Promise.resolve();
+      streamer.update(start.x, start.y, start.z);
+    }
+    expect(streamer.stats.loaded).toBe(25);
+    const destX = start.x + SECTOR_SIZE * 40;
+    const destZ = start.z;
+    streamer.preload(destX, destZ);
+    expect(streamer.readyAround(destX, destZ)).toBe(false);
+    for (let i = 0; i < 20; i++) {
+      backend.flush(8);
+      await Promise.resolve();
+      streamer.preload(destX, destZ);
+    }
+    expect(streamer.readyAround(destX, destZ)).toBe(true);
+    expect(streamer.get(148, 72)).toBeDefined();
+    streamer.dispose();
+  });
 });
