@@ -1080,6 +1080,15 @@ Typed stubs for 9.1–9.7 are committed at the paths above (under `src/`). Where
 - **Save** adds `campaign.flags: Record<string, boolean>` (mission `setFlag` and `SoftDef.unlock`). Storage key `nonspace.save`, `SAVE_VERSION = 1`, `MIGRATIONS[n]` upgrades n → n+1. Corrupt saves are backed up to `nonspace.save.corrupt`, and saves from newer builds to `nonspace.save.v<N>`.
 - **Settings** live in the save blob, validated per field (defaults on bad values, numbers clamped): `reduceFlashing` (default on), `flashingPromptAnswered`, `reduceMotion`, `holdToToggle`, `difficulty` (`story|normal|hard`), `subtitles`, `phaseLock` assists (incl. `purist`), `audio` gains, `input` (sensitivity, invertY, deadzone), `graphics` (`quality: auto|low|medium|high`, `dynamicResolution`). Key bindings stay with `input/bindings.ts`. Use `settings.update(patch)` and `onChange`.
 
+### 9.10 Contract notes from M7.1 (repo copy only)
+
+- **`MissionRunner`** (`narrative/MissionRunner.ts`) is a factory on the EventBus. `update(dt)` runs each sim step (App calls it before modes, then `flush`). Consequence events (`objective`, `dixieSay`, `wintermute`, `neuromancer`) are `post`ed; `{ t: 'event' }` triggers latch from `onAny` and from the runner's own posts in the same pump, so `all`/`any` can mix an event with a level condition without waiting for the next flush.
+- **Triggers** (`narrative/triggers.ts`): clocks are `>=`; events latch for the rest of the run; `where` is a shallow field match; `near` is Euclidean distance against `setLandmark` / `setPlayerPosition`. Timeline rows, fail checks and checkpoints fire once. Objective `when`/`complete` are edges inactive→active and active→done.
+- **`MissionSnapshot`** is the checkpoint payload. `restore(snapshot)` / `restoreCheckpoint(id)` reproduce clocks, flags, objectives, event latches, fired script rows and ice patches. Save still only stores `campaign.{missionId,checkpoint,flags}` (full snapshots are in-memory; `serialize`/`deserialize` for tests).
+- **`ModeContext.mission`** is the runner, optional so parallel tasks don't have to pass one. App always constructs it (idle until `load`/`start`).
+- **`MissionEffects`** is the sink for `say` / `ink` / `iceMod` / `forceMode` / AI / audio actions, so this task does not own those systems. If an `AudioEngine` is passed, valid `music`/`sfx` ids also hit it.
+- **Debug**: `?mission=<id>&checkpoint=<id>` (dev or `?debug`) loads a mock from `narrative/mocks.ts`. No story content here. `jumpToCheckpoint` restores a captured snapshot, or seeks by satisfying the checkpoint trigger. `?mission=mock-triggers` is the AC fixture (time, meatTime, event, near, flags, all/any).
+
 ---
 
 ## 10. Milestones and tasks

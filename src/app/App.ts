@@ -5,11 +5,17 @@ import { createSaveStore, type SaveStore } from '../core/save';
 import { createSettingsStore, type SettingsStore } from '../core/settings';
 import type { DebugGui } from '../debug/DebugGui';
 import { createGpuTimer, type GpuTimer } from '../debug/gpuTimer';
+import { createMissionRunner, type MissionRunner } from '../narrative/MissionRunner';
+import { getMockMission } from '../narrative/mocks';
 import { createModeStack, type ModeStack } from './ModeStack';
 
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
+  /** `?mission=` — mock id, loaded only in dev or with `?debug`. */
+  missionId?: string;
+  /** `?checkpoint=` — captured or seeked after start. */
+  checkpoint?: string;
 }
 
 export interface App {
@@ -19,6 +25,7 @@ export interface App {
   readonly modes: ModeStack;
   readonly save: SaveStore;
   readonly settings: SettingsStore;
+  readonly mission: MissionRunner;
   dispose(): void;
 }
 
@@ -34,7 +41,7 @@ declare global {
  * event bus, save and settings. The Renderer service replaces the raw
  * WebGLRenderer setup here.
  */
-export async function startApp({ root, debug }: AppOptions): Promise<App> {
+export async function startApp({ root, debug, missionId, checkpoint }: AppOptions): Promise<App> {
   const renderer = new WebGLRenderer({
     antialias: false,
     alpha: false,
@@ -58,9 +65,21 @@ export async function startApp({ root, debug }: AppOptions): Promise<App> {
     save.data.settings = s;
     save.commit();
   });
-  const modes = createModeStack({ events, settings, save });
+  const mission = createMissionRunner({ events, save });
+  const modes = createModeStack({ events, settings, save, mission });
+  const allowMissionRoute = debug || import.meta.env.DEV;
+  if (allowMissionRoute && missionId) {
+    const def = getMockMission(missionId);
+    if (!def) {
+      console.warn(`[nonspace] unknown mock mission '${missionId}'`);
+    } else {
+      mission.load(def);
+      mission.start(checkpoint ? { checkpoint } : undefined);
+    }
+  }
   const loop = createLoop({
     update(dt) {
+      mission.update(dt);
       modes.update(dt);
       events.flush();
     },
@@ -93,6 +112,19 @@ export async function startApp({ root, debug }: AppOptions): Promise<App> {
       label: 'dropped s',
       format: (v: number) => v.toFixed(2),
     });
+    const mis = gui.pane.addFolder({ title: 'mission' });
+    mis.addBinding(mission.debug, 'id', { readonly: true });
+    mis.addBinding(mission.debug, 'status', { readonly: true });
+    mis.addBinding(mission.debug, 'time', {
+      readonly: true,
+      format: (v: number) => v.toFixed(2),
+    });
+    mis.addBinding(mission.debug, 'meatTime', {
+      readonly: true,
+      label: 'meat',
+      format: (v: number) => v.toFixed(2),
+    });
+    mis.addBinding(mission.debug, 'checkpoint', { readonly: true });
   }
 
   let last = performance.now();
@@ -122,11 +154,13 @@ export async function startApp({ root, debug }: AppOptions): Promise<App> {
     modes,
     save,
     settings,
+    mission,
     dispose() {
       renderer.setAnimationLoop(null);
       window.removeEventListener('resize', resize);
       document.removeEventListener('visibilitychange', onVisibility);
       modes.reset();
+      mission.dispose();
       events.clear();
       gpuTimer?.dispose();
       gui?.dispose();
