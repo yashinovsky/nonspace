@@ -162,3 +162,17 @@ export {
   quantizeHz,
 } from './music/Harmony';
 export { motifDistanceGain, shouldAttachMotif } from './music/motifs';
+export {
+  PHASE_LOCK_F0,
+  beatingHz,
+  phaseConsonance,
+  phaseLockBed,
+  ratioConsonance,
+  syncPhaseLockEngine,
+  telegraphBlend,
+  telegraphProgress,
+  type PhaseLockBed,
+  type PhaseLockDriveInput,
+  type PhaseLockSession,
+  type PhaseLockTelegraph,
+} from './phaseLock';
