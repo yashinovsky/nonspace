@@ -12,12 +12,14 @@ import { createCollisionWorld, type CollisionWorld } from '../player/Collision';
 import { createFlightController, type FlightController } from '../player/FlightController';
 import { createRenderer, type Renderer } from '../render/Renderer';
 import type { PersistencePass } from '../render/post/PersistencePass';
+import type { BeachSim } from '../render/beach/sim';
+import { createBeachMode, type BeachMode } from './modes/Beach';
 import { createModeStack, type ModeStack } from './ModeStack';
 
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -39,6 +41,8 @@ export interface App {
   readonly flight: FlightController;
   readonly cameraRig: CameraRig;
   readonly collision: CollisionWorld;
+  /** M7.10. Present when Beach mode is on the stack (`?lab=beach` or forceMode). */
+  beach?: BeachSim;
   dispose(): void;
 }
 
@@ -82,8 +86,21 @@ export async function startApp({
     window,
     document,
   });
-  const mission = createMissionRunner({ events, save });
+  const modeRef: { stack: ModeStack | null } = { stack: null };
+  const mission = createMissionRunner({
+    events,
+    save,
+    effects: {
+      forceMode(id) {
+        const stack = modeRef.stack;
+        if (id === 'beach' && stack && !stack.has('beach')) {
+          stack.reset(createBeachMode());
+        }
+      },
+    },
+  });
   const modes = createModeStack({ events, settings, save, renderer, mission, input, flight });
+  modeRef.stack = modes;
 
   const allowMissionRoute = debug || import.meta.env.DEV;
   if (allowMissionRoute && missionId) {
@@ -196,6 +213,13 @@ export async function startApp({
     flightLab = createFlightLab({ renderer: renderer.three, flight, cameraRig, root });
   }
 
+  let beachMode: BeachMode | null = null;
+  if (lab === 'beach') {
+    beachMode = createBeachMode({ lab: true });
+    modes.reset(beachMode);
+    root.dataset.lab = 'beach';
+  }
+
   let gui: DebugGui | null = null;
   let gpuTimer: GpuTimer | null = null;
   if (debug) {
@@ -282,6 +306,7 @@ export async function startApp({
         label: 'smear k',
       });
     }
+    beachMode?.attachDebug(gui.pane);
   }
 
   let last = performance.now();
@@ -335,6 +360,7 @@ export async function startApp({
       if (window.__nonspace === app) delete window.__nonspace;
     },
   };
+  if (beachMode) app.beach = beachMode.sim;
   if (debug || lab) window.__nonspace = app;
   return app;
 }

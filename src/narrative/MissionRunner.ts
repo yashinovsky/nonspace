@@ -673,5 +673,7 @@ function defaultGameEvent(type: GameEventType, missionId: string): GameEvent {
       return { type, action: { kind: 'beach' } };
     case 'objective':
       return { type, id: '', state: 'active' };
+    case 'beachChoice':
+      return { type, choice: 'leave' };
   }
 }

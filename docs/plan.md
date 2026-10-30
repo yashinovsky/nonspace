@@ -1213,6 +1213,17 @@ Sky. Uses M1.2 `createPointBatch`. Does not edit `PointBatch.ts`, shaders, `Rend
 - **Spin.** `SKY_SPIN_RAD_PER_SEC = 2π / (12·3600)` (one turn per 12 hours). Frozen when `reduceMotion` is true. Not a per-frame allocation.
 - **Dev route:** `?lab=sky` (`&view=ground|ceiling|fly`; keys `1`/`2`/`3`). `#app` dataset: `data-sky-points`, `data-sky-draws`, `data-sky-parallax`, `data-sky-range`, `data-sky-cam-y`. Screenshot `docs/screenshots/m2-4-sky-arms.png`.
 
+### 9.23 Contract notes from M7.10 (repo copy only)
+
+Beach renderer and M6 "The Beach". Files: `render/beach/*`, `app/modes/Beach.ts`. Other look-lane agents should not edit those.
+
+- **`Renderer.drawHdr`**: optional `(three, hdrScene) => void`. When set, `endFrame` skips sky/matrix/blackIce/hud draws and lets the callback write `hdrScene` before the post chain. Beach sets this on enter and clears it on exit. `postMode = 'beach'` still skips CRT (FinalComposite tonemap only). Persistence is also skipped (`slotsFor('beach')` is `final` only).
+- **`beachChoice` event** (`core/events.ts`): `{ type: 'beachChoice'; choice: 'stay' | 'leave' }`. Appended to §9.1. Stay sets save flag `endingB` (Ending B); leave sets `beachLeft`. Mission `forceMode: 'beach'` constructs `createBeachMode()`.
+- **`ModeContext.audio?`**: optional `AudioEngine`. Beach does not require it — `render/beach/audio.ts` owns procedural surf/wind and a **positional** dub bass at the construct edge (HRTF, short ref distance) so following the bass is the exit. If an engine is present, `music.setState('beach')` and `listener()` are also called.
+- **Walk sim** (`render/beach/{walk,sim,world}.ts`): first-person walking, SDF-slope ground + bunker AABB, no flight/HUD. Checkerboard reveal = stillness × downward gaze, plus a falloff toward the exit. Sun period 48 s (96 s if Reduce Motion). Sit with Linda (`engage` while near) → one more sunset → Ending B credits over a looping dusk. Walk into the bass source → leave.
+- **Raymarch** (`beach.frag`): 64-step cap, half-res + bilinear upscale, hard shadows, one mirror bounce on water/wet sand, Linda/boy CSG (spheres/capsules/ellipsoids), Whitted checker under the sand. Look: 1980–83 raytraced CG (Whitted / Point Reyes / Adam Powers), not synthwave, not later cyberpunk.
+- **Dev route**: `?lab=beach`. `window.__nonspace.beach` is the `BeachSim` (debug readout, `forceStay` / `forceLeave`, `setPose`). Combine with `?debug` for the beach Tweakpane folder.
+
 ---
 
 ## 10. Milestones and tasks

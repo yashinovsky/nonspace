@@ -7,6 +7,7 @@ import {
   SRGBColorSpace,
   WebGLRenderer,
   type Texture,
+  type WebGLRenderTarget,
 } from 'three';
 import type { QualitySetting, SettingsStore } from '../core/settings';
 import { createPalette, type Palette } from './palette';
@@ -67,6 +68,11 @@ export interface Renderer {
   /** quality.baseScale * dynRes.scale. */
   readonly effectiveScale: number;
   postMode: PostMode;
+  /**
+   * Optional HDR scene drawer (M7.10 Beach). When set, replaces sky/matrix
+   * draws so a fullscreen SDF pass can write `hdrScene` before the chain.
+   */
+  drawHdr: ((renderer: WebGLRenderer, target: WebGLRenderTarget) => void) | null;
   exposure: number;
   /** Extra fullscreen shader iterations (debug / AC GPU load). 0 = off. */
   gpuLoad: number;
@@ -175,6 +181,7 @@ export function createRenderer(opts: RendererOptions): Renderer {
   let internalWidth = 1;
   let internalHeight = 1;
   let postMode: PostMode = 'matrix';
+  let drawHdr: ((renderer: WebGLRenderer, target: WebGLRenderTarget) => void) | null = null;
   let exposure = 1;
   let gpuLoad = 0;
   let time = 0;
@@ -289,6 +296,12 @@ export function createRenderer(opts: RendererOptions): Renderer {
     set postMode(mode) {
       postMode = mode;
     },
+    get drawHdr() {
+      return drawHdr;
+    },
+    set drawHdr(fn) {
+      drawHdr = fn;
+    },
     get exposure() {
       return exposure;
     },
@@ -332,19 +345,23 @@ export function createRenderer(opts: RendererOptions): Renderer {
 
       three.setRenderTarget(targets.hdrScene);
       three.clear(true, true, false);
-      if (scenes.sky.children.length > 0) three.render(scenes.sky, cameras.matrix);
-      if (scenes.matrix.children.length > 0) three.render(scenes.matrix, cameras.matrix);
+      if (drawHdr) {
+        drawHdr(three, targets.hdrScene);
+      } else {
+        if (scenes.sky.children.length > 0) three.render(scenes.sky, cameras.matrix);
+        if (scenes.matrix.children.length > 0) three.render(scenes.matrix, cameras.matrix);
 
-      if (scenes.blackIce.children.length > 0) {
-        three.setRenderTarget(targets.blackIceMask);
-        three.clear(true, true, false);
-        three.render(scenes.blackIce, cameras.matrix);
-      }
+        if (scenes.blackIce.children.length > 0) {
+          three.setRenderTarget(targets.blackIceMask);
+          three.clear(true, true, false);
+          three.render(scenes.blackIce, cameras.matrix);
+        }
 
-      if (scenes.hud.children.length > 0) {
-        three.setRenderTarget(targets.hud);
-        three.clear(true, true, false);
-        three.render(scenes.hud, cameras.hud);
+        if (scenes.hud.children.length > 0) {
+          three.setRenderTarget(targets.hud);
+          three.clear(true, true, false);
+          three.render(scenes.hud, cameras.hud);
+        }
       }
 
       chain.render(targets.hdrScene.texture, ctx);
