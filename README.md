@@ -48,6 +48,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=raster` is the M1.7 SMPTE test card through the raster CRT / NTSC pass (chroma bleed, 240 scanlines, aperture grille, barrel). Screenshot: `docs/screenshots/m1-7-smpte-raster-crt.png`.
 - `?lab=beam` is the M1.1 beam-line lab (palette, near-plane clip, sub-pixel width, vertex dwell, fog, 150k stress, dynamic batch). `&scene=` selects a fixture; `?debug` exposes σ / dwell / fog. Screenshot: `docs/screenshots/m1-1-beams.png`. Contract notes in plan §9.20.
 - `?lab=grammar` is the M2.1 construct grammar (all §8.6 primitives, LOD far/mid/near, live param sliders). `?g=ziggurat` (or any primitive id) selects the shape; `?lod=` and `?seed=` are optional. Draws with a Three.js line fallback (does not require BeamBatch). Screenshot: `docs/screenshots/m2-1-grammar-ziggurat.png`. Contract notes in plan §9.21.
+- `?lab=sky` is the M2.4 spiral-arm sky (40k MIL points in one draw, 0.1× parallax, far constellations). `1` ground / `2` ceiling / `3` fly. Screenshot: `docs/screenshots/m2-4-sky-arms.png`. Contract notes in plan §9.22.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -57,21 +58,22 @@ The folder skeleton follows plan §8.11. Empty directories hold a `.gitkeep` unt
 
 Shared contracts from plan §9 are typed stubs other tasks build against:
 
-| Contract                         | File                                                                                          |
-| -------------------------------- | --------------------------------------------------------------------------------------------- |
-| Events + typed event bus         | `src/core/events.ts`                                                                          |
-| Beam lines, points, palette      | `src/render/lines/BeamBatch.ts`, `src/render/points/PointBatch.ts`, `src/render/palette.ts`   |
-| ICE + Phase Lock metric          | `src/breach/IceModel.ts`, `src/breach/PhaseLock.ts`, `src/content/ice/presets.ts`             |
-| Softs                            | `src/content/softs.ts`                                                                        |
-| Missions (zod)                   | `src/narrative/schema.ts`                                                                     |
-| Mission runner + triggers        | `src/narrative/MissionRunner.ts`, `src/narrative/triggers.ts`                                 |
-| Simstim timelines                | `src/content/simstim/types.ts`                                                                |
-| Audio API + no-op engine         | `src/audio/AudioEngine.ts`                                                                    |
-| Web Audio engine (M5.1)          | `src/audio/{AudioEngine,engine,buses,spatial}.ts`, `src/audio/worklets/`, `src/audio/voices/` |
-| SFX catalog, modem, Dixie (M5.2) | `src/audio/sfx/`, `src/audio/modem.ts`, `src/audio/dixieVoice.ts`                             |
-| Adaptive music (M5.3)            | `src/audio/music/{Sequencer,Harmony,player,motifs}.ts`, `src/audio/music/patterns/`           |
-| Flight, camera, hull collision   | `src/player/{FlightController,CameraRig,Collision}.ts`                                        |
-| Construct grammar (M2.1)         | `src/world/constructs/{grammar,primitives,lod}.ts`                                            |
+| Contract                           | File                                                                                          |
+| ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| Events + typed event bus           | `src/core/events.ts`                                                                          |
+| Beam lines, points, palette        | `src/render/lines/BeamBatch.ts`, `src/render/points/PointBatch.ts`, `src/render/palette.ts`   |
+| ICE + Phase Lock metric            | `src/breach/IceModel.ts`, `src/breach/PhaseLock.ts`, `src/content/ice/presets.ts`             |
+| Softs                              | `src/content/softs.ts`                                                                        |
+| Missions (zod)                     | `src/narrative/schema.ts`                                                                     |
+| Mission runner + triggers          | `src/narrative/MissionRunner.ts`, `src/narrative/triggers.ts`                                 |
+| Simstim timelines                  | `src/content/simstim/types.ts`                                                                |
+| Audio API + no-op engine           | `src/audio/AudioEngine.ts`                                                                    |
+| Web Audio engine (M5.1)            | `src/audio/{AudioEngine,engine,buses,spatial}.ts`, `src/audio/worklets/`, `src/audio/voices/` |
+| SFX catalog, modem, Dixie (M5.2)   | `src/audio/sfx/`, `src/audio/modem.ts`, `src/audio/dixieVoice.ts`                             |
+| Adaptive music (M5.3)              | `src/audio/music/{Sequencer,Harmony,player,motifs}.ts`, `src/audio/music/patterns/`           |
+| Flight, camera, hull collision     | `src/player/{FlightController,CameraRig,Collision}.ts`                                        |
+| Construct grammar (M2.1)           | `src/world/constructs/{grammar,primitives,lod}.ts`                                            |
+| Sky (spiral arms + constellations) | `src/world/sky/{SpiralArms,FarConstellations,Sky}.ts`                                         |
 
 Test doubles (recording beam/point batches, event recorder, recording audio engine) and valid sample data are in `src/testing/`. Notes on how the stubs differ from the plan's literal TypeScript are in plan §9.8.
 
@@ -89,7 +91,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Flight controller, camera rig, soft hull collision                       | `src/player/{FlightController,CameraRig,Collision}.ts` |
 | Renderer service (HDR targets, PostChain, quality)                       | `src/render/Renderer.ts`                               |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.21. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.22. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 

@@ -1202,6 +1202,17 @@ Construct grammar. M2.2 (heraldry / landmarks) and M2.3 (sectors) consume this; 
 - **Near segment budget**: box 256, slabTerrace 512, cubeStack 2048, ziggurat 512, mast 256, nestedPoly 1024, geodesic 2048, tower 512, constellation/spiralArms 0 (points only).
 - **Lab:** `?lab=grammar&g=ziggurat&lod=near&seed=1`. Tweakpane sliders for every primitive. Draws with Three.js `LineSegments` / `Points` / faint `Mesh` (M1.1 fallback). `window.__nonspaceGrammar` exposes `{ kind, lod, stats, setKind, setLod }`.
 
+### 9.22 Contract notes from M2.4 (repo copy only)
+
+Sky. Uses M1.2 `createPointBatch`. Does not edit `PointBatch.ts`, shaders, `Renderer.ts`, or post passes. Relies on `scenes.sky` rendering first into `hdrScene` (M0.4) with the point material's depth-write off.
+
+- **`world/sky/SpiralArms.ts`**: `fillSpiralArms(set, start, count, seed)` writes 3 logarithmic spiral arms (`r = rInner · e^{kθ}`, `k = ln(rOuter/rInner)/(turns·2π)`, phase `2π/3`) of `Beam.MIL` points on a disc at **y = 30,000**. Seeded PCG32 (`stream = 1`). Spine helper `spiralSpine(arm, t)` has no scatter.
+- **`world/sky/FarConstellations.ts`**: `fillFarConstellations` writes 28 far-LOD clusters (`Beam.GRID/AMBER/ICE/TA/MITSU/ESFA`) with **y ≥ 16,000** (above the 12,000 u ceiling). Same `PointSet`, PCG32 stream 2.
+- **`world/sky/Sky.ts`**: `generateSkyPoints(seed)` → 40,000 points (36k arms + 4k constellations). `createSky({ palette, parent })` uploads them once via `createPointBatch` (`fogDensity = 0`, `refDistance = 5,000`, max size 8 px) and parents the mesh under a `Group` added to `scenes.sky`. **One draw**: `batch.drawCount === 40_000` / `geometry.instanceCount`.
+- **Parallax.** `skyFollow(cam)` places the group at `(1 − 0.1) · camera` so the disc has **0.1× translation parallax** (plan §5.6 / §8.3). `skyApparentRange(camY) = 30,000 − camY·0.1`: **30,000 u** at the ground, **28,800 u** at the 12,000 u ceiling — the arms stay unreachable. Rotation is copied from the matrix camera because the sky scene is drawn with it.
+- **Spin.** `SKY_SPIN_RAD_PER_SEC = 2π / (12·3600)` (one turn per 12 hours). Frozen when `reduceMotion` is true. Not a per-frame allocation.
+- **Dev route:** `?lab=sky` (`&view=ground|ceiling|fly`; keys `1`/`2`/`3`). `#app` dataset: `data-sky-points`, `data-sky-draws`, `data-sky-parallax`, `data-sky-range`, `data-sky-cam-y`. Screenshot `docs/screenshots/m2-4-sky-arms.png`.
+
 ---
 
 ## 10. Milestones and tasks

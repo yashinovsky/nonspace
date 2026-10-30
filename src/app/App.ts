@@ -17,7 +17,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` HDR cube; `persist` phosphor; `points` lightpoints; `raster` SMPTE. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -107,7 +107,9 @@ export async function startApp({
     update(dt) {
       const frame = input.sample(dt);
       modes.handleInput(frame);
-      if (flightLab) flight.step(frame, dt, { reduceMotion: settings.value.reduceMotion });
+      if (flightLab || lab === 'sky') {
+        flight.step(frame, dt, { reduceMotion: settings.value.reduceMotion });
+      }
       mission.update(dt);
       labHandle?.update(dt);
       modes.update(dt);
@@ -163,6 +165,17 @@ export async function startApp({
     const { installRasterCrtLab } = await import('../debug/RasterCrtLab');
     labHandle = installRasterCrtLab(renderer);
     root.dataset.lab = 'raster';
+  }
+
+  if (lab === 'sky') {
+    const { installSkyLab } = await import('../world/sky/lab');
+    labHandle = installSkyLab({
+      renderer,
+      root,
+      flight,
+      reduceMotion: () => settings.value.reduceMotion,
+    });
+    root.dataset.lab = 'sky';
   }
 
   if (lab === 'persist') {
