@@ -135,6 +135,14 @@ describe('Input service', () => {
     expect(input.bindings.actions.scan[0]).toEqual({ type: 'key', code: 'KeyK' });
   });
 
+  it('maps mouse wheel onto thrust', () => {
+    const { input } = harness();
+    input.feedWheel(-120);
+    expect(input.sample(DT).thrust).toBe(1);
+    input.feedWheel(120);
+    expect(input.sample(DT).thrust).toBe(-1);
+  });
+
   it('holdToToggle latches hold actions from a tap', () => {
     const { input, settings } = harness();
     settings.update({ holdToToggle: true });

@@ -16,6 +16,7 @@ export interface BreachModeOptions {
   visuals?: IceVisuals | null;
   camera?: Camera;
   reduceMotion?: () => boolean;
+  reduceFlashing?: () => boolean;
   onCracked?: (iceId: string) => void;
   onFlatline?: (scripted: boolean) => void;
   onBurned?: () => void;
@@ -79,7 +80,13 @@ export function createBreachMode(opts: BreachModeOptions): BreachMode {
     update(dt) {
       const cam = opts.camera ?? ctx?.renderer?.cameras.matrix;
       if (opts.visuals && breach.ice && cam) {
-        opts.visuals.update(dt, breach.ice, cam, opts.reduceMotion?.() ?? false);
+        opts.visuals.update(
+          dt,
+          breach.ice,
+          cam,
+          opts.reduceMotion?.() ?? false,
+          opts.reduceFlashing?.() ?? false,
+        );
       }
       paintHud();
       opts.hud?.update(0);

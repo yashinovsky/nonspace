@@ -145,6 +145,11 @@ export function createTitleMode(opts: TitleModeOptions = {}): TitleMode {
     },
     render() {},
     handleInput(frame: InputFrame) {
+      if (flashingPrompt) {
+        if (frame.pressed('scan') || frame.pressed('engage')) pressKey('y');
+        else if (frame.pressed('simstim')) pressKey('n');
+        return;
+      }
       if (
         frame.pressed('pause') ||
         frame.pressed('engage') ||

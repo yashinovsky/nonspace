@@ -56,7 +56,7 @@ export function sampleJumpStreak(
   return {
     phase,
     u: clamp01(u),
-    fovKick: (reduceMotion ? 8 : 25) * e,
+    fovKick: reduceMotion ? 0 : 25 * e,
     decayScale: reduceMotion ? JUMP_STREAK_DECAY_REDUCED : JUMP_STREAK_DECAY,
     pitchRise: (reduceMotion ? 0.04 : 0.12) * e,
     destGrow: 0.2 + 0.8 * clamp01(u),

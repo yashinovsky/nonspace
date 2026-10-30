@@ -20,6 +20,7 @@ describe('M2.6 jump streak sample', () => {
     expect(mid.streak).toBeCloseTo(1, 5);
 
     const reduced = sampleJumpStreak('streak', 0.5, true);
+    expect(reduced.fovKick).toBe(0);
     expect(reduced.fovKick).toBeLessThan(mid.fovKick);
     expect(reduced.decayScale).toBe(JUMP_STREAK_DECAY_REDUCED);
     expect(reduced.decayScale).toBeGreaterThan(mid.decayScale);

@@ -77,6 +77,7 @@ export interface IceLabOptions {
   scene?: string | null;
   gray?: string | null;
   reduceMotion?: () => boolean;
+  reduceFlashing?: () => boolean;
 }
 
 const CSS = [
@@ -292,13 +293,14 @@ export function installIceLab(opts: IceLabOptions): IceLab {
     time += dt;
     const cam = renderer.cameras.matrix;
     const reduce = opts.reduceMotion?.() ?? false;
+    const flash = opts.reduceFlashing?.() ?? false;
     const perfect = (m: IceModel): { R: number; Phi: number } => {
       const [a, b] = m.state.current.ratio;
       return { R: b / a, Phi: m.state.current.phi - m.state.current.roll };
     };
     for (const sl of slots) {
       sl.model.step(dt, perfect(sl.model));
-      sl.visuals.update(dt, sl.model, cam, reduce);
+      sl.visuals.update(dt, sl.model, cam, reduce, flash);
     }
     syncHud();
   };

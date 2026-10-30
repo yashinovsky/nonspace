@@ -54,7 +54,13 @@ export interface IceVisuals {
   readonly telegraphFlicker: number;
   readonly activeFace: number;
   readonly grip: number;
-  update(dt: number, model: IceModel, camera: Camera, reduceMotion?: boolean): void;
+  update(
+    dt: number,
+    model: IceModel,
+    camera: Camera,
+    reduceMotion?: boolean,
+    reduceFlashing?: boolean,
+  ): void;
   setTime(t: number): void;
   shatter(seed?: number): void;
   dispose(): void;
@@ -355,10 +361,10 @@ export function createIceVisuals(opts: IceVisualsOptions): IceVisuals {
       lissajous.beginDynamic();
       lissajous.endDynamic();
     },
-    update(dt, model, camera, reduceMotion = false) {
+    update(dt, model, camera, reduceMotion = false, reduceFlashing = false) {
       time += dt;
       flickerAmt = model.state.current.telegraph ? 0.85 : Math.max(0, flickerAmt - dt * 2.5);
-      flickerNow = telegraphFlicker(time, flickerAmt);
+      flickerNow = telegraphFlicker(time, flickerAmt, reduceFlashing);
       if (uvMat) setUvEdgeTime(uvMat, reduceMotion ? 0 : time);
       applyRotations(time, reduceMotion);
 

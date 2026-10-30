@@ -1,3 +1,4 @@
+import { openSettings } from '../a11y/host';
 import { createBreachMode } from '../app/modes/Breach';
 import { createCoreMode } from '../app/modes/Core';
 import { createDeckPanelMode, DEFAULT_ADDRESS_BOOK } from '../app/modes/DeckPanel';
@@ -193,7 +194,7 @@ export async function startTuringMission(opts: TuringMissionOptions): Promise<Tu
   });
   if (visuals) visuals.object.visible = false;
 
-  const breach = createBreachController({ events, save, audio: audio ?? undefined });
+  const breach = createBreachController({ events, save, settings, audio: audio ?? undefined });
   breach.neural.reset(8);
   breach.neural.setScars(0);
   breach.trace.reset(2);
@@ -203,6 +204,10 @@ export async function startTuringMission(opts: TuringMissionOptions): Promise<Tu
   softs.beginRun({
     act: 3,
     slots: ['decoy', 'probe', 'clamp', 'damper'],
+    mimicAlways: settings.value.phaseLock.mimicAlways,
+  });
+  const unsubMimic = settings.onChange((s) => {
+    softs.setMimicAlways(s.phaseLock.mimicAlways);
   });
 
   const watchers = placeTuringWatchers(heat0, difficulty, icePos);
@@ -580,6 +585,7 @@ export async function startTuringMission(opts: TuringMissionOptions): Promise<Tu
         visuals,
         camera: renderer.cameras.matrix,
         reduceMotion: () => settings.value.reduceMotion,
+        reduceFlashing: () => settings.value.reduceFlashing,
         onCracked() {
           breaches += 1;
           visuals?.shatter(7);
@@ -650,6 +656,7 @@ export async function startTuringMission(opts: TuringMissionOptions): Promise<Tu
           return;
         },
         onError: () => audio?.sfx('deckError'),
+        onSettings: () => openSettings(),
       }),
     );
   };
@@ -910,7 +917,13 @@ export async function startTuringMission(opts: TuringMissionOptions): Promise<Tu
       mission.setPlayerPosition(flight.pose.x, flight.pose.y, flight.pose.z);
       interior?.updateVisuals(dt);
       if (visuals && !modes.has('core')) {
-        visuals.update(dt, liveIce(), renderer.cameras.matrix, settings.value.reduceMotion);
+        visuals.update(
+          dt,
+          liveIce(),
+          renderer.cameras.matrix,
+          settings.value.reduceMotion,
+          settings.value.reduceFlashing,
+        );
       }
       softs.handleInput((a) => input.frame.pressed(a), softWorld());
       softs.step(dt, softWorld());
@@ -954,7 +967,13 @@ export async function startTuringMission(opts: TuringMissionOptions): Promise<Tu
       }
       mission.setPlayerPosition(flight.pose.x, flight.pose.y, flight.pose.z);
       if (visuals && !modes.has('core')) {
-        visuals.update(dt, liveIce(), renderer.cameras.matrix, settings.value.reduceMotion);
+        visuals.update(
+          dt,
+          liveIce(),
+          renderer.cameras.matrix,
+          settings.value.reduceMotion,
+          settings.value.reduceFlashing,
+        );
       }
       interior?.updateVisuals(dt);
       softs.handleInput((a) => input.frame.pressed(a), softWorld());
@@ -975,6 +994,7 @@ export async function startTuringMission(opts: TuringMissionOptions): Promise<Tu
       disposed = true;
       const w = window as unknown as { __nonspaceMission?: TuringHandle };
       if (w.__nonspaceMission === handle) delete w.__nonspaceMission;
+      unsubMimic();
       unbindAudio?.();
       interlude?.dispose();
       interior?.dispose();

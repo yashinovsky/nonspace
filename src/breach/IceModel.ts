@@ -102,6 +102,10 @@ export interface IceSoftMods {
   feedbackMul?: number;
   /** DECOY: multiply engaged `traceRate` (0.5 = half gain). */
   traceMul?: number;
+  /** §8.10 wider tolerance: multiply layer `tolRatio`. */
+  tolMul?: number;
+  /** §8.10 slower re-key: multiply `rekeyEvery` seconds. */
+  rekeyMul?: number;
 }
 
 export interface IceStepInput extends IceSoftMods {
@@ -165,6 +169,7 @@ export function createIceModel(def: IceDef, opts: CreateIceModelOptions = {}): I
   const rng = new Pcg32(opts.seed ?? 1, 0x1ce);
   let driftDir = rng.next() < 0.5 ? -1 : 1;
   let nextDriftFlip = rng.float(2, 5);
+  let rekeyScaled = false;
   const events = opts.events;
 
   const layerState = (index: number, t: number): IceLayerState => {
@@ -264,6 +269,7 @@ export function createIceModel(def: IceDef, opts: CreateIceModelOptions = {}): I
       state.current = layerState(idx, 0);
       driftDir = rng.next() < 0.5 ? -1 : 1;
       nextDriftFlip = rng.float(2, 5);
+      rekeyScaled = false;
       const list: IceSimEvent[] = [];
       emit(list, { type: 'iceEngaged', iceId: def.id, layer: idx });
     },
@@ -318,6 +324,15 @@ export function createIceModel(def: IceDef, opts: CreateIceModelOptions = {}): I
       const freezeDrift = input.freezeDrift === true;
       const feedbackMul = input.feedbackMul ?? 1;
       const traceMul = input.traceMul ?? 1;
+      const tolMul = input.tolMul && input.tolMul > 0 ? input.tolMul : 1;
+      const rekeyMul = input.rekeyMul && input.rekeyMul > 0 ? input.rekeyMul : 1;
+      if (!rekeyScaled) {
+        rekeyScaled = true;
+        if (rekeyMul !== 1 && cur.nextRekeyAt !== null && !cur.telegraph) {
+          const remain = cur.nextRekeyAt - state.t;
+          if (remain > 0) cur.nextRekeyAt = state.t + remain * rekeyMul;
+        }
+      }
 
       if (!state.frozen) {
         if (!freezeDrift) {
@@ -348,7 +363,7 @@ export function createIceModel(def: IceDef, opts: CreateIceModelOptions = {}): I
           cur.meter = rekeyMeterReset(before);
           cur.telegraph = null;
           cur.nextRekeyAt = layer.rekeyEvery
-            ? state.t + rng.float(layer.rekeyEvery[0], layer.rekeyEvery[1])
+            ? state.t + rng.float(layer.rekeyEvery[0], layer.rekeyEvery[1]) * rekeyMul
             : null;
           emit(list, { type: 'iceRekey', iceId: def.id });
           if (layer.grip && !state.grip && before < 0.3) startGrip('rekey', list);
@@ -357,7 +372,7 @@ export function createIceModel(def: IceDef, opts: CreateIceModelOptions = {}): I
 
       const [a, b] = cur.ratio;
       cur.roll = stepRoll(cur.roll, input.R, a, b, dt);
-      cur.m = matchMetric(input.R, input.Phi + cur.roll, a, b, cur.phi, layer.tolRatio);
+      cur.m = matchMetric(input.R, input.Phi + cur.roll, a, b, cur.phi, layer.tolRatio * tolMul);
       cur.meter = stepLockMeter(cur.meter, cur.m, dt, layer.lockTime, state.lockDecayScale);
 
       if (cur.meter >= 1) {

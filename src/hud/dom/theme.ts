@@ -42,6 +42,7 @@ const CSS = `
 .ns-btn:hover,.ns-btn:focus{border-color:${COLOR_AFTERGLOW};color:${COLOR_AFTERGLOW}}
 .ns-btn[disabled]{opacity:.4;cursor:not-allowed}
 .ns-field{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0.18rem 0;border-bottom:1px solid #0c1810}
+.ns-field[data-focused="1"]{outline:1px solid ${COLOR_AMBER};background:#0a120c}
 .ns-field label{letter-spacing:0.12em;font-size:12px}
 .ns-field input,.ns-field select{accent-color:${COLOR_P31};background:#000;color:${COLOR_P31};border:1px solid #1a4a28;font:inherit;padding:0.15rem 0.3rem}
 .ns-legend{color:${COLOR_AMBER};letter-spacing:0.28em;font-size:11px;margin:0.7rem 0 0.25rem}

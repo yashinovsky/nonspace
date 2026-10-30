@@ -6,8 +6,10 @@ import {
   type PhaseLockDriveInput,
   type PhaseLockSession,
 } from '../audio/phaseLock';
+import { mergeIceMods } from '../a11y/assists';
 import type { EventBus } from '../core/events';
 import type { SaveStore } from '../core/save';
+import type { SettingsStore } from '../core/settings';
 import { createHeat, type Heat } from '../deck/Heat';
 import { createNeuralLoad, type NeuralLoad } from '../deck/NeuralLoad';
 import { createTrace, HULL_TRACE_RATE, type Trace } from '../deck/Trace';
@@ -164,6 +166,8 @@ export interface BreachControllerOptions {
   audio?: AudioEngine;
   /** Mission-key f0 in Hz (default A2 = 110). */
   f0?: number;
+  /** Live §8.10 Phase Lock assists (wider tolerance, slower re-key, purist). */
+  settings?: SettingsStore;
 }
 
 function emptyKnobs(): BreachKnobs {
@@ -182,7 +186,7 @@ export function createBreachController(opts: BreachControllerOptions = {}): Brea
   const heat = opts.heat ?? createHeat({ save });
   const grip = createGrip();
   const knobs = emptyKnobs();
-  let purist = opts.purist ?? false;
+  let purist = opts.purist ?? opts.settings?.value.phaseLock.purist ?? false;
   let ice: IceModel | null = null;
   let anchor: IceAnchor | null = null;
   let lastOutcome: BreachOutcome = { kind: 'none' };
@@ -361,12 +365,17 @@ export function createBreachController(opts: BreachControllerOptions = {}): Brea
         syncKnobs();
         stepOpts?.afterKnobs?.(knobs, ice, dt);
         syncKnobs();
+        const assists = opts.settings?.value.phaseLock;
+        if (assists) purist = assists.purist;
+        const mods = mergeIceMods(stepOpts?.iceMods, assists);
         const ev = ice.step(dt, {
           R: knobs.R,
           Phi: knobs.Phi,
-          freezeDrift: stepOpts?.iceMods?.freezeDrift,
-          feedbackMul: stepOpts?.iceMods?.feedbackMul,
-          traceMul: stepOpts?.iceMods?.traceMul,
+          freezeDrift: mods.freezeDrift,
+          feedbackMul: mods.feedbackMul,
+          traceMul: mods.traceMul,
+          tolMul: mods.tolMul,
+          rekeyMul: mods.rekeyMul,
         });
         applyIceMeters();
         const cracked = handleIceEvents(ev);

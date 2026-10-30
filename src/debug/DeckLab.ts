@@ -17,7 +17,7 @@ import type { SaveStore } from '../core/save';
 import type { SettingsStore } from '../core/settings';
 import { createSettingsMenu, type SettingsMenu } from '../hud/dom/Settings';
 import { createSubtitles, type Subtitles } from '../hud/dom/Subtitles';
-import type { InputService } from '../input/Input';
+import type { InputFrame, InputService } from '../input/Input';
 import type { Renderer } from '../render/Renderer';
 import { el, ensureCrtStyles } from '../hud/dom/theme';
 
@@ -56,6 +56,8 @@ export interface DeckLabHandle {
   showSubtitle(text: string): void;
   seekBoot(time: number): void;
   pressTitleKey(key: string): void;
+  readonly focusedField: string | null;
+  handleSettings(frame: InputFrame): void;
   /** Paint HUD/DOM without rAF (loop frozen). */
   update(dt: number): void;
 }
@@ -252,6 +254,12 @@ export function installDeckLab(opts: DeckLabOptions): DeckLab {
     },
     pressTitleKey(key) {
       titleMode?.pressKey(key);
+    },
+    get focusedField() {
+      return settingsMenu.focusedField;
+    },
+    handleSettings(frame) {
+      if (settingsMenu.open) settingsMenu.handleInput(frame);
     },
     update(dt) {
       subtitles.sync();

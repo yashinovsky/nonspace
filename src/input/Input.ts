@@ -44,6 +44,8 @@ export {
   Pad,
   defaultBindings,
   formatSource,
+  gamepadOnlyPlayable,
+  mouseOnlyPlayable,
   isActionId,
   isAxisId,
   parseBindings,
@@ -145,6 +147,7 @@ export interface InputService {
   feedKey(code: string, down: boolean, key?: string): void;
   feedMouseButton(button: number, down: boolean): void;
   feedMouseMove(dx: number, dy: number): void;
+  feedWheel(deltaY: number): void;
   setGamepads(pads: Array<GamepadSnapshot | null> | null): void;
   setPointerLocked(locked: boolean, userUnlock?: boolean): void;
   dispose(): void;
@@ -223,6 +226,7 @@ export function createInput(opts: InputOptions): InputService {
   let gamepadOverride: Array<GamepadSnapshot | null> | null = null;
   let extraMouseDx = 0;
   let extraMouseDy = 0;
+  let wheelY = 0;
   let attached = false;
   let escapeFromUnlock = false;
 
@@ -369,6 +373,8 @@ export function createInput(opts: InputOptions): InputService {
       const mdY = (mouse.dy + extraMouseDy) * cfg.mouseSensitivity;
       extraMouseDx = 0;
       extraMouseDy = 0;
+      const wheelThisTick = wheelY;
+      wheelY = 0;
 
       if (pointer.consumeUserUnlock() && !capturing && !rebindTarget) {
         // Esc while locked is eaten by the browser; treat unlock as pause.
@@ -408,6 +414,9 @@ export function createInput(opts: InputOptions): InputService {
                 id,
                 pad ? axisDeadzone(buttonValue(pad.buttons, s.index), dz) * sign : 0,
               );
+            } else if (s.type === 'mouseWheel') {
+              const tick = wheelThisTick === 0 ? 0 : wheelThisTick < 0 ? 1 : -1;
+              addAxis(sums, id, tick * sign);
             } else if (s.type === 'gamepadAxis') {
               let v = 0;
               if (pad) {
@@ -528,6 +537,12 @@ export function createInput(opts: InputOptions): InputService {
       extraMouseDx += dx;
       extraMouseDy += dy;
     },
+    feedWheel(deltaY) {
+      if (rebindTarget) {
+        maybeCaptureRebind({ type: 'mouseWheel', sign: deltaY < 0 ? -1 : 1 });
+      }
+      wheelY += deltaY;
+    },
     setGamepads(pads) {
       gamepadOverride = pads;
     },
@@ -575,6 +590,11 @@ export function createInput(opts: InputOptions): InputService {
     service.feedMouseButton(e.button, false);
     rebindIgnore.delete(sourceId({ type: 'mouseButton', button: e.button }));
   };
+  const onWheel = (e: WheelEvent): void => {
+    if (opts.target && e.target instanceof Node && !opts.target.contains(e.target)) return;
+    e.preventDefault();
+    service.feedWheel(e.deltaY);
+  };
   const onContextMenu = (e: Event): void => {
     if (opts.target && e.target === opts.target) e.preventDefault();
   };
@@ -591,6 +611,7 @@ export function createInput(opts: InputOptions): InputService {
     win?.removeEventListener('blur', onBlur);
     doc?.removeEventListener('mousedown', onMouseDown);
     doc?.removeEventListener('mouseup', onMouseUp);
+    doc?.removeEventListener('wheel', onWheel);
     doc?.removeEventListener('contextmenu', onContextMenu);
     pointer.detach();
   };
@@ -603,6 +624,7 @@ export function createInput(opts: InputOptions): InputService {
     win.addEventListener('blur', onBlur);
     doc.addEventListener('mousedown', onMouseDown);
     doc.addEventListener('mouseup', onMouseUp);
+    doc.addEventListener('wheel', onWheel, { passive: false });
     doc.addEventListener('contextmenu', onContextMenu);
     if (opts.target) pointer.attach(opts.target);
   } else if (opts.target) {

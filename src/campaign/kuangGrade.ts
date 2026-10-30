@@ -222,7 +222,7 @@ export async function startKuangGradeMission(
   });
   if (visuals) visuals.object.visible = false;
 
-  const breach = createBreachController({ events, save, audio: audio ?? undefined });
+  const breach = createBreachController({ events, save, settings, audio: audio ?? undefined });
   breach.neural.reset(10);
   breach.neural.setScars(0);
   breach.trace.reset(4);
@@ -377,7 +377,13 @@ export async function startKuangGradeMission(
     scene.follow(cam, renderer.quality.latticeRadius);
     scene.paint();
     if (visuals && visuals.object.visible) {
-      visuals.update(0, displayIce, renderer.cameras.matrix, settings.value.reduceMotion);
+      visuals.update(
+        0,
+        displayIce,
+        renderer.cameras.matrix,
+        settings.value.reduceMotion,
+        settings.value.reduceFlashing,
+      );
     }
     if (kuang.object.visible) kuang.paint();
     applyFx();

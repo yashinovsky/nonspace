@@ -65,6 +65,10 @@ export const bindingSourceSchema = z.discriminatedUnion('type', [
     sign: signSchema,
   }),
   z.object({
+    type: z.literal('mouseWheel'),
+    sign: signSchema,
+  }),
+  z.object({
     type: z.literal('gamepadButton'),
     index: z.number().int().min(0).max(16),
     sign: signSchema,
@@ -130,9 +134,14 @@ export function defaultBindings(): BindingSet {
     boost: [
       src({ type: 'key', code: 'ShiftLeft' }),
       src({ type: 'key', code: 'ShiftRight' }),
+      src({ type: 'mouseButton', button: 2 }),
       src({ type: 'gamepadButton', index: Pad.L3 }),
     ],
-    scan: [src({ type: 'key', code: 'KeyF' }), src({ type: 'gamepadButton', index: Pad.Y })],
+    scan: [
+      src({ type: 'key', code: 'KeyF' }),
+      src({ type: 'mouseButton', button: 1 }),
+      src({ type: 'gamepadButton', index: Pad.Y }),
+    ],
     engage: [src({ type: 'mouseButton', button: 0 }), src({ type: 'gamepadButton', index: Pad.A })],
     fineAdjust: [
       src({ type: 'key', code: 'ShiftLeft' }),
@@ -158,8 +167,16 @@ export function defaultBindings(): BindingSet {
     askDixie: [src({ type: 'key', code: 'KeyH' }), src({ type: 'gamepadButton', index: Pad.X })],
     download: [src({ type: 'key', code: 'KeyE' }), src({ type: 'gamepadButton', index: Pad.A })],
     simstim: [src({ type: 'key', code: 'KeyT' }), src({ type: 'gamepadButton', index: Pad.B })],
-    deck: [src({ type: 'key', code: 'Tab' }), src({ type: 'gamepadButton', index: Pad.Back })],
-    jackOut: [src({ type: 'key', code: 'KeyJ' }), src({ type: 'gamepadButton', index: Pad.Start })],
+    deck: [
+      src({ type: 'key', code: 'Tab' }),
+      src({ type: 'mouseButton', button: 3 }),
+      src({ type: 'gamepadButton', index: Pad.Back }),
+    ],
+    jackOut: [
+      src({ type: 'key', code: 'KeyJ' }),
+      src({ type: 'mouseButton', button: 4 }),
+      src({ type: 'gamepadButton', index: Pad.Start }),
+    ],
     pause: [src({ type: 'key', code: 'Escape' }), src({ type: 'gamepadButton', index: Pad.Start })],
   };
   const axes: AxisMap = {
@@ -168,6 +185,7 @@ export function defaultBindings(): BindingSet {
     thrust: [
       src({ type: 'key', code: 'KeyW', sign: 1 }),
       src({ type: 'key', code: 'KeyS', sign: -1 }),
+      src({ type: 'mouseWheel' }),
       src({ type: 'gamepadButton', index: Pad.RT, sign: 1 }),
       src({ type: 'gamepadButton', index: Pad.LT, sign: -1 }),
     ],
@@ -214,6 +232,8 @@ export function sourceId(source: BindingSource): string {
       return `mouseButton:${source.button}`;
     case 'mouseAxis':
       return `mouseAxis:${source.axis}`;
+    case 'mouseWheel':
+      return 'mouseWheel';
     case 'gamepadButton':
       return `gamepadButton:${source.index}`;
     case 'gamepadAxis':
@@ -235,6 +255,8 @@ export function formatSource(source: BindingSource): string {
       return ['LMB', 'MMB', 'RMB', 'MB4', 'MB5'][source.button] ?? `MB${source.button}`;
     case 'mouseAxis':
       return `Mouse ${source.axis.toUpperCase()}`;
+    case 'mouseWheel':
+      return source.sign === 1 ? 'Wheel+' : 'Wheel';
     case 'gamepadButton':
       return GAMEPAD_BUTTON_NAMES[source.index] ?? `Btn ${source.index}`;
     case 'gamepadAxis':
@@ -372,4 +394,25 @@ export function saveBindings(
   } catch {
     return false;
   }
+}
+
+function hasType(list: BindingSource[], type: BindingSource['type']): boolean {
+  return list.some((s) => s.type === type);
+}
+
+/** True when look, thrust, and engage can be driven without a keyboard or gamepad. */
+export function mouseOnlyPlayable(set: BindingSet): boolean {
+  const look = hasType(set.axes.lookX, 'mouseAxis') || hasType(set.axes.knobX, 'mouseAxis');
+  const thrust = hasType(set.axes.thrust, 'mouseWheel') || hasType(set.axes.thrust, 'mouseButton');
+  const engage = hasType(set.actions.engage, 'mouseButton');
+  return look && thrust && engage;
+}
+
+/** True when look, thrust, and engage can be driven without a keyboard or mouse. */
+export function gamepadOnlyPlayable(set: BindingSet): boolean {
+  const look = hasType(set.axes.lookX, 'gamepadAxis');
+  const thrust =
+    hasType(set.axes.thrust, 'gamepadButton') || hasType(set.axes.thrust, 'gamepadAxis');
+  const engage = hasType(set.actions.engage, 'gamepadButton');
+  return look && thrust && engage;
 }

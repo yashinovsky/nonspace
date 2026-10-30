@@ -57,9 +57,11 @@ export function hatchCoverage(
   return { lines, moire, cov: Math.max(lines * 0.72, moire) };
 }
 
-export function telegraphFlicker(time: number, amount: number): number {
+export function telegraphFlicker(time: number, amount: number, reduceFlashing = false): number {
   if (amount <= 0) return 0;
-  return amount * (0.55 + 0.45 * Math.sin(time * Math.PI * 2 * TELEGRAPH_FLICKER_HZ));
+  const amp = reduceFlashing ? Math.min(amount, 0.22) : amount;
+  if (reduceFlashing) return amp;
+  return amp * (0.55 + 0.45 * Math.sin(time * Math.PI * 2 * TELEGRAPH_FLICKER_HZ));
 }
 
 export function classLook(iceClass: 'white' | 'gray' | 'black' | 'ta'): {
