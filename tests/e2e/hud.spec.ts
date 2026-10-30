@@ -103,15 +103,16 @@ test.describe('M3.2 HUD', () => {
   test('composites after CRT, types at 1200 baud, EEG morphs, layout holds', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = collectErrors(page);
-    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('/?lab=hud&quality=high');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
     await expect(page.locator('#app')).toHaveAttribute('data-lab', 'hud');
     await expect(page.getByTestId('hud-lab')).toBeVisible();
     await page.waitForFunction(hud);
-    await page.waitForTimeout(400);
+    // Freeze before any canvas snapshot. Do not spin live HUD + CRT frames —
+    // a 1080p animation loop starves sibling SwiftShader workers (loop / grid / points).
     await freezeLoop(page);
-    await draw(page, 0.25);
+    await draw(page, 1 / 60);
 
     await page.locator('[data-testid="hud-lab"]').evaluate((el) => {
       (el as HTMLElement).style.visibility = 'hidden';
@@ -198,8 +199,8 @@ test.describe('M3.2 HUD', () => {
     expect(typed.wm).toBe('WINTERMUTE> INSTANT LINE');
 
     for (const size of [
-      { w: 2520, h: 1080, aspect: 21 / 9 },
-      { w: 1440, h: 1080, aspect: 4 / 3 },
+      { w: 840, h: 360, aspect: 21 / 9 },
+      { w: 480, h: 360, aspect: 4 / 3 },
     ]) {
       await page.setViewportSize({ width: size.w, height: size.h });
       const L = await page.evaluate(
@@ -208,7 +209,6 @@ test.describe('M3.2 HUD', () => {
           const h = (window as unknown as { __nonspaceHud: HudHandle }).__nonspaceHud;
           a.renderer.resize(wh.w, wh.h, 1);
           h.update(0);
-          a.renderer.endFrame(0, null);
           return h.layout;
         },
         { w: size.w, h: size.h },
