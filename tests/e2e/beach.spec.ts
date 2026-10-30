@@ -44,6 +44,7 @@ interface BeachHandle {
 
 test.describe('M7.10 beach', () => {
   test('?lab=beach raymarches a clean beach (no CRT) and captures the look', async ({ page }) => {
+    test.setTimeout(60_000);
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('/?lab=beach&quality=high');
@@ -56,8 +57,15 @@ test.describe('M7.10 beach', () => {
 
     await page.waitForTimeout(800);
 
-    const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot());
+    // Freeze rAF so Playwright does not wait forever for a dirty WebGL canvas
+    // (CI timeout: "waiting for element to be stable" during locator.screenshot).
+    await page.evaluate(() => {
+      type Loop = { setAnimationLoop(fn: null): void };
+      const app = (window as unknown as { __nonspace?: { renderer: { three: Loop } } }).__nonspace;
+      app?.renderer.three.setAnimationLoop(null);
+    });
+
+    const png = PNG.sync.read(await page.screenshot({ animations: 'allow', type: 'png' }));
     let maxChannel = 0;
     let lit = 0;
     let warm = 0;
