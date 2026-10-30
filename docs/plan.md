@@ -1297,9 +1297,9 @@ Text rendering. Does not edit `render/lines/*` (consumes `BeamBatch` / `LineSet`
 - **Conversion**: `scripts/convert-fonts.mjs` (JHF + 8×8 ROM → public assets). Attribution in `docs/CREDITS.md`.
 - **Dev route**: `?lab=text` (`&scene=all|hershey|bitmap|vfd`). Lazy-imported from `main.ts` so the default-boot graph never fetches Hershey / Px437 / VFD. `window.__nonspaceText` and `window.__nonspace.{renderer,textLab}`. Screenshot: `docs/screenshots/m3-1-text.png`.
 
-### 9.31 Contract notes from M1.6 (repo copy only)
+### 9.32 Contract notes from M1.6 (repo copy only)
 
-Vector CRT composite. Extends the M1.5 `VectorCrtPass` tonemap stub; does not replace Reinhard + desaturate-to-white. Does not edit sibling passes, `PostChain.ts`, or `targets.ts`. Bloom remains M1.5 (§9.29). Raster CRT remains M1.7 (§9.19). Hershey / bitmap / VFD text remains M3.1 (§9.30). Black ICE remains M1.8. Look Lab remains M1.9.
+Vector CRT composite. Extends the M1.5 `VectorCrtPass` tonemap stub; does not replace Reinhard + desaturate-to-white. Does not edit sibling passes, `PostChain.ts`, `targets.ts`, or black-ICE files. Bloom remains M1.5 (§9.29). Raster CRT remains M1.7 (§9.19). Hershey / bitmap / VFD text remains M3.1 (§9.30). Black ICE (M1.8, #27) claimed §9.31. Look Lab remains M1.9.
 
 - **`VectorCrtPass`** (`render/post/VectorCrtPass.ts`): `name: 'vectorCrt'`, `slot: 'crt'`, `kind: 'vector'`. Shader `post/shaders/vectorCrt.frag` samples with CRT optics, then the same `tonemapReinhardWhite` as `tonemap.frag` (M1.5). Writes LDR through `ctx.targets.post` ping-pong and sets **`ctx.encoded = 'ldr'`**. Missing `post.write.texture` still sets `encoded` and returns `input` (unit-test doubles).
 - **Effects** (plan §8.5), each with an `params.enable*` toggle and a magnitude: mild barrel `k ≈ 0.015`; sub-pixel beam jitter ≤ 0.25 px (low-frequency whole-image deflection, not per-pixel hash); flicker ≤ 3% amplitude × `ctx.vectorLoad`, **forced to 0 when `ctx.reduceFlashing`**; vignette; glass sheen + sparse dust; phosphor grain. Glass / grain / vignette / flicker are **multiplicative** so empty regions measure RGB (0,0,0). Out-of-tube barrel UVs write black (no clamp-to-edge lift). No raster black lift, no scanlines, no aperture grille.
