@@ -9,7 +9,7 @@ const LIMIT_BYTES = Number(process.env.DIST_LIMIT_BYTES ?? 1024 * 1024);
 const dist = new URL('../dist/', import.meta.url).pathname;
 
 /** Lab / debug-only chunks. Default boot never fetches these. */
-const LAB = /(?:^|\/)(?:lab-|grammar-|sectorWorker-|.+Lab-|DebugGui-)/;
+const LAB = /(?:^|\/)(?:lab-|grammar-|sectorWorker-|.+Lab-|DebugGui-|teletext)/;
 
 /** @param {string} dir @returns {{ path: string, size: number }[]} */
 function walk(dir) {

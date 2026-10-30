@@ -2,11 +2,11 @@
 /**
  * Compile ink/*.ink → src/content/ink/*.json (plan M6.4).
  *
- * JSON is `{ "source": "<ink text>" }` so the TypeScript `compileInk`
- * in `src/narrative/InkRuntime.ts` stays the single compiler. Runtime
- * loads the JSON and compiles once on Interlude enter.
+ * JSON is a compiled `InkStory` (`title`, `initial`, `variables`, `knots`)
+ * so the lab chunk does not ship `compileInk` or the raw source.
  */
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,11 +22,25 @@ if (files.length === 0) {
   process.exit(1);
 }
 
+const loader = join(root, 'scripts/compile-ink.mts');
+const result = spawnSync(
+  process.execPath,
+  ['--experimental-strip-types', '--no-warnings', loader, ...files],
+  { cwd: root, encoding: 'utf8' },
+);
+if (result.status !== 0) {
+  process.stderr.write(result.stderr || result.stdout || 'compile-ink failed\n');
+  process.exit(result.status ?? 1);
+}
+
+const stories = JSON.parse(result.stdout);
 for (const file of files) {
-  const source = readFileSync(join(srcDir, file), 'utf8');
   const name = file.replace(/\.ink$/, '');
-  const json = `${JSON.stringify({ title: name, source }, null, 2)}\n`;
-  const out = join(outDir, `${name}.json`);
-  writeFileSync(out, json);
+  const story = stories[name];
+  if (!story) {
+    console.error(`missing compiled story for ${file}`);
+    process.exit(1);
+  }
+  writeFileSync(join(outDir, `${name}.json`), `${JSON.stringify(story, null, 2)}\n`);
   console.log(`  ${file} → src/content/ink/${name}.json`);
 }

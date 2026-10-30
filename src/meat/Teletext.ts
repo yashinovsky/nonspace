@@ -4,7 +4,6 @@ import { TELETEXT_RGB } from './colors';
 import { FONT_COLS, FONT_PAD_X, FONT_PAD_Y, FONT_ROWS, glyphPixel } from './font';
 import {
   isDoubleHeightBottom,
-  mosaicBits,
   readAttrs,
   TELETEXT_CELL_H,
   TELETEXT_CELL_W,
@@ -69,8 +68,14 @@ function drawMosaic(
   bg: readonly [number, number, number],
   separated: boolean,
 ): void {
-  const bits = mosaicBits(code);
-  const cells: readonly boolean[] = [bits.tl, bits.tr, bits.ml, bits.mr, bits.bl, bits.br];
+  const cells: readonly boolean[] = [
+    (code & 0x01) !== 0,
+    (code & 0x02) !== 0,
+    (code & 0x04) !== 0,
+    (code & 0x08) !== 0,
+    (code & 0x10) !== 0,
+    (code & 0x40) !== 0,
+  ];
   let y = oy;
   for (let row = 0; row < 3; row++) {
     const h = MOSAIC_H[row]!;

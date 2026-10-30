@@ -1,14 +1,8 @@
 import type { AudioEngine } from '../audio/AudioEngine';
 import type { ModeContext } from '../app/ModeStack';
 import type { InputFrame } from '../input/Input';
-import {
-  createInkRuntime,
-  loadInkModule,
-  type InkModule,
-  type InkRuntime,
-  type InkStory,
-} from '../narrative/InkRuntime';
-import { isRasterCrtPass, type RasterCrtPass } from '../render/post/RasterCrtPass';
+import { createInkRuntime, type InkRuntime, type InkStory } from '../narrative/InkRuntime';
+import type { RasterCrtPass } from '../render/post/RasterCrtPass';
 import type { PostMode } from '../render/post/pass';
 import { paintTeletextPage, type TeletextPageId } from '../content/teletext/testCard';
 import { createPhoneRing, type PhoneRingHook } from './phoneRing';
@@ -18,7 +12,7 @@ import type { TeletextPage } from './TeletextPage';
 const CHOICE_ACTIONS = ['soft1', 'soft2', 'soft3', 'soft4'] as const;
 
 export interface InterludeOptions {
-  story: InkStory | InkModule;
+  story: InkStory;
   audio?: Pick<AudioEngine, 'sfx' | 'unlock'>;
   phone?: PhoneRingHook;
   /** Injected renderer (node tests skip Canvas2D / WebGL). */
@@ -62,11 +56,7 @@ function pageIdOf(ink: InkRuntime): TeletextPageId {
  * hung on RasterCrtPass.source with postMode `interlude`.
  */
 export function createInterlude(opts: InterludeOptions): Interlude {
-  const story: InkStory =
-    'knots' in opts.story && opts.story.knots
-      ? (opts.story as InkStory)
-      : loadInkModule(opts.story);
-  const ink = createInkRuntime(story);
+  const ink = createInkRuntime(opts.story);
   const teletext = opts.teletext ?? createTeletext();
   const phone = opts.phone ?? createPhoneRing();
   const now = opts.now ?? (() => new Date());
@@ -90,11 +80,8 @@ export function createInterlude(opts: InterludeOptions): Interlude {
     ended: ink.state.ended,
   });
 
-  const rebuild = (): void => {
+  const layout = (): void => {
     const id = pageIdOf(ink);
-    ringingWanted = ink.hasTag('ring') || id === 'test' || id === 'phone';
-    if (ringingWanted) phone.start();
-    else phone.stop();
     page = paintTeletextPage({
       pageId: id,
       clock: now(),
@@ -103,13 +90,24 @@ export function createInterlude(opts: InterludeOptions): Interlude {
       phoneSounding: phone.sounding(time),
       title: id === 'phone' ? 'WINTERMUTE' : 'CHIBA   NITE CITY',
     });
-    const reduce = ctx?.settings.value.reduceFlashing ?? false;
+  };
+
+  const blit = (): void => {
     teletext.paint(page, {
       time,
-      reduceFlashing: reduce,
+      reduceFlashing: ctx?.settings.value.reduceFlashing ?? false,
       phoneSounding: phone.sounding(time),
     });
     opts.onChange?.(info());
+  };
+
+  const rebuild = (): void => {
+    const id = pageIdOf(ink);
+    ringingWanted = ink.hasTag('ring') || id === 'test' || id === 'phone';
+    if (ringingWanted) phone.start();
+    else phone.stop();
+    layout();
+    blit();
   };
 
   const session: Interlude = {
@@ -128,8 +126,8 @@ export function createInterlude(opts: InterludeOptions): Interlude {
       if (renderer) {
         savedMode = renderer.postMode;
         renderer.postMode = 'interlude';
-        const pass = renderer.chain.rasterCrt;
-        if (isRasterCrtPass(pass)) {
+        const pass = renderer.chain.rasterCrt as RasterCrtPass;
+        if (pass.slot === 'crt' && 'playTransition' in pass) {
           raster = pass;
           pass.source = teletext.texture;
           pass.playTransition();
@@ -152,24 +150,11 @@ export function createInterlude(opts: InterludeOptions): Interlude {
     update(dt) {
       time += dt;
       const second = now().getSeconds();
-      const reduce = ctx?.settings.value.reduceFlashing ?? false;
       if (second !== lastSecond) {
         lastSecond = second;
-        page = paintTeletextPage({
-          pageId: pageIdOf(ink),
-          clock: now(),
-          lines: ink.state.text,
-          choices: ink.state.choices,
-          phoneSounding: phone.sounding(time),
-          title: pageIdOf(ink) === 'phone' ? 'WINTERMUTE' : 'CHIBA   NITE CITY',
-        });
+        layout();
       }
-      teletext.paint(page, {
-        time,
-        reduceFlashing: reduce,
-        phoneSounding: phone.sounding(time),
-      });
-      opts.onChange?.(info());
+      blit();
     },
     render() {
       // Texture is updated in update(); RasterCrtPass samples it in endFrame.

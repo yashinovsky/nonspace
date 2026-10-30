@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compileInk, createInkRuntime, loadInkModule } from '../../src/narrative/InkRuntime';
+import { compileInk, createInkRuntime, type InkStory } from '../../src/narrative/InkRuntime';
 import testInk from '../../src/content/ink/teletext-test.json';
 
 describe('Ink subset compiler', () => {
@@ -87,10 +87,9 @@ Bye
 
 describe('teletext-test.ink', () => {
   it('loads from the committed JSON module and offers 4 opening choices', () => {
-    expect(testInk.source.length).toBeGreaterThan(80);
-    const fromJson = loadInkModule(testInk);
-    const rt = createInkRuntime(fromJson);
-    expect(Object.keys(fromJson.knots)).toEqual(
+    const story = testInk as InkStory;
+    const rt = createInkRuntime(story);
+    expect(Object.keys(story.knots)).toEqual(
       expect.arrayContaining(['start', 'street', 'phone', 'clinic', 'jack', 'pickup']),
     );
     expect(rt.state.choices).toHaveLength(4);

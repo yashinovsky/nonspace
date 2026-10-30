@@ -60,26 +60,19 @@ export function createPhoneRing(): PhoneRingHook {
   };
 
   const teardown = (): void => {
-    if (typeof window !== 'undefined' && sub !== null) {
-      window.clearInterval(sub);
+    if (sub !== null) {
+      clearInterval(sub);
       sub = null;
     }
-    try {
-      oscA?.stop();
-    } catch {
-      /* already stopped */
+    for (const node of [oscA, oscB, gain]) {
+      try {
+        if (node && 'stop' in node) node.stop();
+      } catch {
+        /* already stopped */
+      }
+      node?.disconnect();
     }
-    try {
-      oscB?.stop();
-    } catch {
-      /* already stopped */
-    }
-    oscA?.disconnect();
-    oscB?.disconnect();
-    gain?.disconnect();
-    oscA = null;
-    oscB = null;
-    gain = null;
+    oscA = oscB = gain = null;
   };
 
   const hook: PhoneRingHook = {

@@ -1,7 +1,7 @@
 import type { ModeStack } from '../app/ModeStack';
 import { createInterludeMode } from '../app/modes/Interlude';
 import { createInterlude, type Interlude } from '../meat/Interlude';
-import type { InkModule } from '../narrative/InkRuntime';
+import type { InkStory } from '../narrative/InkRuntime';
 import type { Renderer } from '../render/Renderer';
 import testInk from '../content/ink/teletext-test.json';
 
@@ -22,22 +22,10 @@ export function installTeletextLab(opts: {
 }): TeletextLab {
   const hint = document.createElement('div');
   hint.dataset.testid = 'teletext-lab';
-  hint.style.cssText = [
-    'position:absolute',
-    'left:12px',
-    'top:12px',
-    'z-index:2',
-    'font:12px/1.4 ui-monospace,monospace',
-    'color:#c8d0d8',
-    'background:rgba(0,0,0,0.55)',
-    'padding:8px 10px',
-    'pointer-events:auto',
-    'max-width:320px',
-  ].join(';');
+  hint.style.cssText =
+    'position:absolute;left:12px;top:12px;z-index:2;font:12px/1.4 ui-monospace,monospace;color:#c8d0d8;background:#0008;padding:8px 10px;pointer-events:auto;max-width:320px';
   hint.innerHTML =
-    '<div>M6.4 Teletext / Interlude</div>' +
-    '<div style="opacity:.75">40×24 · mosaic · double height · raster CRT</div>' +
-    '<div style="opacity:.75">1–4 Ink choices · click to unlock ring</div>';
+    '<div>M6.4 Teletext / Interlude</div><div style="opacity:.75">40×24 · mosaic · DH · CRT · 1–4 · click to ring</div>';
 
   const sync = (knot: string, pageId: string, ringing: boolean): void => {
     opts.root.dataset.knot = knot;
@@ -46,7 +34,7 @@ export function installTeletextLab(opts: {
   };
 
   const interlude = createInterlude({
-    story: testInk as InkModule,
+    story: testInk as InkStory,
     onChange: (info) => sync(info.knot, info.pageId, info.ringing),
   });
 
