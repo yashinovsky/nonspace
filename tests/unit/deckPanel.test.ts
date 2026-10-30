@@ -65,7 +65,9 @@ describe('M3.3 deck panel', () => {
     let errors = 0;
     const panel = createDeckPanel({
       input,
-      onJump: (c) => jumps.push(`${c.region} ${c.x}/${c.z}/${c.y}`),
+      onJump: (c) => {
+        jumps.push(`${c.region} ${c.x}/${c.z}/${c.y}`);
+      },
       onError: () => {
         errors += 1;
       },
@@ -83,7 +85,9 @@ describe('M3.3 deck panel', () => {
     const { input: input2 } = inputHarness();
     const panel2 = createDeckPanel({
       input: input2,
-      onJump: (c) => jumps.push(`${c.region} ${c.x}/${c.z}/${c.y}`),
+      onJump: (c) => {
+        jumps.push(`${c.region} ${c.x}/${c.z}/${c.y}`);
+      },
       onError: () => {
         errors += 1;
       },
@@ -99,7 +103,8 @@ describe('M3.3 deck panel', () => {
 
   it('has COORD SOFTS LOG PING STATUS and an address book', () => {
     const panel = createDeckPanel();
-    expect(DEFAULT_ADDRESS_BOOK.length).toBeGreaterThan(3);
+    expect(DEFAULT_ADDRESS_BOOK.length).toBeGreaterThan(7);
+    expect(panel.addressBook.some((e) => e.id === 'chiba-node')).toBe(true);
     panel.setTab('SOFTS');
     expect(panel.tab).toBe('SOFTS');
     panel.setTab('LOG');
@@ -111,6 +116,27 @@ describe('M3.3 deck panel', () => {
     panel.setTab('STATUS');
     expect(hashMarks(0)).toBe('NONE');
     expect(hashMarks(4)).toBe('||||');
+  });
+
+  it('blocked jumps surface a deck error without recording lastJump', () => {
+    const { input } = inputHarness();
+    let errors = 0;
+    const panel = createDeckPanel({
+      input,
+      onJump: () => 'BLOCKED GRIP',
+      onError: () => {
+        errors += 1;
+      },
+    });
+    panel.show();
+    typeChars(input, 'BAMA 0168.25 / 0096.40 / 0420');
+    input.feedKey('Enter', true, 'Enter');
+    panel.handleInput(input.sample(DT));
+    expect(errors).toBe(1);
+    expect(panel.lastError).toBe('BLOCKED GRIP');
+    expect(panel.lastJump).toBeNull();
+    panel.addAddress({ id: 'drop', name: 'Drop', coord: 'BAMA 0001.00 / 0001.00 / 0100' });
+    expect(panel.addressBook.some((e) => e.id === 'drop')).toBe(true);
   });
 });
 
