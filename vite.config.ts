@@ -1,5 +1,63 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import glsl from 'vite-plugin-glsl';
 import { defineConfig, type Plugin } from 'vitest/config';
+
+const ROOT = dirname(fileURLToPath(import.meta.url));
+
+function packageVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
+      version?: string;
+    };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
+
+function gitShortSha(): string {
+  const env = process.env.GITHUB_SHA ?? process.env.VITE_GIT_SHA;
+  if (env && env.length >= 7) return env.slice(0, 7);
+  try {
+    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+/** Netlify / Cloudflare Pages cache map. GitHub Pages ignores this file. */
+const RELEASE_HEADERS = [
+  '/*',
+  '  X-Content-Type-Options: nosniff',
+  '',
+  '/index.html',
+  '  Cache-Control: no-cache',
+  '',
+  '/',
+  '  Cache-Control: no-cache',
+  '',
+  '/assets/*',
+  '  Cache-Control: public, max-age=31536000, immutable',
+  '',
+].join('\n');
+
+/** Emit `_headers` + `.nojekyll` into dist/ for the static Pages deploy. */
+function releaseStatic(): Plugin {
+  return {
+    name: 'release-static',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: '_headers', source: RELEASE_HEADERS });
+      this.emitFile({ type: 'asset', fileName: '.nojekyll', source: '' });
+    },
+  };
+}
 
 /**
  * Collapse GLSL while keeping preprocessor directives (`#include`, `#ifdef`, …)
@@ -84,17 +142,32 @@ function minifyThreeGlsl(): Plugin {
 }
 
 export default defineConfig(({ command }) => ({
+  // Relative base so hashed assets resolve under GitHub Pages `/<repo>/`.
+  base: './',
+  define: {
+    __NONSPACE_VERSION__: JSON.stringify(packageVersion()),
+    __NONSPACE_SHA__: JSON.stringify(gitShortSha()),
+  },
   plugins: [
     // Minify GLSL on `vite build` so look-lane shaders stay inside the 1 MB dist budget.
     glsl({ minify: command === 'build' }),
     minifyRawGlsl(),
     minifyThreeGlsl(),
+    releaseStatic(),
   ],
   build: {
     target: 'es2022',
     sourcemap: false,
     // Three.js alone is ~510 KB minified; the 1 MB default-boot budget is enforced by scripts/check-size.mjs.
     chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Content hashes so `/assets/*` can be cached immutable; HTML stays no-cache.
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]',
+      },
+    },
   },
   server: {
     port: 5173,

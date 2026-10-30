@@ -1,7 +1,8 @@
 name: Phase Lock prototype
 
-# Tests and builds prototypes/phase-lock on PRs; on main it also publishes the lab to GitHub Pages
-# at https://<owner>.github.io/<repo>/prototypes/phase-lock/ (needs Settings → Pages → Source: GitHub Actions).
+# Tests and builds prototypes/phase-lock on PRs and main. The Pages deploy of
+# the lab (https://<owner>.github.io/<repo>/prototypes/phase-lock/) lives in
+# `.github/workflows/pages.yml` so it cannot overwrite the game site.
 
 on:
   pull_request:
@@ -37,40 +38,3 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - name: Stage Pages site
-        if: github.event_name != 'pull_request'
-        run: |
-          mkdir -p ../../_site/prototypes
-          cp -r dist ../../_site/prototypes/phase-lock
-          printf '<!doctype html><meta http-equiv="refresh" content="0; url=prototypes/phase-lock/">\n' > ../../_site/index.html
-      - uses: actions/upload-pages-artifact@v5
-        if: github.event_name != 'pull_request'
-        with:
-          path: _site
-
-  deploy:
-    name: Deploy to GitHub Pages
-    if: github.event_name != 'pull_request'
-    needs: check
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}prototypes/phase-lock/
-    steps:
-      - name: Check that Pages is enabled
-        id: pages
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh api "repos/${{ github.repository }}/pages" --silent 2>/dev/null; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::GitHub Pages is not enabled. Set Settings → Pages → Source to 'GitHub Actions', then re-run this workflow."
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-      - id: deployment
-        if: steps.pages.outputs.enabled == 'true'
-        uses: actions/deploy-pages@v5

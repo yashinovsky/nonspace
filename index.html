@@ -22,11 +22,91 @@
         height: 100%;
         display: block;
       }
+      #unsupported-page {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 2rem;
+        background: #000;
+        color: #a8d8ff;
+        font:
+          16px/1.5 ui-monospace,
+          Menlo,
+          Consolas,
+          monospace;
+        text-align: left;
+        z-index: 3;
+      }
+      #unsupported-page[hidden] {
+        display: none !important;
+      }
+      #unsupported-page a {
+        color: #ffb000;
+      }
+      #version-stamp {
+        position: fixed;
+        right: 8px;
+        bottom: 6px;
+        z-index: 2;
+        margin: 0;
+        pointer-events: none;
+        font:
+          10px/1 ui-monospace,
+          Menlo,
+          Consolas,
+          monospace;
+        letter-spacing: 0.12em;
+        color: #a8d8ff;
+        opacity: 0.35;
+      }
     </style>
   </head>
   <body>
     <div id="app"></div>
+    <main id="unsupported-page" hidden role="alert">
+      <div style="max-width: 36rem">
+        <h1 style="font-size: 1.25rem; letter-spacing: 0.3em; margin: 0 0 1rem">NONSPACE</h1>
+        <p data-unsupported-detail style="margin: 0 0 1rem">
+          The deck can't jack in: this browser didn't give us <strong>WebGL2</strong>, which the
+          game needs to draw the matrix.
+        </p>
+        <p style="margin: 0 0 0.25rem">Missing:</p>
+        <ul id="unsupported-missing" style="margin: 0 0 1rem; padding-left: 1.25rem">
+          <li>WebGL2</li>
+        </ul>
+        <ul style="margin: 0 0 1rem; padding-left: 1.25rem">
+          <li>Use a current Chrome, Edge, Firefox, or Safari 15+.</li>
+          <li>Turn on hardware acceleration in your browser settings.</li>
+          <li>Update your graphics drivers, then reload this page.</li>
+        </ul>
+        <p style="margin: 0">
+          Check your setup at
+          <a href="https://get.webgl.org/webgl2/" rel="noopener">get.webgl.org/webgl2</a>.
+        </p>
+      </div>
+    </main>
+    <p id="version-stamp" data-testid="version-stamp" hidden></p>
     <noscript>NONSPACE needs JavaScript and a WebGL2-capable browser.</noscript>
+    <script nomodule>
+      document.documentElement.dataset.unsupported = 'esmodules';
+      var app = document.getElementById('app');
+      if (app) app.setAttribute('data-status', 'unsupported');
+      var page = document.getElementById('unsupported-page');
+      if (page) {
+        page.removeAttribute('hidden');
+        page.setAttribute('role', 'alert');
+        var detail = page.querySelector('[data-unsupported-detail]');
+        if (detail) {
+          detail.textContent =
+            "The deck can't jack in: this browser is missing JavaScript modules, which the game needs to draw the matrix.";
+        }
+        var list = document.getElementById('unsupported-missing');
+        if (list) list.innerHTML = '<li>JavaScript modules</li>';
+      }
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
