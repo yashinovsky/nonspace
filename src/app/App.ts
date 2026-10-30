@@ -22,7 +22,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -347,6 +347,21 @@ export async function startApp({
       scene: q.get('scene'),
       reduceFlashing: () => settings.value.reduceFlashing,
       reduceMotion: () => settings.value.reduceMotion,
+    });
+  }
+  if (lab === 'deck') {
+    const { installDeckLab } = await import('../debug/DeckLab');
+    const q = new URLSearchParams(window.location.search);
+    labHandle = installDeckLab({
+      renderer,
+      modes,
+      events,
+      settings,
+      save,
+      input,
+      loop,
+      root,
+      scene: q.get('scene'),
     });
   }
 

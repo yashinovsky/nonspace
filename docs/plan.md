@@ -1376,6 +1376,16 @@ Breach controller and consequences. Does not implement M4.4 softs or M4.5 core i
 - **HUD.** Reticle becomes lock-meter ring + ratio arc + phase dial (vector ticks, not a hex grid). VFD shows `MODE GRIP` and a 7-seg countdown while gripped. `hud.update(0)` paints without rAF.
 - **Dev route:** `?lab=breach` (`debug/BreachLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `&scene=white|gray|black|approach|grip|flatline|burned`. `window.__nonspaceBreach`. Screenshot: `docs/screenshots/m4-3-breach.png`. Playwright **freezes `setAnimationLoop` before any canvas snapshot** and paints with `paint()` (`hud.update(0)`) + `endFrame` — live rAF hung SwiftShader teardown on sibling `grid` / `loop` / `points` specs. Dist budget is the default-boot graph (lab chunk excluded).
 
+### 9.40 Contract notes from M3.3 (repo copy only)
+
+Deck panel and DOM menus. Does not rewrite M3.2 `hud/{Hud,Radar,EegTrace,VfdStrip,Bargraph,Terminal,Pip,Reticle}.ts` (including M4.3 breach wiring). Does not edit post passes, `PostChain.ts`, or `targets.ts`. HUD overlay remains M3.2 (§9.37). Sense/Net remains M6.2 (§9.38). Breach remains M4.3 (§9.39). Jack-in remains M2.7 (§9.35). ICE remains M4.2 (§9.36). Coordinate jump runtime remains M2.6.
+
+- **`hud/DeckPanel.ts`**: Ono-Sendai faceplate (CSS vector bezel + P31 CRT window), tabs COORD / SOFTS / LOG / PING / STATUS. `createDeckPanelMode` is the §8.2 overlay (`simulatesWhenCovered: false`); Matrix underneath keeps simulating. Opening does **not** set `loop.paused`. COORD uses `input.beginTextCapture`; Enter runs `parseMatrixCoord` (invalid → `lastError`, `onError`; valid → `onJump`). Address book is a landmark stub (M2.6 owns the live book). SOFTS slotting is locked while `inRun`. LOG doubles as subtitle history. PING is gated on a simstim link. STATUS is flatline hash marks / scars / heat from the campaign save.
+- **`hud/dom/{Settings,Subtitles}.ts`**: DOM overlays styled as the deck CRT (plan §6.4). Settings covers every §8.10 control (reduce flashing / motion, subtitles size+background, Phase Lock assists, hold-to-toggle, colorblind note, remap) plus the rest of `settingsSchema`. `show()` sets `loop.paused`. Subtitles scale via `SUBTITLE_SIZE_PX` (small 14 / medium 20 / large 28) and listen for speech + `[REKEY]` cues.
+- **`app/modes/{Boot,Title}.ts`**: POST memory/ROM checks (`sampleBoot(t)`, 2.15 s) then `PRESS ANY KEY TO JACK IN`. The title key press calls `audio.unlock()`. First-boot flashing prompt if `flashingPromptAnswered` is false. Stroked geometric logotype, 1984 phosphor — not Cyberpunk 2077.
+- **Dev route:** `?lab=deck` (`debug/DeckLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `&scene=deck|title|boot|settings`. `window.__nonspaceDeck`. Screenshot: `docs/screenshots/m3-3-deck.png`. Playwright freezes `setAnimationLoop` before any snapshot; DOM menus paint without rAF; if HUD must refresh, `update(0)` + `endFrame` — no live warmup, no 1080p `quality=high` spin (that starves sibling SwiftShader `loop` / `grid` / `points`). Dist budget is the default-boot graph (lab / menu chunks excluded).
+
+
 ---
 
 ## 10. Milestones and tasks
