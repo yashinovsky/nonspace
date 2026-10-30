@@ -22,7 +22,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -374,6 +374,24 @@ export async function startApp({
       loop,
       root,
       scene: q.get('scene'),
+    });
+  }
+  if (lab === 'core') {
+    const { installCoreLab } = await import('../debug/CoreLab');
+    const q = new URLSearchParams(window.location.search);
+    labHandle = await installCoreLab({
+      renderer,
+      events,
+      save,
+      settings,
+      input,
+      flight,
+      modes,
+      root,
+      scene: q.get('scene'),
+      seed: q.get('seed'),
+      reduceFlashing: () => settings.value.reduceFlashing,
+      reduceMotion: () => settings.value.reduceMotion,
     });
   }
 
