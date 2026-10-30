@@ -1,7 +1,7 @@
 import { type LayerSim, type Telegraph } from '../breach/LayerSim';
 import {
-  LN_R_MAX,
-  LN_R_MIN,
+  LN_RATIO_MAX,
+  LN_RATIO_MIN,
   type Ratio,
   SCOPE_HZ,
   knobToR,
@@ -275,6 +275,6 @@ export class HumanProxy {
   }
 
   private clampU(u: number): number {
-    return u < LN_R_MIN ? LN_R_MIN : u > LN_R_MAX ? LN_R_MAX : u;
+    return u < LN_RATIO_MIN ? LN_RATIO_MIN : u > LN_RATIO_MAX ? LN_RATIO_MAX : u;
   }
 }

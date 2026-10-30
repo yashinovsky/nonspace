@@ -153,20 +153,23 @@ The matrix is a **transparent 3D chessboard**. There is a ground grid plane and 
 **Rules:**
 
 - Each ICE **layer** has a signature: an integer frequency ratio `a:b` from a set such as {1:1, 1:2, 2:3, 3:4, 3:5, 4:5, 5:6}, plus a phase `φ` that drifts over time.
-- The facet of the layer facing the player shows the **target Lissajous** `x = sin(a·ωt + φ)`, `y = sin(b·ωt)`, drawn as beam lines on the facet in the ICE's color.
+- The facet of the layer facing the player shows the **target Lissajous** `x = sin(a·θ + φ/b)`, `y = sin(b·θ)` with `θ = 2π·scopeHz·t` (scopeHz = 1), drawn as beam lines on the facet in the ICE's color. `φ` is a **figure phase**: an integer Lissajous repeats whenever its x phase moves by 2π/b, so dividing by b makes every φ in 0–2π a different picture. With the original `x = sin(a·ωt + φ)`, a 4:5 layer showed five phases that looked like a perfect fusion, and only one of them scored.
 - The player's breaker draws a second Lissajous in **warm white**, overlaid on the target. It's controlled by two knobs:
   - **Ratio knob R**: mouse X or left stick. It's continuous on a log scale from 0.25 to 4.0, with soft detents at simple ratios that the player can feel as a slight stickiness. `Shift` gives fine adjust.
   - **Phase knob Φ**: mouse Y or right stick, wrapping around 0–2π.
 - **Visual feedback is physical.** When R is close to `b/a` but not exact, the player's figure *rolls* at a rate proportional to the frequency difference, exactly like a real scope. When R matches, the figure freezes. When the phase matches too, the two figures fuse into one brighter figure, because additive light doubles.
+- **Breaker figure and observed phase.** The breaker's x oscillator rides the ICE carrier, and R sets the y/x ratio: `x = sin(a·θ + Φobs/b)`, with y running at `R·a` (locally `y = sin(b·θnow + R·a·(θ − θnow))`). The roll is integrated as `roll += −2π·a·(R·a − b)·scopeHz·dt`. The **observed phase** is `Φobs = Φ + roll`. The metric scores `Φobs`, not the knob, so it always scores what the player sees: a near-miss ratio makes the figure creep like drift, and the player has to correct it.
 - **Audio feedback is physical.** The target tones play at `a·f0` (left) and `b·f0` (right), with `f0` between 110 and 220 Hz in the mission key. The breaker's tones play similarly. A mismatch produces audible **beating**, and a match produces consonance: 3:2 is a fifth, 4:3 a fourth. Visual feedback alone MUST be sufficient for deaf and hard-of-hearing players.
 - **Match metric:**
   ```
   ratioErr = |ln(R) - ln(b/a)|
   mR = exp(-(ratioErr / tolRatio)^2)
-  mP = (0.5 + 0.5*cos(Φ - φ))^4
+  φ' = (b - a)·π - φ                // time-reversed twin: the identical picture
+  Δ  = whichever of wrap(Φobs - φ), wrap(Φobs - φ') is smaller in magnitude   // wrap to (-π, π]
+  mP = (0.5 + 0.5*cos(Δ))^4
   m  = mR * mP                      // 0..1
   ```
-  While `m ≥ 0.85` the lock meter fills at `1/lockTime` per second. Below that it drains at half that rate. A full meter cracks the layer.
+  A figure traced backwards (θ → c − θ) draws the same point set at `φ'`: that's `−φ` when a and b are both odd, and `π − φ` otherwise. A static scope picture can't tell the two apart, so both count as a match. As a result, mP bottoms out at 1/16, at 90° from both twins. The match is still well below the 0.3 dissonance threshold whenever the ratio is off. While `m ≥ 0.85` the lock meter fills at `1/lockTime` per second. Below that it drains at half that rate. A full meter cracks the layer. *(Corrected after the M4.1 prototype; reference implementation and tests: `src/breach/PhaseLock.ts`, `tests/unit/phaseLock.test.ts`.)*
 - **Re-key.** At intervals the ICE changes its ratio and/or jumps its phase. It's always **telegraphed** 0.8–1.2 s ahead: the facet flickers at low amplitude, the ICE tone slides, and the HUD shows "REKEY". A re-key resets the lock meter to 50% if you were above 50%; otherwise it resets to 0.
 - **Dissonance damage.** While engaged and `m < 0.3`, neural load rises at `feedbackDps` (white ICE: 0; gray: low; black: high).
 - **Trace.** Engagement adds trace at `traceRate` per second, whatever `m` is. Speed matters.
@@ -1461,6 +1464,20 @@ Typed stubs for 9.1–9.7 are committed at the paths above (under `src/`). Where
 | telegraph | ×1.5 | ×1.0 | ×0.8 |
 | feedbackDps | ×0.4 | ×1.0 | ×1.3 |
 | gate windows | ×1.5 | ×1.0 | ×0.75 |
+
+**Proposed Phase Lock tuning (proposed, pending human playtest)**
+
+This comes from the M4.1 scripted playtest (`prototypes/phase-lock/PLAYTEST.md`). With the tables above, a practiced player cracks gray ICE before its first re-key. Grip also fires on the first failed re-key, which happens in 30% of black tries on Normal and 75% on Hard. And `tolRatio` barely matters, because the ratio detents snap R onto the exact ratio. These changes are only in effect where the lab's `T` toggle selects them. Adopt them only after at least 3 human testers × 10 tries confirm them.
+
+| Change | Plan value | Proposed |
+|---|---|---|
+| gray-2 lockTime / rekeyEvery | 2.5 / 7–10 | 3.5 / 5–7 |
+| gray-3 lockTime / rekeyEvery | 2.5 / 6–8 | 3.5 / 4.5–6.5 |
+| black-1 grip on a failed re-key | any time | only after 7 s engaged (re-keys still stop during grip) |
+| Difficulty: phaseDrift | ×1.0 | Story ×0.7, Normal ×1.0, Hard ×1.2 |
+| Difficulty: lockTime | ×1.0 | Story ×0.85, Normal ×1.0, Hard ×1.0 |
+
+Scripted results with these values (average profile, median time to lock): gray-3 Normal 8.3 s, with 66% of tries seeing a re-key and 100% cracked. black-1 Normal 8.3 s, 100% cracked, gripped in 17.5% of tries. black-1 Hard 11.8 s, 98% cracked, gripped in 64%, which is still too often; grip needs another pass.
 
 **Gate windows (M2 starting values)**: early −20 s, late +15 s; exposure 4%/s while waiting; fail at 100%.
 

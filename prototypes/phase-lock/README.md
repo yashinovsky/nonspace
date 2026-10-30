@@ -43,7 +43,7 @@ URL parameters: `?ice=black-1&diff=hard&tuning=proposed&bot=1&ghost=0&purist=1&c
 
 | Path | What | Destination in the game |
 |---|---|---|
-| `src/breach/PhaseLock.ts` | Pure math: match metric, lock meter, re-key reset, roll, figures, detents | `src/breach/PhaseLock.ts` |
+| `src/breach/PhaseLock.ts` | Re-export of the game's `src/breach/PhaseLock.ts` (pure math; tests in `tests/unit/phaseLock.test.ts`) | already there |
 | `src/breach/LayerSim.ts` | Seeded layer engagement: drift, telegraphed re-keys, trace, neural, grip | splits into `breach/IceModel.ts` + `BreachController`/`Grip` |
 | `src/breach/presets.ts` | Plan §12.3 ICE presets and difficulty multipliers, plus the proposed tuning | `content/ice/*.ts` |
 | `src/bot/` | Scripted human-proxy player for self-tests and auto-play | `src/testing/` |

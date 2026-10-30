@@ -5,10 +5,12 @@ name: Phase Lock prototype
 
 on:
   pull_request:
-    paths: ['prototypes/phase-lock/**', '.github/workflows/phase-lock.yml']
+    paths:
+      ['prototypes/phase-lock/**', 'src/breach/PhaseLock.ts', '.github/workflows/phase-lock.yml']
   push:
     branches: [main]
-    paths: ['prototypes/phase-lock/**', '.github/workflows/phase-lock.yml']
+    paths:
+      ['prototypes/phase-lock/**', 'src/breach/PhaseLock.ts', '.github/workflows/phase-lock.yml']
   workflow_dispatch:
 
 permissions:
