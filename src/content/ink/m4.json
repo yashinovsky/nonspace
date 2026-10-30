@@ -1,0 +1,95 @@
+{
+  "title": "m4",
+  "initial": "brief",
+  "variables": {},
+  "knots": {
+    "brief": {
+      "name": "brief",
+      "lines": [
+        "Istanbul first. Then Freeside. Turing has a warrant."
+      ],
+      "tags": [
+        "page:text",
+        "title:ACT III"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "ISTANBUL",
+          "divert": "istanbul"
+        },
+        {
+          "index": 2,
+          "text": "FREESIDE",
+          "divert": "freeside"
+        },
+        {
+          "index": 3,
+          "text": "JACK IN",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "istanbul": {
+      "name": "istanbul",
+      "lines": [
+        "The lobby phones. Each one rings once as you pass. Wintermute."
+      ],
+      "tags": [
+        "page:phone",
+        "ring",
+        "title:ISTANBUL HILTON"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "FREESIDE",
+          "divert": "freeside"
+        },
+        {
+          "index": 2,
+          "text": "JACK IN",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "freeside": {
+      "name": "freeside",
+      "lines": [
+        "Two French teenagers in the corridor. Turing Registry. They smile too long."
+      ],
+      "tags": [
+        "page:text",
+        "title:FREESIDE"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "JACK IN",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "debrief": {
+      "name": "debrief",
+      "lines": [
+        "A microlight drops out of the dark. A gardening robot takes the agents apart. The record is gone."
+      ],
+      "tags": [
+        "page:text",
+        "title:WINTERMUTE"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "DONE",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    }
+  }
+}
