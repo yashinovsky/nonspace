@@ -54,6 +54,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=heraldry` is the M2.2 corp heraldry set (nine authored landmarks, mock tempo clock, grayscale toggle). `?id=esfa` (or any landmark id) selects the construct; `?gray=1` forces grayscale. Screenshot: `docs/screenshots/m2-2-heraldry.png`. Contract notes in plan §9.25.
 - `?lab=sector` is the M2.3 sector streamer (5×5 window, worker gen, budgeted upload, far-LOD landmarks always on). `?seed=` and `?autofly=1` (boost along +X) are optional. Screenshot: `docs/screenshots/m2-3-sector-stream.png`. Contract notes in plan §9.26.
 - `?lab=simstim` is the M6.1 simstim feed (flat-dither lobby at 320×240 through the raster CRT, chip clock, PIP, flip/peek/lag, gates, pain echo). Screenshot: `docs/screenshots/m6-1-simstim-crt.png`. Contract notes in plan §9.27.
+- `?lab=teletext` is the M6.4 teletext test card (40×24, 8 colours, mosaics, double height) through the same raster CRT. Keys 1–4 are Ink choices; click to unlock the payphone ring. Screenshot: `docs/screenshots/m6-4-teletext-test.png`. Contract notes in plan §9.28.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -82,6 +83,7 @@ Shared contracts from plan §9 are typed stubs other tasks build against:
 | Sky (spiral arms + constellations) | `src/world/sky/{SpiralArms,FarConstellations,Sky}.ts`                                                 |
 | Corp heraldry + landmarks (M2.2)   | `src/content/{corps,landmarks}.ts`                                                                    |
 | Sector streaming (M2.3)            | `src/world/{coords,Sector,SectorStreamer,sectorWorker,densityMap,landmarks}.ts`, `traffic/routing.ts` |
+| Teletext + Ink interludes (M6.4)   | `src/meat/{Teletext,TeletextPage,Interlude}.ts`, `src/narrative/InkRuntime.ts`                        |
 
 Test doubles (recording beam/point batches, event recorder, recording audio engine) and valid sample data are in `src/testing/`. Notes on how the stubs differ from the plan's literal TypeScript are in plan §9.8.
 
@@ -101,7 +103,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
 | Simstim feed, flip, gates, pain (M6.1)                                   | `src/simstim/*`, `src/app/modes/Simstim.ts`            |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky, beach, grid, heraldry, sector, simstim), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.27. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.28. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
@@ -131,5 +133,6 @@ M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain.
 - M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17. Points notes are plan §9.18. Raster CRT notes are plan §9.19. Beam notes are plan §9.20. Grammar notes are plan §9.21. Sky notes are plan §9.22. Beach notes are plan §9.23. Grid notes are plan §9.24. Heraldry notes are plan §9.25. Sector notes are plan §9.26. Simstim notes are plan §9.27. M1.2 must not edit `render/lines/*`.
 - M1.7 `RasterCrtPass` (`?lab=raster`) is the simstim/interlude CRT: NTSC YIQ chroma bleed, 240 scanlines, aperture grille, H-hold / static / tracking transition. Contract notes are in plan §9.19.
 - M6.1 simstim feed (`?lab=simstim`) renders a flat-dithered 320×240 lobby into `targets.simstim`, then through that raster CRT. Flip/peek/lag, gate windows, wait exposure and pain→neural echo live in `src/simstim/`. Contract notes are in plan §9.27.
+- M6.4 hangs a 320×240 teletext `CanvasTexture` on `RasterCrtPass.source` with `postMode = 'interlude'`. Contract notes are in plan §9.28. `npm run build:ink` compiles `ink/*.ink` → `src/content/ink/*.json`.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.
