@@ -1394,6 +1394,16 @@ Straylight simstim content. Does not rewrite the M6.1 feed or `SimstimRenderer` 
 - **M7 timeline** (`straylightM7Timeline()`): head-room hold on the cameo. Gates `head-seal` / `word-window`. 3Jane speaks `STRAYLIGHT_WORD` (`to whom`, three-note stub) then "Take your word, thief." Chip clock `04:41:08`. Campaign typing of the word remains M7.7.
 - **Dev routes:** `?lab=simstim&scene=straylight` (M5) and `&scene=straylight-m7` (M7). `?mission=m5` / `?mission=m7` are structural stubs (`mockM5Mission` / `mockM7Mission`) allowed in the production preview; campaign missions remain M7.8 / M7.9. Default `?lab=simstim` is still Sense/Net. Screenshot: `docs/screenshots/m6-3-straylight-crt.png`. Dist budget is the default-boot graph (lab / straylight chunks excluded).
 
+### 9.42 Contract notes from M4.6 (repo copy only)
+
+Watchers and sweeps. Does not rewrite `BreachController` (M4.3, §9.39). Does not implement M4.4 softs runtime (`deck/softs/{registry,effects}.ts`); DECOY is a lure interface plus a lab stub. Deck panel / DOM menus remain M3.3 (§9.40). HUD widgets remain M3.2 (§9.37) with `Hud.setBlips` for live PPI. Sector streaming remains M2.3 (§9.26). Straylight interiors remain M6.3 (§9.41).
+
+- **`world/watchers/Watcher.ts`**: Turing (MIL, 0.25 Hz, 14° half-cone, 160 u) and sysop (AMBER, 0.14 Hz, 22° half-cone, 110 u) sweep beams as BeamBatch vector fans (rays + far arcs, octahedron body). Detection is a yaw wedge + range + vertical slab. Exposure raises deck trace at **6%/s** (plan §12.3) while any cone contains the player. `scanPulse` on the rising edge.
+- **DECOY lure.** `dropLure(pos, seconds = 8, traceMul = 0.5)` is the M4.4 hook: watchers slew toward the lure for its duration; trace gain ×0.5 while any lure is live. Lab stubs the drop if softs are not on main.
+- **Radar.** `watcherBlip` / `WatcherSim.blips` feed HUD PPI (`kind: 'watcher'`, angle 0 = +X).
+- **Placement.** `generateSector` plants watchers near high-value constructs (EURO/ORBT → Turing-heavy). Placement stays in `Sector.ts` so the sector worker never imports this module (Three / BeamBatch).
+- **Dev route:** `?lab=watchers` (`debug/WatcherLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `window.__nonspaceWatchers`. Screenshot: `docs/screenshots/m4-6-watchers.png`. Playwright **freezes `setAnimationLoop` before any canvas snapshot** and paints with `paint()` (`hud.update(0)`) + `endFrame` — live rAF starves sibling SwiftShader `grid` / `sector` specs. Dist budget is the default-boot graph (lab chunk excluded).
+
 ---
 
 ## 10. Milestones and tasks
