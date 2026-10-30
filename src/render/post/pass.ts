@@ -75,6 +75,11 @@ export interface PostContext {
   encoded: ColorEncoding;
   /** Wintermute exposure hook (plan §8.5). 1 = nominal. */
   exposure: number;
+  /**
+   * Dual-filter upsample scale. Unset = the BloomPass `radius` (1 = nominal).
+   * Wintermute overexpose uses 2 (`bloomRadiusForWintermute`).
+   */
+  bloomRadius?: number;
   /** Vector-load metric for CRT flicker (M1.6). */
   vectorLoad: number;
 }

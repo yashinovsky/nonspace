@@ -1278,6 +1278,15 @@ Teletext / videotex interludes. Pages are Canvas2D 40×24 at NTSC 320×240, then
 - **Phone hook** (`meat/phoneRing.ts`): UK cadence 0.4 / 0.2 / 0.4 / 2.0 s, dual-tone 400+450 Hz after `unlock(AudioContext)`. Visual flash follows `phoneSounding(t)` (2 bursts / 3 s ≈ 0.67 Hz). No new `SfxId` — later SFX can replace the oscillators.
 - **Dev route:** `?lab=teletext` (lazy `?lab=` chunk; default boot does not fetch Teletext / Ink). Screenshot: `docs/screenshots/m6-4-teletext-test.png`.
 
+### 9.29 Contract notes from M1.5 (repo copy only)
+
+Bloom, halation and the Vector CRT tonemap stub. Does not edit sibling passes, `PostChain.ts`, or `targets.ts`. Persistence remains M1.4 (§9.17). Raster CRT remains M1.7 (§9.19). Beams remain M1.1 (§9.20). Construct grammar remains M2.1 (§9.21). Sky remains M2.4 (§9.22). Beach remains M7.10 (§9.23). Ground grid remains M1.3 (§9.24). Heraldry remains M2.2 (§9.25). Sector streaming remains M2.3 (§9.26). Simstim remains M6.1 (§9.27). Teletext remains M6.4 (§9.28).
+
+- **`BloomPass`** (`render/post/BloomPass.ts`): dual-filter 13-tap downsample / 9-tap tent upsample (Jimenez / CoD). Mip count is `ctx.quality.bloomMips` (Low 4, Medium 5, High 6). Always allocates 6 downsample + 5 upsample + 1 extra-wide **halation** mip + 1 full-res bloom output via `createColorTarget`, then `setSize` on resize and `initRenderTarget` so `renderer.info().textures` stays stable. Writes the bloom-only texture to **`ctx.bloom`** and **returns `combined` unchanged** so M1.8 can add it after the black-ICE mask. No brightness threshold — everything emits; Karis weighting on the first downsample only. **Low is identity** (no blits; same as persistence-off). **Software GL (SwiftShader) is also identity** so the 60 Hz loop and sibling e2e screenshots stay interactive; Medium/High run the dual-filter on real GPUs. Shaders: `post/shaders/bloomDown.frag`, `bloomUp.frag`.
+- **Radius / Wintermute ×2.** `BloomPass.radius` (default 1) is the tent `uSampleScale`. Optional `PostContext.bloomRadius` overrides it when set. `bloomRadiusForWintermute(amount)` maps overexpose 0..1 → radius 1..2. M7.3 should set one of those from `{ kind: 'overexpose'; amount }`. Halation uses `2 × radius` and a warm tint `(1.06, 0.92, 0.72)`.
+- **`VectorCrtPass` stub** (`render/post/VectorCrtPass.ts`): tonemap only (barrel/jitter/flicker/vignette/glass/grain remain M1.6). Shader `post/shaders/tonemap.frag` — Reinhard on luminance + desaturate-to-white above 1.0, matching FinalComposite. Sets **`ctx.encoded = 'ldr'`** and writes through `ctx.targets.post` ping-pong. CPU reference: `render/post/tonemap.ts` (`tonemapReinhardWhite`). Beach still skips CRT so FinalComposite tonemaps there. Raster CRT (M1.7) already tonemaps for simstim/interlude; this stub does not touch it.
+- **Dev route:** `?lab=render` (same HDR cubes). Hot cube (intensity 4) should read whiter than the nominal amber cube, with a controllable glow. Screenshot: `docs/screenshots/m1-5-bloom.png`. Dist budget follows the default-boot graph (lazy `?lab=` chunks excluded), same as sector streaming.
+
 ---
 
 ## 10. Milestones and tasks
