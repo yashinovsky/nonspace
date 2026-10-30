@@ -1182,6 +1182,16 @@ Raster CRT / NTSC pass. Sibling look-lane tasks keep their own files; this one r
 - **Identity stub compatibility.** If `targets.post.write` has no `.texture` (unit-test doubles), the pass still sets `encoded = 'ldr'` and returns `input`.
 - **Dev route:** `?lab=raster` (`debug/RasterCrtLab.ts`) draws a 320×240 SMPTE 75% card + `NONSPACE` / `NTSC 320x240` text through the pass with `postMode = 'simstim'`. Screenshot: `docs/screenshots/m1-7-smpte-raster-crt.png`.
 
+### 9.20 Contract notes from M1.1 (repo copy only)
+
+Beam line renderer. Parallel look-lane tasks (M1.2 points, M1.4 persistence, M1.5 bloom, M1.7 raster CRT) must not edit `render/lines/*` or `render/palette.ts`.
+
+- **`createBeamBatch(palette, opts?)`** (`render/lines/BeamBatch.ts`) is the GPU implementation of §9.2. `capacity` is the dynamic `push` cap (overflow is dropped, no alloc). `setStatic` may be larger and reallocates. Static and dynamic are two instanced meshes under one `Group` (`batch.object` — add this to a scene). `transform` is that group's matrix (`matrixAutoUpdate = false`). `style` is live uniforms: `sigma`, `dwell`, `dwellSigma`, `fogStart`, `fogDensity`.
+- **Shaders** `beamLine.vert/.frag`: instanced segment quads. Near-plane clip in view space uses positive depth `d = -z` then `t = (near - da)/(db - da)` (plan §8.5). Screen-space ribbon of width `w + 3σ`. Fragment: distance to the ribbon, `I = intensity * exp(-d²/(2σ²))`, plus `dwell * exp(-dEnd²/(2σd²))` when `BeamFlag.DWELL`. Width conservation: `w < 1` clamps to 1 px and scales intensity by `w`. Fog: `exp(-density * max(dist - start, 0))` unless `NO_FOG`. Additive (`One, One`), depth test on, depth write off. Log-depth written to match the M0.4 renderer.
+- **`palette.ts`**: `uniform.value` is a `Float32Array` of length 24 (8× rgb, 0..1 from §5.3 hex, linear-ish HDR emissive). Bound as `uniform vec3 uPalette[8]`. `set` / `lerpAllTo` / `addWarmth` rewrite it in place so every beam material recolors live. Kuang (`BeamFlag.KUANG`) still uses the palette; `kuang.frag` is M4.3.
+- **CPU helpers** (unit-tested, same math as the VS): `clipSegmentNear`, `conserveWidth`, `fogFactor`.
+- **Dev route**: `?lab=beam` (optional `&scene=palette|near|thin|dwell|fog|stress|dynamic`, `&quality=`, `&debug`). Dispatched from `main.ts` so it does not touch `App.ts`. `window.__nonspaceBeam` and `window.__nonspace.{renderer,beamLab}`. Stress scene is 150k segments.
+
 ---
 
 ## 10. Milestones and tasks

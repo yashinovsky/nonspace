@@ -29,7 +29,10 @@ export function hexToRgb(hex: number): Rgb {
 /**
  * Global beam palette shared by every beam/point material through one uniform
  * (`uniform vec3 uPalette[BEAM_COUNT]`), so AI effects recolor everything at
- * once. Values are the §5.3 hex codes as 0..1; color-space handling is M1.1's.
+ * once. Values are the §5.3 hex codes as 0..1, used as linear-ish HDR emissive
+ * (plan: "Linear-ish sRGB at nominal intensity"). `uniform.value` is a
+ * Float32Array of length 24 that beamLine binds directly; `set` / `lerpAllTo`
+ * / `addWarmth` rewrite it in place so every material recolors live.
  */
 export interface Palette {
   readonly uniform: { value: Float32Array };
