@@ -1,5 +1,6 @@
 import type { Action } from '../../narrative/schema';
 import type { GateDef } from '../../simstim/Gates';
+import { GATE_WINDOWS } from '../tuning';
 import type { SimstimTimeline } from './types';
 
 /** Compressed stub clock (`?lab=simstim`). Campaign M2 retimes panic to 4:00. */
@@ -10,10 +11,10 @@ export const SENSE_NET_TIMELINE_ID = 'sense-net';
 /** Book meat: midnight start, Moderns' panic at 12:04, 90 s cover. */
 export const SENSE_NET_CAMPAIGN_PANIC_AT = 240;
 export const SENSE_NET_PANIC_S = 90;
-/** Plan §12.3 M2 starting windows. */
-export const SENSE_NET_GATE_EARLY = 20;
-export const SENSE_NET_GATE_LATE = 15;
-export const SENSE_NET_EXPOSURE_PER_SEC = 0.04;
+/** Plan §12.3 M2 starting windows (table in `content/tuning.ts`). */
+export const SENSE_NET_GATE_EARLY = GATE_WINDOWS.early;
+export const SENSE_NET_GATE_LATE = GATE_WINDOWS.late;
+export const SENSE_NET_EXPOSURE_PER_SEC = GATE_WINDOWS.exposurePerSec;
 
 export const SENSE_NET_GATE_IDS = ['lobby-door', 'corridor-lock', 'vault-seal'] as const;
 export const SENSE_NET_ICE_NODES = [

@@ -76,7 +76,7 @@ export const ICE_LAYER_PRESETS = {
 
 export type IceLayerPresetId = keyof typeof ICE_LAYER_PRESETS;
 
-/** Difficulty multipliers (plan §12.3). */
+/** Difficulty multipliers (plan §12.3). Story is Easy. */
 export const DIFFICULTY = {
   story: { tolRatio: 1.6, rekeyInterval: 1.5, telegraph: 1.5, feedbackDps: 0.4, gateWindows: 1.5 },
   normal: { tolRatio: 1, rekeyInterval: 1, telegraph: 1, feedbackDps: 1, gateWindows: 1 },

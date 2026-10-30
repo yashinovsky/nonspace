@@ -3,6 +3,7 @@ import { Beam } from '../../render/lines/BeamBatch';
 import type { MissionDef } from '../../narrative/schema';
 import { TA_ICE } from '../ice/ta';
 import { STRAYLIGHT_M7_GATES, STRAYLIGHT_M7_ID, STRAYLIGHT_WORD } from '../simstim/straylight';
+import { tuneIce, type TuneOpts } from '../tuning';
 
 /** Same orbital pad as M5 — back in at the T-A core (plan §4.4 / M7.11). */
 export const M7_START = { region: 'ORBT', x: 318.4, z: 38.15, y: 2400 } as const;
@@ -18,12 +19,15 @@ export const M7_WORD_SPOKEN_AT = 8.05;
 export const M7_HEAD_AT = 4.2;
 
 /** Tessier-Ashpool slab still up when you jack back in. */
-export function trueNameIce(): IceDef {
-  return {
-    ...TA_ICE,
-    id: M7_ICE_ID,
-    hue: Beam.TA,
-  };
+export function trueNameIce(opts: TuneOpts = {}): IceDef {
+  return tuneIce(
+    {
+      ...TA_ICE,
+      id: M7_ICE_ID,
+      hue: Beam.TA,
+    },
+    opts,
+  );
 }
 
 export function normalizeWord(raw: string): string {

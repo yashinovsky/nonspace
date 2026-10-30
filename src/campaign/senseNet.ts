@@ -23,6 +23,7 @@ import {
 } from '../content/missions/m2';
 import { getLandmark, landmarkWorldPos } from '../content/landmarks';
 import { SENSE_NET_CAMPAIGN_GATES, senseNetCampaignTimeline } from '../content/simstim/senseNet';
+import { campaignTuneOpts, tuneGates } from '../content/tuning';
 import type { EventBus } from '../core/events';
 import type { SaveStore } from '../core/save';
 import type { SettingsStore } from '../core/settings';
@@ -180,7 +181,8 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
   const icePos = senseNetWorld();
   flight.collision.add(sphereHull('m2-ice', 'ice', icePos.x, icePos.y, icePos.z, 16));
 
-  const iceDef = senseNetIce();
+  const tune = campaignTuneOpts(settings.value, save);
+  const iceDef = senseNetIce(tune);
   const iceAnchor = (): IceAnchor => ({
     def: iceDef,
     x: icePos.x,
@@ -206,7 +208,7 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
 
   const view = createSimstimRenderer(renderer);
   const timeline = senseNetCampaignTimeline();
-  simstim.load(timeline, SENSE_NET_CAMPAIGN_GATES);
+  simstim.load(timeline, tuneGates(SENSE_NET_CAMPAIGN_GATES, tune.difficulty));
   view.load(timeline);
   const simstimMode = createSimstimMode(simstim, view);
 
@@ -255,7 +257,7 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
     const panic = mission.flag('panic');
     if (panic === panicApplied) return;
     panicApplied = panic;
-    applySenseNetRekey(liveIce(), panic);
+    applySenseNetRekey(liveIce(), panic, tune);
   };
 
   const paintHud = (): void => {
@@ -442,10 +444,10 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
   };
 
   const rebuildIce = (panic: boolean): void => {
-    const fresh = senseNetIce();
+    const fresh = senseNetIce(tune);
     iceDef.layers.splice(0, iceDef.layers.length, ...fresh.layers);
     displayIce = createIceModel(iceDef, { seed: 4 });
-    applySenseNetRekey(displayIce, panic);
+    applySenseNetRekey(displayIce, panic, tune);
     visuals?.dispose();
     visuals = createIceVisuals({
       renderer,
@@ -475,7 +477,7 @@ export async function startSenseNetMission(opts: SenseNetMissionOptions): Promis
     panicApplied = mission.flag('panic');
     rebuildIce(panicApplied);
     simstim.reset();
-    simstim.load(senseNetCampaignTimeline(), SENSE_NET_CAMPAIGN_GATES);
+    simstim.load(senseNetCampaignTimeline(), tuneGates(SENSE_NET_CAMPAIGN_GATES, tune.difficulty));
     view.load(simstim.timeline.def ?? timeline);
     simstim.attachMission(mission);
     precrackForCheckpoint(cp);
