@@ -1,3 +1,4 @@
+import type { AudioEngine } from '../audio/AudioEngine';
 import type { EventBus } from '../core/events';
 import type { SaveStore } from '../core/save';
 import type { SettingsStore } from '../core/settings';
@@ -44,6 +45,8 @@ export interface ModeContext {
   readonly flight?: FlightController;
   /** M0.4. Optional so unit tests stay light; the App always provides it. */
   readonly renderer?: Renderer;
+  /** M7.10. Optional; Beach synthesizes its own spatial bass if missing. */
+  readonly audio?: AudioEngine;
 }
 
 /** Plan §8.2. Implement as a class or plain object; one instance may be on the stack at a time. */

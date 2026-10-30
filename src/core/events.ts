@@ -30,7 +30,8 @@ export type GameEvent =
   | { type: 'dixieSay'; lineId: string }
   | { type: 'wintermute'; action: WintermuteAction }
   | { type: 'neuromancer'; action: NeuromancerAction }
-  | { type: 'objective'; id: string; state: 'active' | 'done' | 'failed' };
+  | { type: 'objective'; id: string; state: 'active' | 'done' | 'failed' }
+  | { type: 'beachChoice'; choice: 'stay' | 'leave' };
 
 export type GameEventType = GameEvent['type'];
 export type EventOf<T extends GameEventType> = Extract<GameEvent, { type: T }>;
@@ -62,6 +63,7 @@ const EVENT_TYPE_TABLE: Record<GameEventType, true> = {
   wintermute: true,
   neuromancer: true,
   objective: true,
+  beachChoice: true,
 };
 
 export const GAME_EVENT_TYPES = Object.freeze(Object.keys(EVENT_TYPE_TABLE)) as readonly [
