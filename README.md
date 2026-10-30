@@ -36,7 +36,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 
 ### Release (GitHub Pages)
 
-`.github/workflows/pages.yml` deploys `dist/` to GitHub Pages on every push to `main` (needs Settings → Pages → Source: GitHub Actions). The game is the site root; the Phase Lock prototype stays at `/prototypes/phase-lock/`. Vite uses a relative `base` and content-hashed `/assets/*` filenames so HTML can be `no-cache` while hashed assets are immutable (`dist/_headers`, honored by Netlify/Cloudflare; GitHub Pages caches ~10 minutes). A discreet version stamp (`package.json` version · git SHA) sits in the bottom-right corner. Crash reports are **off by default**; pass `?report=https://…` (or build with `VITE_REPORT_ENDPOINT`) to POST console errors to an endpoint. Contract notes in plan §9.60.
+`.github/workflows/pages.yml` deploys `dist/` to GitHub Pages on every push to `main` (needs Settings → Pages → Source: GitHub Actions). The game is the site root; the Phase Lock prototype stays at `/prototypes/phase-lock/`. Vite uses a relative `base` and content-hashed `/assets/*` filenames so HTML can be `no-cache` while hashed assets are immutable (`dist/_headers`, honored by Netlify/Cloudflare; GitHub Pages caches ~10 minutes). A discreet version stamp (`package.json` version · git SHA) sits in the bottom-right corner. Crash reports are **off by default**; pass `?report=https://…` (or build with `VITE_REPORT_ENDPOINT`) to POST console errors to an endpoint. Contract notes in plan §9.61.
 
 ## Debug
 
@@ -128,7 +128,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
 | Simstim feed, flip, gates, pain (M6.1)                                   | `src/simstim/*`, `src/app/modes/Simstim.ts`            |
 
-The App flushes posted events after every sim step. The running app is exposed as `window.__nonspace` (e2e freeze / dropPage, including default boot). Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look, jack, ice, hud, breach, deck, watchers, core, phaselock3d / softs, ai, jump, dixie), the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.60. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. The running app is exposed as `window.__nonspace` (e2e freeze / dropPage, including default boot). Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look, jack, ice, hud, breach, deck, watchers, core, phaselock3d / softs, ai, jump, dixie), the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.61. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
