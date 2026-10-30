@@ -73,17 +73,20 @@ async function paint(page: Page): Promise<void> {
 }
 
 test.describe('M4.4 softs', () => {
+  // One ICE+HUD WebGL context at a time. Live rAF through a canvas screenshot
+  // billed sibling SwiftShader `loop.spec` / `sector.spec` hitchesOver4ms.
+  test.describe.configure({ mode: 'serial' });
+
   test('each effect is verifiable; freeze before snapshot', async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(60_000);
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('/?lab=phaselock3d&scene=probe&quality=medium');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
+    await freezeLoop(page);
     await expect(page.locator('#app')).toHaveAttribute('data-lab', 'phaselock3d');
     await expect(page.getByTestId('softs-lab')).toBeVisible();
     await page.waitForFunction(softs);
-
-    await freezeLoop(page);
     await paint(page);
 
     const probe = await page.evaluate(() => {
@@ -104,9 +107,10 @@ test.describe('M4.4 softs', () => {
     await page.locator('[data-testid="softs-lab"]').evaluate((el) => {
       (el as HTMLElement).style.visibility = 'hidden';
     });
+    await freezeLoop(page);
     await paint(page);
     const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
+    const png = PNG.sync.read(await canvas.screenshot({ animations: 'disabled' }));
     expect(png.width).toBeGreaterThan(600);
     let lit = 0;
     let maxC = 0;
@@ -196,5 +200,6 @@ test.describe('M4.4 softs', () => {
     expect(rest.lastFail).toBe('no-companion');
 
     expect(errors).toEqual([]);
+    await page.goto('about:blank');
   });
 });
