@@ -1358,7 +1358,7 @@ HUD overlay. Edits `FinalComposite.ts` to sample `targets.hud` after the CRT pas
 
 ### 9.38 Contract notes from M6.2 (repo copy only)
 
-Sense/Net simstim content. Does not rewrite the M6.1 feed or `SimstimRenderer` shaders (`flatDither.frag`, chip clock, vignette, hands). Raster CRT remains M1.7 (§9.19). Feed / gates / flip remain M6.1 (§9.27). Jack-in remains M2.7 (§9.35). ICE remains M4.2 (§9.36). HUD remains M3.2 (§9.37). Straylight interiors remain M6.3.
+Sense/Net simstim content. Does not rewrite the M6.1 feed or `SimstimRenderer` shaders (`flatDither.frag`, chip clock, vignette, hands). Raster CRT remains M1.7 (§9.19). Feed / gates / flip remain M6.1 (§9.27). Jack-in remains M2.7 (§9.35). ICE remains M4.2 (§9.36). HUD remains M3.2 (§9.37). Straylight interiors remain M6.3 (§9.41).
 
 - **No glTF.** Blender is not in the environment; scenes are procedural boxes and arches (`render/simstim/kit.ts`, `content/simstim/senseNetScene.ts`), flat-shaded through the existing dither material. Each zone (lobby / corridor / vault) is ≤ 3k tris (`SCENE_TRI_CAP`). `SimstimTimeline.scene` is an id (`sensenet` / `lab:lobby`), not a `.glb` path.
 - **Timeline** (`content/simstim/senseNet.ts`): `senseNetTimeline()` walks lobby → corridor → vault in ~16 s (stub; M7.5 retimes the Moderns' panic to book-meat 4:00). Three gates (`lobby-door`, `corridor-lock`, `vault-seal`) with `holdUntilOpen`. Guard mannequins; eight crowd blobs unhide at `SENSE_NET_PANIC_AT` (9 s) and scatter (`pose: 'run'`). Alarm boxes blink at 1.5 Hz only while a crowd figure is running (under the §5.9 3 Hz cap). Molly lines are invented three-word stubs.
@@ -1367,7 +1367,7 @@ Sense/Net simstim content. Does not rewrite the M6.1 feed or `SimstimRenderer` s
 
 ### 9.39 Contract notes from M4.3 (repo copy only)
 
-Breach controller and consequences. Does not implement M4.4 softs or M4.5 core interior. Does not own `hud/DeckPanel.ts` or DOM menus (M3.3). Phase Lock math remains M4.1 / #5 (`breach/PhaseLock.ts`). ICE model/visuals remain M4.2 (§9.36). HUD widgets remain M3.2 (§9.37) with breach-only wiring (lock reticle, grip countdown). Jack-in/out remain M2.7 (§9.35). Sense/Net remains M6.2 (§9.38).
+Breach controller and consequences. Does not implement M4.4 softs or M4.5 core interior. Does not own `hud/DeckPanel.ts` or DOM menus (M3.3). Phase Lock math remains M4.1 / #5 (`breach/PhaseLock.ts`). ICE model/visuals remain M4.2 (§9.36). HUD widgets remain M3.2 (§9.37) with breach-only wiring (lock reticle, grip countdown). Jack-in/out remain M2.7 (§9.35). Sense/Net remains M6.2 (§9.38). Straylight interiors remain M6.3 (§9.41).
 
 - **`deck/{NeuralLoad,Trace,Heat}.ts`**: §3.6 meters. Neural regenerates **4/s after a 3 s delay** when not engaged; each scar reduces max by 5 (floor 5). Trace is %; **100 = burned**. Heat 0–3 ticks when a run ends with trace > 50% or burned. Unit tests feed a simulated `dt` (no wall clock). Integer `neuralChanged` / `traceChanged` posts so the HUD SFX binder does not tick every step.
 - **`breach/Grip.ts`**: 8 s countdown, `jackOutBlocked`. IceModel still decides *when* grip starts (neural > 60 or failed re-key below 30% lock). Burned still forces jack-out through the grip.
@@ -1378,13 +1378,21 @@ Breach controller and consequences. Does not implement M4.4 softs or M4.5 core i
 
 ### 9.40 Contract notes from M3.3 (repo copy only)
 
-Deck panel and DOM menus. Does not rewrite M3.2 `hud/{Hud,Radar,EegTrace,VfdStrip,Bargraph,Terminal,Pip,Reticle}.ts` (including M4.3 breach wiring). Does not edit post passes, `PostChain.ts`, or `targets.ts`. HUD overlay remains M3.2 (§9.37). Sense/Net remains M6.2 (§9.38). Breach remains M4.3 (§9.39). Jack-in remains M2.7 (§9.35). ICE remains M4.2 (§9.36). Coordinate jump runtime remains M2.6.
+Deck panel and DOM menus. Does not rewrite M3.2 `hud/{Hud,Radar,EegTrace,VfdStrip,Bargraph,Terminal,Pip,Reticle}.ts` (including M4.3 breach wiring). Does not edit post passes, `PostChain.ts`, or `targets.ts`. HUD overlay remains M3.2 (§9.37). Sense/Net remains M6.2 (§9.38). Breach remains M4.3 (§9.39). Jack-in remains M2.7 (§9.35). ICE remains M4.2 (§9.36). Coordinate jump runtime remains M2.6. Straylight interiors remain M6.3 (§9.41).
 
 - **`hud/DeckPanel.ts`**: Ono-Sendai faceplate (CSS vector bezel + P31 CRT window), tabs COORD / SOFTS / LOG / PING / STATUS. `createDeckPanelMode` is the §8.2 overlay (`simulatesWhenCovered: false`); Matrix underneath keeps simulating. Opening does **not** set `loop.paused`. COORD uses `input.beginTextCapture`; Enter runs `parseMatrixCoord` (invalid → `lastError`, `onError`; valid → `onJump`). Address book is a landmark stub (M2.6 owns the live book). SOFTS slotting is locked while `inRun`. LOG doubles as subtitle history. PING is gated on a simstim link. STATUS is flatline hash marks / scars / heat from the campaign save.
 - **`hud/dom/{Settings,Subtitles}.ts`**: DOM overlays styled as the deck CRT (plan §6.4). Settings covers every §8.10 control (reduce flashing / motion, subtitles size+background, Phase Lock assists, hold-to-toggle, colorblind note, remap) plus the rest of `settingsSchema`. `show()` sets `loop.paused`. Subtitles scale via `SUBTITLE_SIZE_PX` (small 14 / medium 20 / large 28) and listen for speech + `[REKEY]` cues.
 - **`app/modes/{Boot,Title}.ts`**: POST memory/ROM checks (`sampleBoot(t)`, 2.15 s) then `PRESS ANY KEY TO JACK IN`. The title key press calls `audio.unlock()`. First-boot flashing prompt if `flashingPromptAnswered` is false. Stroked geometric logotype, 1984 phosphor — not Cyberpunk 2077.
 - **Dev route:** `?lab=deck` (`debug/DeckLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `&scene=deck|title|boot|settings`. `window.__nonspaceDeck`. Screenshot: `docs/screenshots/m3-3-deck.png`. Playwright freezes `setAnimationLoop` before any snapshot; DOM menus paint without rAF; if HUD must refresh, `update(0)` + `endFrame` — no live warmup, no 1080p `quality=high` spin (that starves sibling SwiftShader `loop` / `grid` / `points`). Dist budget is the default-boot graph (lab / menu chunks excluded).
 
+### 9.41 Contract notes from M6.3 (repo copy only)
+
+Straylight simstim content. Does not rewrite the M6.1 feed or `SimstimRenderer` shaders (`flatDither.frag`, chip clock, vignette, hands). Does not redo Sense/Net (M6.2, §9.38). Raster CRT remains M1.7 (§9.19). Feed / gates / flip remain M6.1 (§9.27). HUD remains M3.2 (§9.37). Breach remains M4.3 (§9.39). Deck panel remains M3.3 (§9.40). Campaign M5 / M7 remain M7.8 / M7.9.
+
+- **No glTF.** Villa interiors are procedural boxes, arches and stairs (`render/simstim/kit.ts` `stairs` / `cameo` / mannequin kinds, `content/simstim/straylightScene.ts`), flat-shaded through the existing dither material. Zones (hall / stair / gallery / head) are each ≤ 3k tris (`SCENE_TRI_CAP`). Cameo head is an emissive (high-ambient) low-poly platinum skull with ruby eyes, lapis inlay and pearl crust. `SimstimTimeline.scene` is `straylight`.
+- **M5 timeline** (`straylightM5Timeline()`): hall → stairwell → gallery in ~18 s. Three gates (`hall-arch`, `stair-gate`, `gallery-door`) with `holdUntilOpen`. Injury at `STRAYLIGHT_INJURY_AT` (8 s): camera drops, Molly line "Leg's gone.", lab posts `mollyPain` 0.9 (pain overlay / neural echo stay M6.1). 3Jane unhides at ~15 s; Hideo and Riviera mannequins from t = 0 (distinct palettes). Chip clock `04:12:00`.
+- **M7 timeline** (`straylightM7Timeline()`): head-room hold on the cameo. Gates `head-seal` / `word-window`. 3Jane speaks `STRAYLIGHT_WORD` (`to whom`, three-note stub) then "Take your word, thief." Chip clock `04:41:08`. Campaign typing of the word remains M7.7.
+- **Dev routes:** `?lab=simstim&scene=straylight` (M5) and `&scene=straylight-m7` (M7). `?mission=m5` / `?mission=m7` are structural stubs (`mockM5Mission` / `mockM7Mission`) allowed in the production preview; campaign missions remain M7.8 / M7.9. Default `?lab=simstim` is still Sense/Net. Screenshot: `docs/screenshots/m6-3-straylight-crt.png`. Dist budget is the default-boot graph (lab / straylight chunks excluded).
 
 ---
 
