@@ -1,0 +1,43 @@
+{
+  "title": "m5",
+  "initial": "brief",
+  "variables": {},
+  "knots": {
+    "brief": {
+      "name": "brief",
+      "lines": [
+        "Freeside coordinates. Tessier-Ashpool in emerald. Kuang is live. Molly is already inside."
+      ],
+      "tags": [
+        "page:text",
+        "title:KUANG GRADE MARK ELEVEN"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "JACK IN",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    },
+    "debrief": {
+      "name": "debrief",
+      "lines": [
+        "The deck will not let go. Something else is here. It knows your name."
+      ],
+      "tags": [
+        "page:text",
+        "title:THE BEACH"
+      ],
+      "choices": [
+        {
+          "index": 1,
+          "text": "DONE",
+          "divert": "END"
+        }
+      ],
+      "divert": null
+    }
+  }
+}

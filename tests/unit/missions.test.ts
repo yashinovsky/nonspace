@@ -94,16 +94,19 @@ describe('M7.4 campaign missions', () => {
     expect(isCampaignMissionId('m2')).toBe(true);
     expect(isCampaignMissionId('m3')).toBe(true);
     expect(isCampaignMissionId('m4')).toBe(true);
+    expect(isCampaignMissionId('m5')).toBe(true);
     const p0 = await loadCampaignMission('p0');
     const m1 = await loadCampaignMission('m1');
     const m2 = await loadCampaignMission('m2');
     const m3 = await loadCampaignMission('m3');
     const m4 = await loadCampaignMission('m4');
+    const m5 = await loadCampaignMission('m5');
     expect(p0?.id).toBe('p0');
     expect(m1?.id).toBe('m1');
     expect(m2?.id).toBe('m2');
     expect(m3?.id).toBe('m3');
     expect(m4?.id).toBe('m4');
+    expect(m5?.id).toBe('m5');
     expect(await loadCampaignMission('nope')).toBeNull();
   });
 
