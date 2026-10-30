@@ -52,6 +52,7 @@ interface AppHandle {
     info(): { width: number; height: number; calls: number };
   };
   loop: { stats: { ticks: number; frames: number } };
+  dispose(): void;
 }
 
 const look = (): LookHandle | undefined =>
@@ -72,6 +73,23 @@ async function drawOnce(page: Page): Promise<void> {
     const h = (window as unknown as { __nonspace?: AppHandle }).__nonspace;
     h?.renderer.endFrame(1 / 60, null);
   });
+}
+
+async function dropPage(page: Page): Promise<void> {
+  try {
+    await page.evaluate(() => {
+      const app = (window as unknown as { __nonspace?: AppHandle }).__nonspace;
+      app?.renderer.three.setAnimationLoop(null);
+      app?.dispose();
+    });
+  } catch {
+    /* page may already be closing */
+  }
+  try {
+    await page.goto('about:blank');
+  } catch {
+    /* ignore */
+  }
 }
 
 function rgbAt(png: PNG, x: number, y: number): [number, number, number] {
@@ -185,155 +203,165 @@ function toGrayPng(png: PNG): PNG {
 }
 
 test.describe('M1.9 Look Lab', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test('art checklist at ?lab=look (freeze + screenshot tolerance)', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = collectErrors(page);
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto('/?lab=look&quality=medium');
-    await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
-    await expect(page.locator('#app')).toHaveAttribute('data-lab', 'look');
-    await expect(page.getByTestId('look-lab')).toBeVisible();
-    await page.waitForFunction(look);
-    await page.waitForFunction(app);
-    await expect(page.locator('#app')).toHaveAttribute('data-persist', '1');
-    await expect(page.locator('#app')).toHaveAttribute('data-dwell', /[1-9]/);
+    try {
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await page.goto('/?lab=look&quality=medium');
+      await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
+      await expect(page.locator('#app')).toHaveAttribute('data-lab', 'look');
+      await expect(page.getByTestId('look-lab')).toBeVisible();
+      await page.waitForFunction(look);
+      await page.waitForFunction(app);
+      await expect(page.locator('#app')).toHaveAttribute('data-persist', '1');
+      await expect(page.locator('#app')).toHaveAttribute('data-dwell', /[1-9]/);
 
-    // Let traffic and ICE rotation paint phosphor trails before the freeze.
-    await page.waitForTimeout(800);
-    await freezeLoop(page);
-    await drawOnce(page);
+      // Let traffic and ICE rotation paint phosphor trails before the freeze.
+      await page.waitForTimeout(800);
+      await freezeLoop(page);
+      await drawOnce(page);
 
-    await page.locator('[data-testid="look-lab"]').evaluate((el) => {
-      (el as HTMLElement).style.visibility = 'hidden';
-    });
+      await page.locator('[data-testid="look-lab"]').evaluate((el) => {
+        (el as HTMLElement).style.visibility = 'hidden';
+      });
 
-    const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
-    expect(png.width).toBeGreaterThan(600);
-    expect(png.height).toBeGreaterThan(300);
+      const canvas = page.locator('#app > canvas');
+      const png = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
+      expect(png.width).toBeGreaterThan(600);
+      expect(png.height).toBeGreaterThan(300);
 
-    const stats = classify(png);
-    const corners = cornerMax(png);
-    const [cr, cg, cb] = rgbAt(png, 2, 2);
-    expect(cr).toBe(0);
-    expect(cg).toBe(0);
-    expect(cb).toBe(0);
-    expect(corners).toBe(0);
-    expect(stats.skyMedian).toBeLessThan(4);
-    expect(stats.skyGlow / Math.max(png.width * png.height * 0.08, 1)).toBeLessThan(0.12);
-    expect(stats.bottomLit).toBeGreaterThan(200);
-    expect(stats.lit).toBeGreaterThan(1_200);
-    expect(stats.max).toBeGreaterThan(50);
-    expect(stats.afterglow).toBeGreaterThan(40);
+      const stats = classify(png);
+      const corners = cornerMax(png);
+      const [cr, cg, cb] = rgbAt(png, 2, 2);
+      expect(cr).toBe(0);
+      expect(cg).toBe(0);
+      expect(cb).toBe(0);
+      expect(corners).toBe(0);
+      expect(stats.skyMedian).toBeLessThan(4);
+      expect(stats.skyGlow / Math.max(png.width * png.height * 0.08, 1)).toBeLessThan(0.12);
+      expect(stats.bottomLit).toBeGreaterThan(200);
+      expect(stats.lit).toBeGreaterThan(1_200);
+      expect(stats.max).toBeGreaterThan(50);
+      expect(stats.afterglow).toBeGreaterThan(40);
 
-    const screens = await page.evaluate(() => {
-      const h = (window as unknown as { __nonspaceLook: LookHandle }).__nonspaceLook;
-      return {
-        ice: h.iceScreen,
-        bait: h.baitScreen,
-        esfa: h.esfaScreen,
-        mitsu: h.mitsuScreen,
-        ta: h.taScreen,
-        stats: h.stats,
-      };
-    });
-    expect(screens.stats.dwell).toBeGreaterThan(20);
-    expect(screens.stats.segments).toBeGreaterThan(80);
-    expect(screens.stats.sky).toBe(2_400);
+      const screens = await page.evaluate(() => {
+        const h = (window as unknown as { __nonspaceLook: LookHandle }).__nonspaceLook;
+        return {
+          ice: h.iceScreen,
+          bait: h.baitScreen,
+          esfa: h.esfaScreen,
+          mitsu: h.mitsuScreen,
+          ta: h.taScreen,
+          stats: h.stats,
+        };
+      });
+      expect(screens.stats.dwell).toBeGreaterThan(20);
+      expect(screens.stats.segments).toBeGreaterThan(80);
+      expect(screens.stats.sky).toBe(2_400);
 
-    const ice = region(png, screens.ice.x, screens.ice.y, 18);
-    const bait = region(png, screens.bait.x, screens.bait.y, 18);
-    expect(ice.mean).toBeLessThan(bait.mean);
-    expect(ice.max).toBeLessThan(40);
+      const ice = region(png, screens.ice.x, screens.ice.y, 18);
+      const bait = region(png, screens.bait.x, screens.bait.y, 18);
+      expect(ice.mean).toBeLessThan(bait.mean);
+      expect(ice.max).toBeLessThan(40);
 
-    const esfa = region(png, screens.esfa.x, screens.esfa.y, 36);
-    const mitsu = region(png, screens.mitsu.x, screens.mitsu.y, 36);
-    const ta = region(png, screens.ta.x, screens.ta.y, 36);
-    expect(esfa.lit).toBeGreaterThan(30);
-    expect(mitsu.lit).toBeGreaterThan(30);
-    expect(ta.lit).toBeGreaterThan(20);
+      const esfa = region(png, screens.esfa.x, screens.esfa.y, 36);
+      const mitsu = region(png, screens.mitsu.x, screens.mitsu.y, 36);
+      const ta = region(png, screens.ta.x, screens.ta.y, 36);
+      expect(esfa.lit).toBeGreaterThan(30);
+      expect(mitsu.lit).toBeGreaterThan(30);
+      expect(ta.lit).toBeGreaterThan(20);
 
-    mkdirSync(dirname(SCREENSHOT), { recursive: true });
-    writeFileSync(SCREENSHOT, PNG.sync.write(png, { deflateLevel: 9 }));
+      mkdirSync(dirname(SCREENSHOT), { recursive: true });
+      writeFileSync(SCREENSHOT, PNG.sync.write(png, { deflateLevel: 9 }));
 
-    await expect(canvas).toHaveScreenshot('m1-9-look-lab.png', {
-      animations: 'allow',
-      maxDiffPixelRatio: 0.18,
-    });
+      await expect(canvas).toHaveScreenshot('m1-9-look-lab.png', {
+        animations: 'allow',
+        maxDiffPixelRatio: 0.18,
+      });
 
-    await page.evaluate(() => {
-      (window as unknown as { __nonspaceLook: LookHandle }).__nonspaceLook.setGrayscale(true);
-    });
-    await drawOnce(page);
-    const grayPng = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
-    const gray = toGrayPng(grayPng);
-    const gEsfa = region(gray, screens.esfa.x, screens.esfa.y, 36);
-    const gMitsu = region(gray, screens.mitsu.x, screens.mitsu.y, 36);
-    const gTa = region(gray, screens.ta.x, screens.ta.y, 36);
-    const litSpread =
-      Math.max(gEsfa.lit, gMitsu.lit, gTa.lit) - Math.min(gEsfa.lit, gMitsu.lit, gTa.lit);
-    expect(gEsfa.lit).toBeGreaterThan(20);
-    expect(gMitsu.lit).toBeGreaterThan(20);
-    expect(gTa.lit).toBeGreaterThan(10);
-    expect(litSpread).toBeGreaterThan(8);
-    writeFileSync(SCREENSHOT_GRAY, PNG.sync.write(gray, { deflateLevel: 9 }));
+      await page.evaluate(() => {
+        (window as unknown as { __nonspaceLook: LookHandle }).__nonspaceLook.setGrayscale(true);
+      });
+      await drawOnce(page);
+      const grayPng = PNG.sync.read(await canvas.screenshot({ animations: 'allow' }));
+      const gray = toGrayPng(grayPng);
+      const gEsfa = region(gray, screens.esfa.x, screens.esfa.y, 36);
+      const gMitsu = region(gray, screens.mitsu.x, screens.mitsu.y, 36);
+      const gTa = region(gray, screens.ta.x, screens.ta.y, 36);
+      const litSpread =
+        Math.max(gEsfa.lit, gMitsu.lit, gTa.lit) - Math.min(gEsfa.lit, gMitsu.lit, gTa.lit);
+      expect(gEsfa.lit).toBeGreaterThan(20);
+      expect(gMitsu.lit).toBeGreaterThan(20);
+      expect(gTa.lit).toBeGreaterThan(10);
+      expect(litSpread).toBeGreaterThan(8);
+      writeFileSync(SCREENSHOT_GRAY, PNG.sync.write(gray, { deflateLevel: 9 }));
 
-    const meta = await page.evaluate(() => {
-      const a = (window as unknown as { __nonspace: AppHandle }).__nonspace;
-      a.renderer.resize(1920, 1080, 1);
-      a.renderer.endFrame(1 / 60, null);
-      return {
-        tier: a.renderer.quality.tier,
-        persist: a.renderer.quality.persistence,
-        size: [a.renderer.info().width, a.renderer.info().height],
-        gpu: a.renderer.caps.renderer,
-        calls: a.renderer.info().calls,
-      };
-    });
-    expect(meta.tier).toBe('medium');
-    expect(meta.persist).toBe(true);
-    expect(meta.size[0]).toBe(1920);
-    expect(meta.size[1]).toBe(1080);
-    console.log(
-      JSON.stringify({
-        scene: 'look',
-        ...stats,
-        corners,
-        ice: ice.mean,
-        bait: bait.mean,
-        ...meta,
-      }),
-    );
+      const meta = await page.evaluate(() => {
+        const a = (window as unknown as { __nonspace: AppHandle }).__nonspace;
+        a.renderer.resize(1920, 1080, 1);
+        a.renderer.endFrame(1 / 60, null);
+        return {
+          tier: a.renderer.quality.tier,
+          persist: a.renderer.quality.persistence,
+          size: [a.renderer.info().width, a.renderer.info().height],
+          gpu: a.renderer.caps.renderer,
+          calls: a.renderer.info().calls,
+        };
+      });
+      expect(meta.tier).toBe('medium');
+      expect(meta.persist).toBe(true);
+      expect(meta.size[0]).toBe(1920);
+      expect(meta.size[1]).toBe(1080);
+      console.log(
+        JSON.stringify({
+          scene: 'look',
+          ...stats,
+          corners,
+          ice: ice.mean,
+          bait: bait.mean,
+          ...meta,
+        }),
+      );
 
-    expect(errors).toEqual([]);
+      expect(errors).toEqual([]);
+    } finally {
+      await dropPage(page);
+    }
   });
 
   test('grayscale toggle and free-fly handle', async ({ page }) => {
     const errors = collectErrors(page);
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto('/?lab=look&quality=medium&gray=1');
-    await expect(page.locator('#app')).toHaveAttribute('data-lab', 'look');
-    await expect(page.locator('#app')).toHaveAttribute('data-gray', '1');
-    await page.waitForFunction(look);
-    await freezeLoop(page);
-    const before = await page.evaluate(() => {
-      const h = (window as unknown as { __nonspaceLook: LookHandle }).__nonspaceLook;
-      return { gray: h.grayscale, time: h.time };
-    });
-    expect(before.gray).toBe(true);
-    await page.evaluate(() => {
-      const h = (window as unknown as { __nonspaceLook: LookHandle }).__nonspaceLook;
-      h.setGrayscale(false);
-      h.setTime(1.25);
-      h.resetPose();
-    });
-    await expect(page.locator('#app')).toHaveAttribute('data-gray', '0');
-    const after = await page.evaluate(() => {
-      const h = (window as unknown as { __nonspaceLook: LookHandle }).__nonspaceLook;
-      return { gray: h.grayscale, time: h.time };
-    });
-    expect(after.gray).toBe(false);
-    expect(after.time).toBeCloseTo(1.25, 3);
-    expect(errors).toEqual([]);
+    try {
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await page.goto('/?lab=look&quality=medium&gray=1');
+      await expect(page.locator('#app')).toHaveAttribute('data-lab', 'look');
+      await expect(page.locator('#app')).toHaveAttribute('data-gray', '1');
+      await page.waitForFunction(look);
+      await freezeLoop(page);
+      const before = await page.evaluate(() => {
+        const h = (window as unknown as { __nonspaceLook: LookHandle }).__nonspaceLook;
+        return { gray: h.grayscale, time: h.time };
+      });
+      expect(before.gray).toBe(true);
+      await page.evaluate(() => {
+        const h = (window as unknown as { __nonspaceLook: LookHandle }).__nonspaceLook;
+        h.setGrayscale(false);
+        h.setTime(1.25);
+        h.resetPose();
+      });
+      await expect(page.locator('#app')).toHaveAttribute('data-gray', '0');
+      const after = await page.evaluate(() => {
+        const h = (window as unknown as { __nonspaceLook: LookHandle }).__nonspaceLook;
+        return { gray: h.grayscale, time: h.time };
+      });
+      expect(after.gray).toBe(false);
+      expect(after.time).toBeCloseTo(1.25, 3);
+      expect(errors).toEqual([]);
+    } finally {
+      await dropPage(page);
+    }
   });
 });

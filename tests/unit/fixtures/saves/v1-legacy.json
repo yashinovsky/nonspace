@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "campaign": {
+    "act": 2,
+    "missionId": "m2",
+    "heat": 0.42,
+    "softs": ["probe", "clamp"],
+    "flags": { "metFinn": true }
+  },
+  "settings": {
+    "reduceMotion": true,
+    "sound": { "vol": 0.25 },
+    "gfx": { "quality": "low" }
+  }
+}
