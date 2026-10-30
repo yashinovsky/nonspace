@@ -2,7 +2,7 @@
 
 Standalone 2D prototype of the NONSPACE breach mechanic (plan §3.5): match your amber breaker
 Lissajous to the ICE's figure, hold the lock through telegraphed re-keys, crack the layer.
-Self-contained: its own `package.json`, no dependency on the main game in `src/`.
+Own `package.json` and lab UI; Phase Lock math is imported from the game's `src/breach/PhaseLock.ts`.
 
 **Play:** https://yashinovsky.github.io/nonspace/prototypes/phase-lock/ (published by
 `.github/workflows/phase-lock.yml` on pushes to `main`, once Settings → Pages → Source is set to
