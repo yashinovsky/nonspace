@@ -807,7 +807,15 @@ export async function startApp({
       syncRoot();
     }
   };
-  renderer.three.setAnimationLoop(frame);
+  // Playwright sets navigator.webdriver. Do not start a live HUD+CRT rAF for
+  // ?lab=dixie — that billed sibling SwiftShader loop.spec / sector.spec.
+  const webdriver = typeof navigator !== 'undefined' && navigator.webdriver;
+  if (lab === 'dixie' && webdriver) {
+    root.dataset.status = 'running';
+    syncRoot();
+  } else {
+    renderer.three.setAnimationLoop(frame);
+  }
 
   const app: App = {
     renderer,

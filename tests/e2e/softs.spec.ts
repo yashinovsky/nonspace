@@ -53,8 +53,10 @@ interface AppHandle {
   };
 }
 
-const softs = (): SoftsHandle | undefined =>
-  (window as unknown as { __nonspaceSofts?: SoftsHandle }).__nonspaceSofts;
+const ready = (): boolean => {
+  const w = window as unknown as { __nonspaceSofts?: SoftsHandle; __nonspace?: AppHandle };
+  return !!(w.__nonspaceSofts && w.__nonspace?.renderer.three);
+};
 
 async function freezeLoop(page: Page): Promise<void> {
   await page.evaluate(() => {
@@ -82,11 +84,12 @@ test.describe('M4.4 softs', () => {
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('/?lab=phaselock3d&scene=probe&quality=medium');
-    await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
+    // Freeze as soon as handles exist — waiting on data-status=running spins
+    // live ICE+HUD rAF (now also Dixie) and bills sibling sector/loop.
+    await page.waitForFunction(ready);
     await freezeLoop(page);
     await expect(page.locator('#app')).toHaveAttribute('data-lab', 'phaselock3d');
     await expect(page.getByTestId('softs-lab')).toBeVisible();
-    await page.waitForFunction(softs);
     await paint(page);
 
     const probe = await page.evaluate(() => {

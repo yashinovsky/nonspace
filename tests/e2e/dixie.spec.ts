@@ -42,6 +42,7 @@ interface DixieHandle {
   forceFlatline(scripted?: boolean): void;
   advance(dt: number): void;
   update(dt: number): void;
+  freeze(): void;
   paint(): void;
 }
 
@@ -52,13 +53,16 @@ interface AppHandle {
   };
 }
 
-const dixie = (): DixieHandle | undefined =>
-  (window as unknown as { __nonspaceDixie?: DixieHandle }).__nonspaceDixie;
+const ready = (): boolean => {
+  const w = window as unknown as { __nonspaceDixie?: DixieHandle; __nonspace?: AppHandle };
+  return !!(w.__nonspaceDixie && w.__nonspace?.renderer.three);
+};
 
 async function freezeLoop(page: Page): Promise<void> {
   await page.evaluate(() => {
-    const app = (window as unknown as { __nonspace?: AppHandle }).__nonspace;
-    app?.renderer.three.setAnimationLoop(null);
+    const w = window as unknown as { __nonspaceDixie?: DixieHandle; __nonspace?: AppHandle };
+    w.__nonspaceDixie?.freeze();
+    w.__nonspace?.renderer.three.setAnimationLoop(null);
   });
 }
 
@@ -73,7 +77,7 @@ async function paint(page: Page): Promise<void> {
 
 test.describe('M7.2 Dixie companion', () => {
   // One ICE+HUD WebGL context at a time. Live rAF through a canvas screenshot
-  // billed sibling SwiftShader `render.spec` dynres / `sector.spec` hitchesOver4ms.
+  // billed sibling SwiftShader `loop.spec` / `sector.spec` hitchesOver4ms.
   test.describe.configure({ mode: 'serial' });
 
   test('H-read, auto-hold, flatline, erase; freeze before snapshot', async ({ page }) => {
@@ -81,33 +85,14 @@ test.describe('M7.2 Dixie companion', () => {
     const errors = collectErrors(page);
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('/?lab=dixie&quality=medium');
-    await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
-    // Freeze before any canvas snapshot. Do not spin a live HUD + CRT rAF.
+    // Freeze as soon as handles exist — do not wait for data-status=running
+    // (that waits on a live HUD+CRT rAF frame).
+    await page.waitForFunction(ready);
     await freezeLoop(page);
     await expect(page.locator('#app')).toHaveAttribute('data-lab', 'dixie');
     await expect(page.getByTestId('dixie-lab')).toBeVisible();
     await expect(page.getByTestId('dixie-license')).toContainText('ERASE CONSTRUCT? Y/N');
     await expect(page.getByTestId('dixie-license')).toContainText('design license');
-    await page.waitForFunction(dixie);
-    await paint(page);
-
-    await page.locator('[data-testid="dixie-lab"]').evaluate((el) => {
-      (el as HTMLElement).style.visibility = 'hidden';
-    });
-    const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot({ animations: 'disabled' }));
-    expect(png.width).toBeGreaterThan(600);
-    let lit = 0;
-    let maxC = 0;
-    for (let i = 0; i < png.data.length; i += 4) {
-      const m = Math.max(png.data[i]!, png.data[i + 1]!, png.data[i + 2]!);
-      if (m > maxC) maxC = m;
-      if (m > 18) lit++;
-    }
-    expect(maxC).toBeGreaterThan(40);
-    expect(lit).toBeGreaterThan(400);
-    mkdirSync(dirname(SCREENSHOT), { recursive: true });
-    writeFileSync(SCREENSHOT, PNG.sync.write(png, { deflateLevel: 9 }));
 
     const read = await page.evaluate(() => {
       const h = (window as unknown as { __nonspaceDixie: DixieHandle }).__nonspaceDixie;
@@ -169,7 +154,26 @@ test.describe('M7.2 Dixie companion', () => {
     expect(erase.visible).toMatch(/ERASE CONSTRUCT\? Y\/N/);
     expect(erase.erased).toBe(true);
 
+    await page.locator('[data-testid="dixie-lab"]').evaluate((el) => {
+      (el as HTMLElement).style.visibility = 'hidden';
+    });
+    await freezeLoop(page);
     await paint(page);
+    const canvas = page.locator('#app > canvas');
+    const png = PNG.sync.read(await canvas.screenshot({ animations: 'disabled' }));
+    expect(png.width).toBeGreaterThan(600);
+    let lit = 0;
+    let maxC = 0;
+    for (let i = 0; i < png.data.length; i += 4) {
+      const m = Math.max(png.data[i]!, png.data[i + 1]!, png.data[i + 2]!);
+      if (m > maxC) maxC = m;
+      if (m > 18) lit++;
+    }
+    expect(maxC).toBeGreaterThan(40);
+    expect(lit).toBeGreaterThan(400);
+    mkdirSync(dirname(SCREENSHOT), { recursive: true });
+    writeFileSync(SCREENSHOT, PNG.sync.write(png, { deflateLevel: 9 }));
+
     expect(errors).toEqual([]);
     await page.goto('about:blank');
   });

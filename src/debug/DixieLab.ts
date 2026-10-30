@@ -76,6 +76,8 @@ export interface DixieLabHandle {
   advance(dt: number): void;
   /** One HUD+ICE paint with `dt` (e2e uses 0 after freezing rAF). */
   update(dt: number): void;
+  /** Kill THREE rAF. Safe to call as soon as the handle exists. */
+  freeze(): void;
   paint(): void;
 }
 
@@ -382,12 +384,16 @@ export function installDixieLab(opts: DixieLabOptions): DixieLab {
       paintHud();
       sync();
     },
+    freeze() {
+      renderer.three.setAnimationLoop(null);
+    },
   };
 
   window.__nonspaceDixie = handle;
   tick(0);
-  // One-shot baud flush so freeze-frame screenshots show the ice-engaged line.
-  hud.update(0.5);
+  // Instant terminal (not 1200-baud) so freeze-frame screenshots show the
+  // ice-engaged line without a 0.5 s CPU spin that starves sibling SwiftShader.
+  if (dixie.lastLine) hud.print(`DIXIE> ${dixie.lastLine}`, { wintermute: true });
   paintHud();
   sync();
 
