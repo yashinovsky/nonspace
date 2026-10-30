@@ -185,11 +185,90 @@ export function mockM2Mission(): MissionDef {
   };
 }
 
+/** Structural M5 stub so `?mission=m5` plays the Straylight Phase D timeline (M6.3). */
+export function mockM5Mission(): MissionDef {
+  const base = mockTriggerMission();
+  return {
+    ...base,
+    id: 'm5',
+    act: 4,
+    title: 'Kuang Grade Mark Eleven',
+    simstim: {
+      timeline: 'straylight-m5',
+      gates: [
+        {
+          id: 'hall-arch',
+          iceNode: 'straylight-hall',
+          tMeat: 3,
+          early: 1.5,
+          late: 1.5,
+          onEarly: [],
+          onLate: [],
+        },
+        {
+          id: 'stair-gate',
+          iceNode: 'straylight-stair',
+          tMeat: 8,
+          early: 1.5,
+          late: 1.5,
+          onEarly: [],
+          onLate: [],
+        },
+        {
+          id: 'gallery-door',
+          iceNode: 'straylight-gallery',
+          tMeat: 13,
+          early: 1.5,
+          late: 1.5,
+          onEarly: [],
+          onLate: [],
+        },
+      ],
+    },
+  };
+}
+
+/** Structural M7 stub so `?mission=m7` plays the word-scene timeline (M6.3). */
+export function mockM7Mission(): MissionDef {
+  const base = mockTriggerMission();
+  return {
+    ...base,
+    id: 'm7',
+    act: 4,
+    title: 'True Name',
+    simstim: {
+      timeline: 'straylight-m7',
+      gates: [
+        {
+          id: 'head-seal',
+          iceNode: 'straylight-head',
+          tMeat: 4,
+          early: 1.5,
+          late: 1.5,
+          onEarly: [],
+          onLate: [],
+        },
+        {
+          id: 'word-window',
+          iceNode: 'straylight-word',
+          tMeat: 8,
+          early: 1.5,
+          late: 1.5,
+          onEarly: [],
+          onLate: [],
+        },
+      ],
+    },
+  };
+}
+
 const FACTORIES: Record<string, () => MissionDef> = {
   'mock-triggers': mockTriggerMission,
   'mock-simstim': mockSimstimMission,
   mock: mockTriggerMission,
   m2: mockM2Mission,
+  m5: mockM5Mission,
+  m7: mockM7Mission,
 };
 
 export function getMockMission(id: string): MissionDef | undefined {

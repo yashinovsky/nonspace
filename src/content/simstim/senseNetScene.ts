@@ -4,6 +4,7 @@
  * lobby → corridor → vault, each zone ≤ ~3k tris.
  */
 import type { SimstimKit } from '../../render/simstim/kit';
+import { buildStraylight } from './straylightScene';
 
 const FLOOR = 0xb0aaa2;
 const CEIL = 0x7a7680;
@@ -45,6 +46,10 @@ export function buildSenseNet(kit: SimstimKit): void {
 export function buildSimstimScene(scene: string, kit: SimstimKit): void {
   if (scene === 'lab:lobby' || scene === 'lab') {
     buildLabLobby(kit);
+    return;
+  }
+  if (scene === 'straylight' || scene === 'straylight-m5' || scene === 'straylight-m7') {
+    buildStraylight(kit);
     return;
   }
   buildSenseNet(kit);

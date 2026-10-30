@@ -3,6 +3,14 @@ import { createSimstimMode } from '../app/modes/Simstim';
 import type { Mode, ModeContext, ModeStack } from '../app/ModeStack';
 import { LAB_GATE, labSimstimTimeline } from '../content/simstim/labTimeline';
 import { SENSE_NET_GATES, senseNetTimeline } from '../content/simstim/senseNet';
+import {
+  STRAYLIGHT_INJURY_AT,
+  STRAYLIGHT_M5_GATES,
+  STRAYLIGHT_M7_GATES,
+  STRAYLIGHT_WORD,
+  straylightM5Timeline,
+  straylightM7Timeline,
+} from '../content/simstim/straylight';
 import type { SimstimTimeline } from '../content/simstim/types';
 import type { InputFrame } from '../input/Input';
 import type { MissionRunner } from '../narrative/MissionRunner';
@@ -12,7 +20,7 @@ import type { Renderer } from '../render/Renderer';
 import type { GateDef } from '../simstim/Gates';
 import type { SimstimFeed } from '../simstim/SimstimFeed';
 
-export type SimstimLabScene = 'lab' | 'sensenet';
+export type SimstimLabScene = 'lab' | 'sensenet' | 'straylight' | 'straylight-m7';
 
 export interface SimstimLabOptions {
   scene?: string | null;
@@ -30,6 +38,8 @@ export interface SimstimLabHandle {
   scene: SimstimLabScene;
   stats: ZoneStats;
   panic: boolean;
+  injury: boolean;
+  word: string;
   gates: string;
   line: string;
   seek(t: number): void;
@@ -40,6 +50,7 @@ export interface SimstimLabHandle {
 declare global {
   interface Window {
     __nonspaceSenseNet?: SimstimLabHandle;
+    __nonspaceStraylight?: SimstimLabHandle;
   }
 }
 
@@ -47,13 +58,16 @@ const REKEY_EVERY = 1.6;
 
 export function parseSimstimScene(raw: string | null | undefined): SimstimLabScene {
   if (raw === 'lab' || raw === 'lab:lobby') return 'lab';
+  if (raw === 'straylight' || raw === 'straylight-m5' || raw === 'm5') return 'straylight';
+  if (raw === 'straylight-m7' || raw === 'm7') return 'straylight-m7';
   return 'sensenet';
 }
 
 /**
  * `?lab=simstim` — Sense/Net walk (M6.2) through RasterCrtPass, plus the
- * M6.1 feed FSM. `&scene=lab` keeps the original one-gate lobby. `?mission=m2`
- * loads the same Sense/Net timeline against the mock runner's meat clock.
+ * M6.1 feed FSM. `&scene=lab` keeps the original one-gate lobby.
+ * `&scene=straylight` / `straylight-m7` are M6.3 Villa Straylight.
+ * `?mission=m2|m5|m7` loads the matching stub against the mock runner.
  */
 export function installSimstimLab(
   renderer: Renderer,
@@ -114,10 +128,22 @@ export function installSimstimLab(
     'position:absolute;left:8px;top:8px;z-index:2;font:12px monospace;color:#ccc';
   renderer.canvas.parentElement?.appendChild(hint);
 
+  let injured = false;
+
+  const maybeInjure = (): void => {
+    if (pack.injuryAt == null || injured) return;
+    if (feed.meatTime >= pack.injuryAt) {
+      injured = true;
+      feed.pain.hurt(0.9);
+    }
+  };
+
   const handle: SimstimLabHandle = {
     scene,
     stats: view.stats,
     panic: false,
+    injury: false,
+    word: '',
     gates: '',
     line: '',
     seek(t) {
@@ -131,10 +157,13 @@ export function installSimstimLab(
   };
 
   const paint = (): void => {
+    maybeInjure();
     const sample = feed.sample();
     view.apply(sample, feed.overlay, feed.meatTime);
     handle.stats = view.stats;
     handle.panic = sample.figures.some((f) => f.pose === 'run');
+    handle.injury = injured || (pack.injuryAt != null && feed.meatTime >= pack.injuryAt);
+    handle.word = pack.word;
     handle.gates = feed.gates.snapshots.map((s) => s.state).join(',');
     handle.line = feed.debug.line;
     const root = renderer.canvas.parentElement;
@@ -152,6 +181,8 @@ export function installSimstimLab(
       root.dataset.pain = feed.debug.pain.toFixed(2);
       root.dataset.waiting = feed.debug.waiting ? '1' : '0';
       root.dataset.panic = handle.panic ? '1' : '0';
+      root.dataset.injury = handle.injury ? '1' : '0';
+      root.dataset.word = handle.word;
       root.dataset.tris = String(zoneTotal(view.stats));
       root.dataset.line = handle.line;
     }
@@ -163,11 +194,14 @@ export function installSimstimLab(
     hint.dataset.gates = gate;
     hint.dataset.rekeys = String(d.rekeysWhileFlipped);
     hint.dataset.panic = handle.panic ? '1' : '0';
+    hint.dataset.injury = handle.injury ? '1' : '0';
+    hint.dataset.word = pack.word;
     hint.dataset.line = d.line;
     hint.textContent = `${scene} ${d.clock} ${gate || 'idle'} rk${d.rekeysWhileFlipped}`;
   };
 
   window.__nonspaceSenseNet = handle;
+  window.__nonspaceStraylight = handle;
   if (opts.seek && opts.seek > 0) handle.seek(opts.seek);
 
   return {
@@ -181,13 +215,36 @@ export function installSimstimLab(
       cubeMat.dispose();
       hint.remove();
       if (window.__nonspaceSenseNet === handle) delete window.__nonspaceSenseNet;
+      if (window.__nonspaceStraylight === handle) delete window.__nonspaceStraylight;
     },
   };
 }
 
-function scenePack(scene: SimstimLabScene): { timeline: SimstimTimeline; gates: GateDef[] } {
-  if (scene === 'lab') return { timeline: labSimstimTimeline(), gates: [LAB_GATE] };
-  return { timeline: senseNetTimeline(), gates: SENSE_NET_GATES };
+type ScenePack = {
+  timeline: SimstimTimeline;
+  gates: GateDef[];
+  injuryAt?: number;
+  word: string;
+};
+
+function scenePack(scene: SimstimLabScene): ScenePack {
+  if (scene === 'lab') return { timeline: labSimstimTimeline(), gates: [LAB_GATE], word: '' };
+  if (scene === 'straylight') {
+    return {
+      timeline: straylightM5Timeline(),
+      gates: STRAYLIGHT_M5_GATES,
+      injuryAt: STRAYLIGHT_INJURY_AT,
+      word: '',
+    };
+  }
+  if (scene === 'straylight-m7') {
+    return {
+      timeline: straylightM7Timeline(),
+      gates: STRAYLIGHT_M7_GATES,
+      word: STRAYLIGHT_WORD,
+    };
+  }
+  return { timeline: senseNetTimeline(), gates: SENSE_NET_GATES, word: '' };
 }
 
 function crackOpen(feed: SimstimFeed, gates: GateDef[]): void {

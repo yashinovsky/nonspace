@@ -26,7 +26,7 @@ export interface AppOptions {
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
-  /** `?mission=` — mock id, loaded only in dev or with `?debug`. */
+  /** `?mission=` — mock id, loaded only in dev or with `?debug` (m2/m5/m7 also in preview). */
   missionId?: string;
   /** `?checkpoint=` — captured or seeked after start. */
   checkpoint?: string;
@@ -120,7 +120,8 @@ export async function startApp({
   });
   modeRef.stack = modes;
 
-  const allowMissionRoute = debug || import.meta.env.DEV || missionId === 'm2';
+  const stimMission = missionId === 'm2' || missionId === 'm5' || missionId === 'm7';
+  const allowMissionRoute = debug || import.meta.env.DEV || stimMission;
   if (allowMissionRoute && missionId) {
     const def = getMockMission(missionId);
     if (!def) {
@@ -234,17 +235,19 @@ export async function startApp({
     labHandle = await installVectorCrtLab(renderer);
     root.dataset.lab = 'vector';
   }
-  if (lab === 'simstim' || missionId === 'm2') {
+  if (lab === 'simstim' || stimMission) {
     const { installSimstimLab } = await import('../debug/SimstimLab');
     const q = new URLSearchParams(window.location.search);
     const seekRaw = Number.parseFloat(q.get('t') ?? '');
+    const missionScene =
+      missionId === 'm7' ? 'straylight-m7' : missionId === 'm5' ? 'straylight' : 'sensenet';
     labHandle = installSimstimLab(renderer, simstim, modes, {
-      scene: q.get('scene') ?? (missionId === 'm2' ? 'sensenet' : undefined),
-      mission: missionId === 'm2' ? mission : undefined,
+      scene: q.get('scene') ?? (stimMission ? missionScene : undefined),
+      mission: stimMission ? mission : undefined,
       seek: Number.isFinite(seekRaw) && seekRaw > 0 ? seekRaw : undefined,
     });
     if (lab === 'simstim') root.dataset.lab = 'simstim';
-    if (missionId === 'm2') root.dataset.mission = 'm2';
+    if (stimMission && missionId) root.dataset.mission = missionId;
   }
 
   if (lab === 'sky') {
