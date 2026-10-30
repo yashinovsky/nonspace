@@ -64,6 +64,13 @@ test.describe('default boot', () => {
       expect(isWebGL2).toBe(true);
 
       await freezeLoop(page);
+      const stamp = page.getByTestId('version-stamp');
+      await expect(stamp).toBeVisible();
+      // Stamp is DOM chrome over the full-window canvas; hide it so the
+      // black-canvas AC still measures the WebGL buffer (M8.5).
+      await stamp.evaluate((el) => {
+        (el as HTMLElement).style.visibility = 'hidden';
+      });
       const png = PNG.sync.read(await page.screenshot({ animations: 'disabled' }));
       let maxChannel = 0;
       for (let i = 0; i < png.data.length; i += 4) {

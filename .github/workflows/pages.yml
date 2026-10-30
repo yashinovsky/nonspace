@@ -1,0 +1,67 @@
+name: Pages
+
+# Static deploy of dist/ to GitHub Pages (game at `/`, Phase Lock lab at
+# `/prototypes/phase-lock/`). Needs Settings → Pages → Source: GitHub Actions.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Build Phase Lock prototype
+        working-directory: prototypes/phase-lock
+        run: |
+          npm ci
+          npm run build
+      - name: Stage Pages site
+        run: |
+          mkdir -p _site
+          cp -a dist/. _site/
+          mkdir -p _site/prototypes
+          cp -a prototypes/phase-lock/dist _site/prototypes/phase-lock
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Enable Pages (GitHub Actions source) if needed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" --silent 2>/dev/null; then
+            echo "Pages already enabled."
+          else
+            gh api -X POST "repos/${{ github.repository }}/pages" -f build_type=workflow \
+              && echo "Enabled GitHub Pages (build_type=workflow)." \
+              || echo "::notice::Could not enable Pages via API. Set Settings → Pages → Source to 'GitHub Actions'."
+          fi
+      - id: deployment
+        uses: actions/deploy-pages@v5

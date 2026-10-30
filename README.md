@@ -34,6 +34,10 @@ CI (`.github/workflows/ci.yml`) runs lint, unit tests, build (with the size chec
 
 It runs on `workflow_run`, so it only takes effect from the copy on `main`, and its token has only `contents: write` and `pull-requests: write`. Marking a draft ready for review re-runs CI, which then lets it merge. To keep a `cursor/*` PR open, mark it as a draft. Merges made with the workflow token don't trigger further workflow runs, so CI doesn't re-run on `main` after an auto-merge.
 
+### Release (GitHub Pages)
+
+`.github/workflows/pages.yml` deploys `dist/` to GitHub Pages on every push to `main` (needs Settings → Pages → Source: GitHub Actions). The game is the site root; the Phase Lock prototype stays at `/prototypes/phase-lock/`. Vite uses a relative `base` and content-hashed `/assets/*` filenames so HTML can be `no-cache` while hashed assets are immutable (`dist/_headers`, honored by Netlify/Cloudflare; GitHub Pages caches ~10 minutes). A discreet version stamp (`package.json` version · git SHA) sits in the bottom-right corner. Crash reports are **off by default**; pass `?report=https://…` (or build with `VITE_REPORT_ENDPOINT`) to POST console errors to an endpoint. Contract notes in plan §9.60.
+
 ## Debug
 
 - `?debug` opens a Tweakpane panel with FPS, frame time and GPU time. GPU time needs `EXT_disjoint_timer_query_webgl2` and shows `n/a` without it (e.g. SwiftShader). Tweakpane is lazy-loaded, so it costs nothing without the flag.
@@ -71,7 +75,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=jump` is the M2.6 coordinate jump (align 0.4 s, streak 1.5–3 s, arrive 300 u at rest) plus the COORD address book. `&scene=idle|streak|arrive`. Screenshot: `docs/screenshots/m2-6-jump.png`. Contract notes in plan §9.45.
 - `?lab=dixie` is the M7.2 Dixie Flatline companion (event barks, `H` ICE read, auto-hold during simstim, flatline commentary, `ERASE CONSTRUCT? Y/N`). Voice + VFD/terminal, 1984 vector CRT. Screenshot: `docs/screenshots/m7-2-dixie.png`. Contract notes in plan §9.47.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
-- Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
+- Without WebGL2, Web Workers, or ES modules the app shows a friendly unsupported-browser page instead of the canvas. The version stamp is on every boot (`#version-stamp`). Crash reporting stays off unless `?report=` is set.
 
 ## Layout
 
@@ -124,7 +128,7 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Beach walk / SDF raymarch (M7.10)                                        | `src/render/beach/*`, `src/app/modes/Beach.ts`         |
 | Simstim feed, flip, gates, pain (M6.1)                                   | `src/simstim/*`, `src/app/modes/Simstim.ts`            |
 
-The App flushes posted events after every sim step. The running app is exposed as `window.__nonspace` (e2e freeze / dropPage, including default boot). Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look, jack, ice, hud, breach, deck, watchers, core, phaselock3d / softs, ai, jump, dixie), the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.59. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. The running app is exposed as `window.__nonspace` (e2e freeze / dropPage, including default boot). Under `?debug` and `?lab=` (input, flight, render, persist, points, raster, vector, beam, grammar, sky, beach, grid, heraldry, sector, simstim, teletext, text, blackice, look, jack, ice, hud, breach, deck, watchers, core, phaselock3d / softs, ai, jump, dixie), the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.60. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 

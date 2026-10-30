@@ -10,7 +10,10 @@ const dist = new URL('../dist/', import.meta.url).pathname;
 
 /** Lab / debug-only chunks. Default boot never fetches these. */
 const LAB =
-  /(?:^|\/)(?:lab-|grammar-|sectorWorker-|.+Lab-|DebugGui-|teletext|JackIn|JackOut|CrtCollapse|IceVisuals|IceModel|Shatter|iceFacet|senseNet|straylight|BreachController|PhaseLock|Grip-|NeuralLoad|Trace-|Heat-|Flatline|Breach-|Hud-|BitmapText-|VfdText-|white-|Boot|Title|DeckPanel|Settings|Subtitles|Watcher-|CoreInterior|Core-|softs-|registry-|effects-|Wintermute-|Neuromancer-|Hijack-|Persona-|personaPaths|CoordinateJump|JumpStreak|Kuang-|KuangMaterial-|Dive-|DiveTube-|kuangMath-|kuangSpline-|diveMath-|verticalSlice|tutorialPrompts|chibaScene|construct-|constructScene-|tendril-|turing-|turingScene-|turingField-|kuangGrade-|kuangScene-|trueName-|merge-|credits-|p0-|m1-|m2-|m3-|m4-|m5-|m6-|m7-|SimstimRenderer|Matrix-|Interlude|missions-|companion|Dixie-|barks-|Beach-|BeachRenderer-|enterBeach-|beach-|a11y-|overlay-|assists-|tuning-)/;
+  /(?:^|\/)(?:lab-|grammar-|sectorWorker-|.+Lab-|DebugGui-|teletext|JackIn|JackOut|CrtCollapse|IceVisuals|IceModel|Shatter|iceFacet|senseNet|straylight|BreachController|PhaseLock|Grip-|NeuralLoad|Trace-|Heat-|Flatline|Breach-|Hud-|BitmapText-|VfdText-|white-|Boot|Title|DeckPanel|Settings|Subtitles|Watcher-|CoreInterior|Core-|softs-|registry-|effects-|Wintermute-|Neuromancer-|Hijack-|Persona-|personaPaths|CoordinateJump|JumpStreak|Kuang-|KuangMaterial-|Dive-|DiveTube-|kuangMath-|kuangSpline-|diveMath-|verticalSlice|tutorialPrompts|chibaScene|construct-|constructScene-|tendril-|turing-|turingScene-|turingField-|kuangGrade-|kuangScene-|trueName-|merge-|credits-|p0-|m1-|m2-|m3-|m4-|m5-|m6-|m7-|SimstimRenderer|Matrix-|Interlude|missions-|companion|Dixie-|barks-|Beach-|BeachRenderer-|enterBeach-|beach-|a11y-|overlay-|assists-|tuning-|reporter-)/;
+
+/** Vite content-hashed JS/CSS (M8.5). */
+const HASHED_ASSET = /-[a-zA-Z0-9_-]{8,}\.(?:js|css|woff2?)$/;
 
 /** @param {string} dir @returns {{ path: string, size: number }[]} */
 function walk(dir) {
@@ -31,6 +34,17 @@ for (const f of files.slice(0, 8))
   console.log(`  ${kb(f.size).padStart(10)}  ${relative(dist, f.path)}`);
 console.log(`dist/ total: ${kb(total)} (labs excluded from budget)`);
 console.log(`dist/ boot:  ${kb(bootTotal)} (limit ${kb(LIMIT_BYTES)})`);
+
+const unhashed = files.filter((f) => {
+  const rel = relative(dist, f.path).replaceAll('\\', '/');
+  if (!rel.startsWith('assets/')) return false;
+  return /\.(?:js|css)$/.test(rel) && !HASHED_ASSET.test(rel);
+});
+if (unhashed.length > 0) {
+  for (const f of unhashed) console.error(`  unhashed asset: ${relative(dist, f.path)}`);
+  console.error('dist/ assets must use content hashes');
+  process.exit(1);
+}
 
 if (bootTotal > LIMIT_BYTES) {
   console.error('dist/ exceeds the size budget');

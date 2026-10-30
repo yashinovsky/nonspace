@@ -1,11 +1,29 @@
 import { isQualitySetting } from './render/quality';
-import { hasWebGL2, showUnsupported } from './app/unsupported';
+import { resolveReportEndpoint } from './app/reportEndpoint';
+import type { Reporter } from './app/reporter';
+import { probeSupport, showUnsupported } from './app/unsupported';
+import { mountVersionStamp } from './app/version';
 
 async function main(): Promise<void> {
   const root = document.getElementById('app');
   if (!root) throw new Error('#app root element missing');
 
+  mountVersionStamp(document.getElementById('version-stamp'));
+
   const params = new URLSearchParams(window.location.search);
+  let reporter: Reporter | undefined;
+  const reportUrl = resolveReportEndpoint(window.location.search);
+  if (reportUrl) {
+    const { installReporter } = await import('./app/reporter');
+    reporter = installReporter({
+      endpoint: reportUrl,
+      search: window.location.search,
+      host: window,
+      fetch,
+      sendBeacon: navigator.sendBeacon?.bind(navigator),
+    });
+  }
+
   if (params.get('lab') === 'audio') {
     const { startAudioLab } = await import('./audio/lab');
     await startAudioLab(root);
@@ -17,8 +35,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (!hasWebGL2()) {
-    showUnsupported(root);
+  const support = probeSupport();
+  if (!support.ok) {
+    showUnsupported(root, support);
     return;
   }
 
@@ -64,6 +83,10 @@ async function main(): Promise<void> {
       checkpoint,
     });
   } catch (err) {
+    const text = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    reporter?.capture('unhandled', text, stack);
+    reporter?.flush();
     console.error(err);
     showUnsupported(root);
   }
