@@ -106,14 +106,24 @@ export function parseHersheyPacked(bytes: Uint8Array, name: string): HersheyFont
   return { name, cap, desc, glyphs };
 }
 
+export function isGzip(bytes: Uint8Array): boolean {
+  return bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+}
+
+/** Gunzip only when the payload still has a gzip header (vite preview already inflates `.gz`). */
+export async function decodeHersheyBytes(bytes: Uint8Array): Promise<Uint8Array> {
+  if (!isGzip(bytes)) return bytes;
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  const stream = new Blob([copy.buffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
 export async function loadHersheyFont(url: string, name = 'simplex'): Promise<HersheyFont> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Hershey font ${url}: HTTP ${res.status}`);
-  const body = res.body;
-  if (!body) throw new Error(`Hershey font ${url}: empty body`);
-  const plain = url.endsWith('.gz') ? body.pipeThrough(new DecompressionStream('gzip')) : body;
-  const buf = new Uint8Array(await new Response(plain).arrayBuffer());
-  return parseHersheyPacked(buf, name);
+  const buf = new Uint8Array(await res.arrayBuffer());
+  return parseHersheyPacked(await decodeHersheyBytes(buf), name);
 }
 
 function glyphOf(font: HersheyFont, ch: string): HersheyGlyph | undefined {

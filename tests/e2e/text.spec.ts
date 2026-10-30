@@ -19,7 +19,11 @@ function collectErrors(page: Page): string[] {
 }
 
 interface TextHandle {
-  renderer: { caps: { renderer: string } };
+  renderer: {
+    caps: { renderer: string };
+    three: { setAnimationLoop(fn: null): void };
+    endFrame(dt: number, gpuMs: number | null): void;
+  };
   textLab: {
     scene: string;
     hersheyCapPx: number;
@@ -68,8 +72,15 @@ test.describe('M3.1 text rendering', () => {
     expect(meta.ghost).toBeCloseTo(0.06, 6);
     expect(meta.ascii).toBe(95);
 
+    // Freeze rAF so Playwright does not wait forever for a dirty WebGL canvas
+    // (CI timeout: "waiting for element to be stable" during locator.screenshot).
+    await page.evaluate(() => {
+      const app = (window as unknown as { __nonspace?: TextHandle }).__nonspace;
+      app?.renderer.three.setAnimationLoop(null);
+    });
+
     const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot());
+    const png = PNG.sync.read(await canvas.screenshot({ animations: 'disabled' }));
     const all = litStats(png);
     expect(all.max).toBeGreaterThan(40);
     expect(all.lit).toBeGreaterThan(400);
@@ -77,24 +88,27 @@ test.describe('M3.1 text rendering', () => {
     writeFileSync(SCREENSHOT, PNG.sync.write(png));
 
     await page.evaluate(() => {
-      (window as unknown as { __nonspace: TextHandle }).__nonspace.textLab.setScene('hershey');
+      const app = (window as unknown as { __nonspace: TextHandle }).__nonspace;
+      app.textLab.setScene('hershey');
+      app.renderer.endFrame(0, null);
     });
-    await page.waitForTimeout(250);
-    const hershey = litStats(PNG.sync.read(await canvas.screenshot()));
+    const hershey = litStats(PNG.sync.read(await canvas.screenshot({ animations: 'disabled' })));
     expect(hershey.lit).toBeGreaterThan(80);
 
     await page.evaluate(() => {
-      (window as unknown as { __nonspace: TextHandle }).__nonspace.textLab.setScene('bitmap');
+      const app = (window as unknown as { __nonspace: TextHandle }).__nonspace;
+      app.textLab.setScene('bitmap');
+      app.renderer.endFrame(0, null);
     });
-    await page.waitForTimeout(250);
-    const bitmap = litStats(PNG.sync.read(await canvas.screenshot()));
+    const bitmap = litStats(PNG.sync.read(await canvas.screenshot({ animations: 'disabled' })));
     expect(bitmap.lit).toBeGreaterThan(40);
 
     await page.evaluate(() => {
-      (window as unknown as { __nonspace: TextHandle }).__nonspace.textLab.setScene('vfd');
+      const app = (window as unknown as { __nonspace: TextHandle }).__nonspace;
+      app.textLab.setScene('vfd');
+      app.renderer.endFrame(0, null);
     });
-    await page.waitForTimeout(250);
-    const vfd = litStats(PNG.sync.read(await canvas.screenshot()));
+    const vfd = litStats(PNG.sync.read(await canvas.screenshot({ animations: 'disabled' })));
     expect(vfd.lit).toBeGreaterThan(40);
 
     console.log(JSON.stringify({ gpu: meta.gpu, all, hershey, bitmap, vfd }));

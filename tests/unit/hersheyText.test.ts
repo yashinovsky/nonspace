@@ -13,6 +13,8 @@ import {
   isAsciiPrintable,
   layoutHershey,
   measureHershey,
+  decodeHersheyBytes,
+  isGzip,
   parseHersheyFont,
   parseHersheyPacked,
   writeHershey,
@@ -102,6 +104,23 @@ describe('HersheyText', () => {
       expect(fromPacked.glyphs[ch]?.w).toBe(simplex.glyphs[ch]?.w);
       expect(fromPacked.glyphs[ch]?.s).toEqual(simplex.glyphs[ch]?.s);
     }
+  });
+
+  it('gunzips packed bytes only when the gzip magic is present', async () => {
+    const packed = packHershey(simplex);
+    expect(isGzip(packed)).toBe(false);
+    expect(await decodeHersheyBytes(packed)).toBe(packed);
+    const packedCopy = new Uint8Array(packed.byteLength);
+    packedCopy.set(packed);
+    const gz = new Uint8Array(
+      await new Response(
+        new Blob([packedCopy.buffer]).stream().pipeThrough(new CompressionStream('gzip')),
+      ).arrayBuffer(),
+    );
+    expect(isGzip(gz)).toBe(true);
+    const round = await decodeHersheyBytes(gz);
+    expect(isGzip(round)).toBe(false);
+    expect([...round]).toEqual([...packed]);
   });
 });
 
