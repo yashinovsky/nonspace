@@ -1452,6 +1452,15 @@ AI presences. Does not rewrite Look Lab (`?lab=look`, §9.34) toward neon/rain/c
 - **`ai/Persona.ts`**: SVG vector line-portrait (`content/ai/*.svg` → `scripts/convert-persona.mjs` → `ai/personaPaths.ts`) as white ICE beams. Vertices wobble on an unstable Lissajous **3.04:2** (`PERSONA_RATIO_A` / `PERSONA_RATIO_B`) — not a textured face.
 - **Dev route:** `?lab=ai` (`debug/AiLab.ts`, lazy `?lab=` chunk; default boot never fetches it). `&scene=overexpose|persona|hijack|freeze|bend|soften|pull|beach`. `window.__nonspaceAi`. Debug GUI (`?debug`) AI folder lazy-imports the same presence. Screenshots: `docs/screenshots/m7-3-wintermute.png`, `docs/screenshots/m7-3-neuromancer.png`. Playwright **freezes `setAnimationLoop` before any canvas snapshot** and paints with `hud.update(0)` + `endFrame` — no live rAF, no 1080p `quality=high` spin (that starves sibling SwiftShader `grid` / `loop` / `points`). Dist budget is the default-boot graph (lab / Wintermute / Neuromancer / Hijack / Persona chunks excluded). Bloom ×2 and warp uniforms are active only while those behaviors are on.
 
+### 9.49 Contract notes from M7.8 (repo copy only)
+
+Kuang and the dive. Does not rewrite the softs registry (`content/softs.ts` already has the KUANG GRADE MARK ELEVEN row; M4.4 / §9.43). Does not edit `companion/`, `ai/` (M7.3, §9.48), coordinate jump (M2.6, §9.45), or Phase Lock audio internals (M5.4, §9.44 — this task only *hooks* `audio.phaseLock.start/setTarget/setPlayer/stop` and `music.setState('kuangDive')`). Look Lab (`?lab=look`, §9.34) stays the locked 1984 vector CRT matrix — no neon/rain/city. Default boot never fetches this lab.
+
+- **`world/Kuang.ts` + `world/kuangSpline.ts`**: spline of iridescent rib rings (Catmull-Rom, deploy sinuous body / coil helix around the tube). Mimicry `uMimic` 0..1 lerps the thin-film spectrum toward T-A emerald `#14C77A`.
+- **`render/lines/kuang.frag`** (variant of beamLine, own `KuangMaterial` so default `beamLine` stays small): `rgb = mix(spectrum(thin-film), TA, uMimic)`. The only continuous-spectrum material. `BeamFlag.KUANG | DWELL | NO_FOG`.
+- **`modes/Dive.ts` + `world/diveMath.ts` + `world/DiveTube.ts`**: `id: 'dive'` on the mode stack. Polygonal tube 8–16 lanes, constant −Z speed 28 u/s, crisp deadzoned lane steps, T-A leech crawlers, 3 segment gates. Gates reuse `IceModel` + `stepKnobs` / PhaseLock with the `kuang-gate` preset (`tolRatio` 0.12, `lockTime` 1.2). HUD paints with `hud.update(0)`.
+- **Dev route:** `?lab=kuang` (alias `?lab=dive`, `debug/KuangLab.ts`, lazy `?lab=` chunk). `&scene=deploy|dive|gate`. `window.__nonspaceKuang`. Screenshots: `docs/screenshots/m7-8-kuang.png`, `docs/screenshots/m7-8-dive.png`. Playwright **freezes `setAnimationLoop` before any canvas snapshot** and paints with `hud.update(0)` + `endFrame` — no live rAF, no 1080p `quality=high` spin. Dist budget is the default-boot graph (lab / Kuang / Dive chunks excluded; do not regex-exclude boot `kuangDive` music).
+
 ---
 
 ## 10. Milestones and tasks

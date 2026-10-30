@@ -24,7 +24,7 @@ import { createModeStack, type ModeStack } from './ModeStack';
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core` / `phaselock3d` / `softs` / `ai` / `jump`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `vector` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim` / `teletext` / `text` / `blackice` / `look` / `jack` / `ice` / `hud` / `breach` / `deck` / `watchers` / `core` / `phaselock3d` / `softs` / `ai` / `jump` / `kuang` / `dive`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -473,6 +473,22 @@ export async function startApp({
       input,
       root,
       scene: q.get('scene'),
+      reduceMotion: () => settings.value.reduceMotion,
+    });
+  }
+  if (lab === 'kuang' || lab === 'dive') {
+    const { installKuangLab, isKuangScene } = await import('../debug/KuangLab');
+    const q = new URLSearchParams(window.location.search);
+    const sceneParam = lab === 'dive' && !q.get('scene') ? 'dive' : q.get('scene');
+    labHandle = installKuangLab({
+      renderer,
+      events,
+      settings,
+      input,
+      modes,
+      root,
+      scene: isKuangScene(sceneParam) ? sceneParam : undefined,
+      reduceFlashing: () => settings.value.reduceFlashing,
       reduceMotion: () => settings.value.reduceMotion,
     });
   }
