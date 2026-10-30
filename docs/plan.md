@@ -1192,6 +1192,16 @@ Beam line renderer. Parallel look-lane tasks (M1.2 points, M1.4 persistence, M1.
 - **CPU helpers** (unit-tested, same math as the VS): `clipSegmentNear`, `conserveWidth`, `fogFactor`.
 - **Dev route**: `?lab=beam` (optional `&scene=palette|near|thin|dwell|fog|stress|dynamic`, `&quality=`, `&debug`). Dispatched from `main.ts` so it does not touch `App.ts`. `window.__nonspaceBeam` and `window.__nonspace.{renderer,beamLab}`. Stress scene is 150k segments.
 
+### 9.21 Contract notes from M2.1 (repo copy only)
+
+Construct grammar. M2.2 (heraldry / landmarks) and M2.3 (sectors) consume this; they must not fork primitive emitters. M1.1 BeamBatch is **not** required to preview.
+
+- **`generate(spec, opts?)`** (`world/constructs/grammar.ts`) is a pure function. `opts.lod` is `'far' | 'mid' | 'near'` (default near). `opts.seed` (default 1) seeds PCG32 for constellation / blink / `sampleSpec`. Output is `ConstructGeometry`: `LineSet` + `FaceSet` `{ positions, indices }` (triangle soup for the future depth prepass) + `PointSet` + AABB `bounds` + `stats`. Edges are unique undirected pairs after vertex quantize (1e-5 u); doubled lines would read brighter, so they are dropped.
+- **Primitives** (`world/constructs/primitives.ts`) match the §8.6 table: `box`, `slabTerrace`, `cubeStack`, `ziggurat`, `mast`, `nestedPoly` (`tetra|octa|icosa`), `geodesic`, `tower`, `constellation`, `spiralArms`. `defaultSpec(kind)` / `sampleSpec(kind, rng)` are the authored and procedural param sources. Default beam index is `PRIMITIVE_BEAM[kind]` (ESFA ziggurat, MITSU cubes, TA slabs, …).
+- **LOD** (`world/constructs/lod.ts`): **far** = 1 lightpoint at the AABB centroid (size by extent); **mid** = AABB outline, 12–24 segments; **near** = full detail, clamped to `NEAR_SEGMENT_BUDGET`. `selectLod(distance, previous)` uses a 20% hysteresis band on `near=200` / `mid=2000`. `tickLodFade` crossfades intensity over **0.3 s**.
+- **Near segment budget**: box 256, slabTerrace 512, cubeStack 2048, ziggurat 512, mast 256, nestedPoly 1024, geodesic 2048, tower 512, constellation/spiralArms 0 (points only).
+- **Lab:** `?lab=grammar&g=ziggurat&lod=near&seed=1`. Tweakpane sliders for every primitive. Draws with Three.js `LineSegments` / `Points` / faint `Mesh` (M1.1 fallback). `window.__nonspaceGrammar` exposes `{ kind, lod, stats, setKind, setLod }`.
+
 ---
 
 ## 10. Milestones and tasks
