@@ -51,6 +51,7 @@ interface AppHandle {
     three: { setAnimationLoop(fn: null): void };
     endFrame(dt: number, gpuMs: number | null): void;
   };
+  dispose(): void;
 }
 
 const ready = (): boolean => {
@@ -74,136 +75,157 @@ async function paint(page: Page): Promise<void> {
   });
 }
 
+/** Release the WebGL context so sibling SwiftShader workers (sector hitchesOver4ms / loop lag) are not starved. */
+async function dropPage(page: Page): Promise<void> {
+  try {
+    await page.evaluate(() => {
+      const app = (window as unknown as { __nonspace?: AppHandle }).__nonspace;
+      app?.renderer.three.setAnimationLoop(null);
+      app?.dispose();
+    });
+  } catch {
+    // Page may already be closing.
+  }
+  try {
+    await page.goto('about:blank');
+  } catch {
+    // ignore
+  }
+}
+
 test.describe('M4.4 softs', () => {
-  // One ICE+HUD WebGL context at a time. Live rAF through a canvas screenshot
-  // billed sibling SwiftShader `loop.spec` / `sector.spec` hitchesOver4ms.
+  // One ICE+HUD WebGL context at a time. Leftover SwiftShader after a
+  // canvas screenshot billed sibling `loop.spec` / `sector.spec` hitchesOver4ms.
   test.describe.configure({ mode: 'serial' });
 
   test('each effect is verifiable; freeze before snapshot', async ({ page }) => {
     test.setTimeout(60_000);
     const errors = collectErrors(page);
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto('/?lab=phaselock3d&scene=probe&quality=medium');
-    // Freeze as soon as handles exist — waiting on data-status=running spins
-    // live ICE+HUD rAF (now also Dixie) and bills sibling sector/loop.
-    await page.waitForFunction(ready);
-    await freezeLoop(page);
-    await expect(page.locator('#app')).toHaveAttribute('data-lab', 'phaselock3d');
-    await expect(page.getByTestId('softs-lab')).toBeVisible();
-    await paint(page);
+    try {
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await page.goto('/?lab=phaselock3d&scene=probe&quality=medium');
+      // Freeze as soon as handles exist — waiting on data-status=running spins
+      // live ICE+HUD rAF (now also Dixie) and bills sibling sector/loop.
+      await page.waitForFunction(ready);
+      await freezeLoop(page);
+      await expect(page.locator('#app')).toHaveAttribute('data-lab', 'phaselock3d');
+      await expect(page.getByTestId('softs-lab')).toBeVisible();
+      await paint(page);
 
-    const probe = await page.evaluate(() => {
-      const h = (window as unknown as { __nonspaceSofts: SoftsHandle }).__nonspaceSofts;
-      return {
-        engaged: h.engaged,
-        label: h.revealLabel,
-        ratio: h.ratio,
-        charges: h.charges('probe'),
-        slots: h.hudSofts.map((s) => s.label),
-      };
-    });
-    expect(probe.engaged).toBe(true);
-    expect(probe.label).toMatch(/^\d+:\d+$/);
-    expect(probe.charges).toBe(2);
-    expect(probe.slots[0]).toBe('PROBE');
+      const probe = await page.evaluate(() => {
+        const h = (window as unknown as { __nonspaceSofts: SoftsHandle }).__nonspaceSofts;
+        return {
+          engaged: h.engaged,
+          label: h.revealLabel,
+          ratio: h.ratio,
+          charges: h.charges('probe'),
+          slots: h.hudSofts.map((s) => s.label),
+        };
+      });
+      expect(probe.engaged).toBe(true);
+      expect(probe.label).toMatch(/^\d+:\d+$/);
+      expect(probe.charges).toBe(2);
+      expect(probe.slots[0]).toBe('PROBE');
 
-    await page.locator('[data-testid="softs-lab"]').evaluate((el) => {
-      (el as HTMLElement).style.visibility = 'hidden';
-    });
-    await freezeLoop(page);
-    await paint(page);
-    const canvas = page.locator('#app > canvas');
-    const png = PNG.sync.read(await canvas.screenshot({ animations: 'disabled' }));
-    expect(png.width).toBeGreaterThan(600);
-    let lit = 0;
-    let maxC = 0;
-    for (let i = 0; i < png.data.length; i += 4) {
-      const m = Math.max(png.data[i]!, png.data[i + 1]!, png.data[i + 2]!);
-      if (m > maxC) maxC = m;
-      if (m > 18) lit++;
+      await page.locator('[data-testid="softs-lab"]').evaluate((el) => {
+        (el as HTMLElement).style.visibility = 'hidden';
+      });
+      await freezeLoop(page);
+      await paint(page);
+      const canvas = page.locator('#app > canvas');
+      const png = PNG.sync.read(await canvas.screenshot({ animations: 'disabled' }));
+      expect(png.width).toBeGreaterThan(600);
+      let lit = 0;
+      let maxC = 0;
+      for (let i = 0; i < png.data.length; i += 4) {
+        const m = Math.max(png.data[i]!, png.data[i + 1]!, png.data[i + 2]!);
+        if (m > maxC) maxC = m;
+        if (m > 18) lit++;
+      }
+      expect(maxC).toBeGreaterThan(30);
+      expect(lit).toBeGreaterThan(200);
+      mkdirSync(dirname(SCREENSHOT), { recursive: true });
+      writeFileSync(SCREENSHOT, PNG.sync.write(png, { deflateLevel: 9 }));
+
+      const rest = await page.evaluate(() => {
+        const h = (window as unknown as { __nonspaceSofts: SoftsHandle }).__nonspaceSofts;
+        const phi0 = h.phi;
+        const rekey0 = h.nextRekeyAt;
+        const clampOk = h.use('clamp');
+        h.advance(0.4);
+        const afterClamp = {
+          freeze: h.freezeDrift,
+          dPhi: Math.abs(h.phi - phi0),
+          rekey: h.nextRekeyAt,
+          rekey0,
+          cd: h.cooldown('clamp'),
+        };
+        const snap = h.snapshot();
+        const damperOk = h.use('damper');
+        const decoyOk = h.use('decoy');
+        const neural0 = h.neural;
+        h.setKnobs(Math.log(0.25), 0);
+        h.advance(0.5);
+        const afterDecoy = {
+          decoy: h.decoyActive,
+          lured: h.watcherLured,
+          traceMul: h.traceMul,
+          feedbackMul: h.feedbackMul,
+          neural: h.neural - neural0,
+        };
+        h.restore(snap);
+        const restored = { probe: h.charges('probe'), clampCd: h.cooldown('clamp') };
+        h.setKnobs(0, 0);
+        const mimicOk = h.use('mimic');
+        const before = { ...h.knobs };
+        h.advance(1);
+        const afterMimic = { before, after: { ...h.knobs }, ratio: h.ratio };
+        const kuangOk = h.use('kuang');
+        const dixieOk = h.askDixie();
+        return {
+          clampOk,
+          afterClamp,
+          damperOk,
+          decoyOk,
+          afterDecoy,
+          restored,
+          mimicOk,
+          afterMimic,
+          kuangOk,
+          dixieOk,
+          lastFail: h.lastFail,
+          lastUsed: h.lastUsed,
+        };
+      });
+
+      expect(rest.clampOk).toBe(true);
+      expect(rest.afterClamp.freeze).toBe(true);
+      expect(rest.afterClamp.dPhi).toBeLessThan(1e-4);
+      expect(rest.afterClamp.rekey).not.toBeNull();
+      expect((rest.afterClamp.rekey ?? 0) - (rest.afterClamp.rekey0 ?? 0)).toBeGreaterThan(4.5);
+      expect(rest.afterClamp.cd).toBeGreaterThan(14);
+
+      expect(rest.damperOk).toBe(true);
+      expect(rest.decoyOk).toBe(true);
+      expect(rest.afterDecoy.decoy).toBe(true);
+      expect(rest.afterDecoy.lured).toBe(true);
+      expect(rest.afterDecoy.traceMul).toBe(0.5);
+      expect(rest.afterDecoy.feedbackMul).toBe(0.3);
+
+      expect(rest.restored.probe).toBe(2);
+      expect(rest.restored.clampCd).toBeGreaterThan(14);
+
+      expect(rest.mimicOk).toBe(true);
+      expect(rest.afterMimic.after.R).not.toBeCloseTo(rest.afterMimic.before.R, 5);
+
+      expect(rest.kuangOk).toBe(true);
+      expect(rest.dixieOk).toBe(true);
+      expect(rest.lastFail).toBeNull();
+      expect(rest.lastUsed).toBe('dixie-read');
+
+      expect(errors).toEqual([]);
+    } finally {
+      await dropPage(page);
     }
-    expect(maxC).toBeGreaterThan(30);
-    expect(lit).toBeGreaterThan(200);
-    mkdirSync(dirname(SCREENSHOT), { recursive: true });
-    writeFileSync(SCREENSHOT, PNG.sync.write(png, { deflateLevel: 9 }));
-
-    const rest = await page.evaluate(() => {
-      const h = (window as unknown as { __nonspaceSofts: SoftsHandle }).__nonspaceSofts;
-      const phi0 = h.phi;
-      const rekey0 = h.nextRekeyAt;
-      const clampOk = h.use('clamp');
-      h.advance(0.4);
-      const afterClamp = {
-        freeze: h.freezeDrift,
-        dPhi: Math.abs(h.phi - phi0),
-        rekey: h.nextRekeyAt,
-        rekey0,
-        cd: h.cooldown('clamp'),
-      };
-      const snap = h.snapshot();
-      const damperOk = h.use('damper');
-      const decoyOk = h.use('decoy');
-      const neural0 = h.neural;
-      h.setKnobs(Math.log(0.25), 0);
-      h.advance(0.5);
-      const afterDecoy = {
-        decoy: h.decoyActive,
-        lured: h.watcherLured,
-        traceMul: h.traceMul,
-        feedbackMul: h.feedbackMul,
-        neural: h.neural - neural0,
-      };
-      h.restore(snap);
-      const restored = { probe: h.charges('probe'), clampCd: h.cooldown('clamp') };
-      h.setKnobs(0, 0);
-      const mimicOk = h.use('mimic');
-      const before = { ...h.knobs };
-      h.advance(1);
-      const afterMimic = { before, after: { ...h.knobs }, ratio: h.ratio };
-      const kuangOk = h.use('kuang');
-      const dixieOk = h.askDixie();
-      return {
-        clampOk,
-        afterClamp,
-        damperOk,
-        decoyOk,
-        afterDecoy,
-        restored,
-        mimicOk,
-        afterMimic,
-        kuangOk,
-        dixieOk,
-        lastFail: h.lastFail,
-        lastUsed: h.lastUsed,
-      };
-    });
-
-    expect(rest.clampOk).toBe(true);
-    expect(rest.afterClamp.freeze).toBe(true);
-    expect(rest.afterClamp.dPhi).toBeLessThan(1e-4);
-    expect(rest.afterClamp.rekey).not.toBeNull();
-    expect((rest.afterClamp.rekey ?? 0) - (rest.afterClamp.rekey0 ?? 0)).toBeGreaterThan(4.5);
-    expect(rest.afterClamp.cd).toBeGreaterThan(14);
-
-    expect(rest.damperOk).toBe(true);
-    expect(rest.decoyOk).toBe(true);
-    expect(rest.afterDecoy.decoy).toBe(true);
-    expect(rest.afterDecoy.lured).toBe(true);
-    expect(rest.afterDecoy.traceMul).toBe(0.5);
-    expect(rest.afterDecoy.feedbackMul).toBe(0.3);
-
-    expect(rest.restored.probe).toBe(2);
-    expect(rest.restored.clampCd).toBeGreaterThan(14);
-
-    expect(rest.mimicOk).toBe(true);
-    expect(rest.afterMimic.after.R).not.toBeCloseTo(rest.afterMimic.before.R, 5);
-
-    expect(rest.kuangOk).toBe(true);
-    expect(rest.dixieOk).toBe(true);
-    expect(rest.lastFail).toBeNull();
-    expect(rest.lastUsed).toBe('dixie-read');
-
-    expect(errors).toEqual([]);
-    await page.goto('about:blank');
   });
 });
