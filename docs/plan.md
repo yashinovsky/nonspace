@@ -1149,6 +1149,19 @@ Render skeleton. M1.4–M1.8 replace **their own pass file** and must not edit s
 - **Dynamic resolution** (`render/dynamicRes.ts`): GPU ms > 15 for 30 frames → scale −0.1 down to 0.6; < 12 ms for 30 frames → step back up. `inject(ms)` is the artificial-load hook (debug GUI + tests). Effective internal size = CSS × min(DPR, 2) × `baseScale` × dynres scale.
 - **Dev route**: `?lab=render` draws the HDR test cube. `window.__nonspace` is also exposed on that route (not only `?debug`). `?lab=flight` skips PostChain and draws with `renderer.three`.
 
+### 9.17 Contract notes from M1.4 (repo copy only)
+
+Phosphor persistence. Replaces the identity `PersistencePass.ts`. Does not edit sibling passes, `PostChain.ts`, or `targets.ts` (persist A/B already exist). Cast `chain.getPass('persistence')` to `PersistencePass` for tunables.
+
+- **Skip.** When `ctx.quality.persistence` is false or `ctx.reduceMotion` is true, `render` returns `input` unchanged (Low tier and Reduce Motion / comfort). Combined aliases HDR. The ShaderMaterial is created lazily on the first active frame; disabled ticks allocate nothing.
+- **Ping-pong.** Samples `input` (current HDR) and `ctx.targets.persist.read`, writes `persist.write`, swaps, returns `persist.read.texture`. `PostChain` already copies that into `ctx.combined`. Missing persist buffers also skip (so unit tests without RTs stay identity).
+- **`persistence.frag`.** `decay = pow(vec3(0.90,0.93,0.78), dt*60 * decayScale * smearBoost)` — blue decays fastest. Decayed energy mixes toward palette AFTERGLOW (`#C6F03A`) by `shift`. `out = max(current, shifted)`. Formula is frame-rate independent (trail energy after T seconds matches at 30/60/144 fps within 10%).
+- **Anti-smear.** `smearBoost = 1 + max(0, ctx.angularVelocity - smearThreshold) * smearStrength`. Defaults: threshold 0.7 rad/s, strength 1.25. Faster camera turns shorten trails.
+- **`decayScale`.** 1 = nominal. `<1` slows decay (coordinate-jump streak, §5.9). `0` freezes trails (ICE Freeze). `>1` shortens. Jump (M2.6) and Freeze (M4) write this on the pass; they must not edit this file.
+- **Comfort.** Reduce Motion disables the pass (M0.4 already forces `quality.persistence = false`; the pass also checks `ctx.reduceMotion`).
+- **Clear.** `clear(ctx)` and `resize` wipe persist A/B to black so trails don't smear across a size change. Disable→enable also clears.
+- **Lab.** `?lab=persist` (use `&quality=medium` or `high`; SwiftShader `auto` is Low and would skip). Screenshot `docs/screenshots/m1-4-phosphor-trails.png`. `?debug` adds a `phosphor` folder (`decayScale`, `shift`, smear knobs).
+
 ---
 
 ## 10. Milestones and tasks

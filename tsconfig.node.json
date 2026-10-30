@@ -4,7 +4,7 @@
     "lib": ["ES2023", "DOM"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["node"],
+    "types": ["node", "vite-plugin-glsl/ext"],
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
