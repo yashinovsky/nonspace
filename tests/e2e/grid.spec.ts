@@ -33,6 +33,26 @@ interface GridHandle {
 const app = (): GridHandle | undefined =>
   (window as unknown as { __nonspace?: GridHandle }).__nonspace;
 
+interface GridLabHandle {
+  update(dt: number): void;
+}
+
+async function freezeLoop(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const h = (window as unknown as { __nonspace?: GridHandle }).__nonspace;
+    h?.renderer.three.setAnimationLoop(null);
+  });
+}
+
+async function drawOnce(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const h = (window as unknown as { __nonspace?: GridHandle }).__nonspace;
+    const lab = (window as unknown as { __nonspaceGrid?: GridLabHandle }).__nonspaceGrid;
+    lab?.update(0);
+    h?.renderer.endFrame(1 / 60, null);
+  });
+}
+
 function stats(png: PNG): { max: number; lit: number; skyMax: number; bottomLit: number } {
   const { width, height, data } = png;
   let max = 0;
@@ -111,31 +131,8 @@ test.describe('M1.3 ground grid and local lattice', () => {
     await page.goto('/?lab=grid&scene=graze&quality=high');
     await expect(page.locator('#app')).toHaveAttribute('data-status', 'running');
     await expect(page.locator('#app')).toHaveAttribute('data-scene', 'graze');
+    await page.waitForFunction(app);
     await page.waitForTimeout(400);
-
-    const canvas = page.locator('#app > canvas');
-    const graze = stats(PNG.sync.read(await canvas.screenshot({ animations: 'allow' })));
-    expect(graze.skyMax).toBeLessThan(24);
-    expect(graze.bottomLit).toBeGreaterThan(200);
-    expect(graze.max).toBeGreaterThan(20);
-
-    await page.getByTestId('grid-scene-high').click();
-    await expect(page.locator('#app')).toHaveAttribute('data-scene', 'high');
-    await expect(page.locator('#app')).toHaveAttribute('data-altitude', /5000/);
-    await page.waitForTimeout(350);
-    const high = stats(PNG.sync.read(await canvas.screenshot({ animations: 'allow' })));
-    expect(high.lit).toBeGreaterThan(400);
-    expect(high.max).toBeGreaterThan(20);
-
-    await page.getByTestId('grid-scene-warp').click();
-    await expect(page.locator('#app')).toHaveAttribute('data-warp', '1');
-    const warpDelta = Number.parseFloat(
-      (await page.locator('#app').getAttribute('data-warp-delta')) ?? '0',
-    );
-    expect(warpDelta).toBeGreaterThan(5);
-    await page.waitForTimeout(300);
-    const warp = stats(PNG.sync.read(await canvas.screenshot({ animations: 'allow' })));
-    expect(warp.lit).toBeGreaterThan(400);
 
     const before = Number.parseInt(
       (await page.locator('#app').getAttribute('data-lattice-count')) ?? '0',
@@ -147,6 +144,35 @@ test.describe('M1.3 ground grid and local lattice', () => {
       10,
     );
     expect(after).toBe(before);
+
+    // Freeze before canvas snapshots. Live graze/high/warp frames on
+    // SwiftShader hit the 60s test timeout and starve loop.spec.
+    await freezeLoop(page);
+    await drawOnce(page);
+
+    const canvas = page.locator('#app > canvas');
+    const graze = stats(PNG.sync.read(await canvas.screenshot({ animations: 'allow' })));
+    expect(graze.skyMax).toBeLessThan(24);
+    expect(graze.bottomLit).toBeGreaterThan(200);
+    expect(graze.max).toBeGreaterThan(20);
+
+    await page.getByTestId('grid-scene-high').click();
+    await drawOnce(page);
+    await expect(page.locator('#app')).toHaveAttribute('data-scene', 'high');
+    await expect(page.locator('#app')).toHaveAttribute('data-altitude', /5000/);
+    const high = stats(PNG.sync.read(await canvas.screenshot({ animations: 'allow' })));
+    expect(high.lit).toBeGreaterThan(400);
+    expect(high.max).toBeGreaterThan(20);
+
+    await page.getByTestId('grid-scene-warp').click();
+    await drawOnce(page);
+    await expect(page.locator('#app')).toHaveAttribute('data-warp', '1');
+    const warpDelta = Number.parseFloat(
+      (await page.locator('#app').getAttribute('data-warp-delta')) ?? '0',
+    );
+    expect(warpDelta).toBeGreaterThan(5);
+    const warp = stats(PNG.sync.read(await canvas.screenshot({ animations: 'allow' })));
+    expect(warp.lit).toBeGreaterThan(400);
 
     console.log(
       JSON.stringify({
