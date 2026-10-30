@@ -119,8 +119,32 @@ export function mockTriggerMission(): MissionDef {
   };
 }
 
+export function mockSimstimMission(): MissionDef {
+  const base = mockTriggerMission();
+  return {
+    ...base,
+    id: 'mock-simstim',
+    title: 'Mock Simstim',
+    simstim: {
+      timeline: 'lab-simstim',
+      gates: [
+        {
+          id: 'door-1',
+          iceNode: 'sense-net-door',
+          tMeat: 8,
+          early: 3,
+          late: 2,
+          onEarly: [{ a: 'say', who: 'system', line: 'gate.early' }],
+          onLate: [{ a: 'say', who: 'system', line: 'gate.late' }],
+        },
+      ],
+    },
+  };
+}
+
 const FACTORIES: Record<string, () => MissionDef> = {
   'mock-triggers': mockTriggerMission,
+  'mock-simstim': mockSimstimMission,
   mock: mockTriggerMission,
 };
 

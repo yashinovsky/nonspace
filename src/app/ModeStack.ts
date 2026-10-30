@@ -6,6 +6,7 @@ import type { InputFrame, InputService } from '../input/Input';
 import type { MissionRunner } from '../narrative/MissionRunner';
 import type { FlightController } from '../player/FlightController';
 import type { Renderer } from '../render/Renderer';
+import type { SimstimFeed } from '../simstim/SimstimFeed';
 
 /** Mode ids from plan §8.2. */
 export const MODE_IDS = [
@@ -47,6 +48,8 @@ export interface ModeContext {
   readonly renderer?: Renderer;
   /** M7.10. Optional; Beach synthesizes its own spatial bass if missing. */
   readonly audio?: AudioEngine;
+  /** M6.1. Optional so parallel tasks don't have to construct a feed. */
+  readonly simstim?: SimstimFeed;
 }
 
 /** Plan §8.2. Implement as a class or plain object; one instance may be on the stack at a time. */

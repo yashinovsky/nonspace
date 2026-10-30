@@ -13,13 +13,14 @@ import { createFlightController, type FlightController } from '../player/FlightC
 import { createRenderer, type Renderer } from '../render/Renderer';
 import type { PersistencePass } from '../render/post/PersistencePass';
 import type { BeachSim } from '../render/beach/sim';
+import { createSimstimFeed, type SimstimFeed } from '../simstim/SimstimFeed';
 import { createBeachMode, type BeachMode } from './modes/Beach';
 import { createModeStack, type ModeStack } from './ModeStack';
 
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector`. */
+  /** `?lab=` value. `render` / `persist` / `points` / `raster` / `grammar` / `sky` / `beach` / `grid` / `heraldry` / `sector` / `simstim`. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -41,6 +42,7 @@ export interface App {
   readonly flight: FlightController;
   readonly cameraRig: CameraRig;
   readonly collision: CollisionWorld;
+  readonly simstim: SimstimFeed;
   /** M7.10. Present when Beach mode is on the stack (`?lab=beach` or forceMode). */
   beach?: BeachSim;
   dispose(): void;
@@ -102,7 +104,17 @@ export async function startApp({
       },
     },
   });
-  const modes = createModeStack({ events, settings, save, renderer, mission, input, flight });
+  const simstim = createSimstimFeed({ events, mission, renderer });
+  const modes = createModeStack({
+    events,
+    settings,
+    save,
+    renderer,
+    mission,
+    input,
+    flight,
+    simstim,
+  });
   modeRef.stack = modes;
 
   const allowMissionRoute = debug || import.meta.env.DEV;
@@ -131,6 +143,7 @@ export async function startApp({
         flight.step(frame, dt, { reduceMotion: settings.value.reduceMotion });
       }
       mission.update(dt);
+      simstim.update(dt);
       labHandle?.update(dt);
       sectorLab?.update(dt);
       modes.update(dt);
@@ -208,6 +221,11 @@ export async function startApp({
     const { installRasterCrtLab } = await import('../debug/RasterCrtLab');
     labHandle = installRasterCrtLab(renderer);
     root.dataset.lab = 'raster';
+  }
+  if (lab === 'simstim') {
+    const { installSimstimLab } = await import('../debug/SimstimLab');
+    labHandle = installSimstimLab(renderer, simstim, modes);
+    root.dataset.lab = 'simstim';
   }
 
   if (lab === 'sky') {
@@ -317,6 +335,20 @@ export async function startApp({
     live.addBinding(flight.telemetry, 'headingDeg', { readonly: true, label: 'heading °' });
     live.addBinding(flight.telemetry, 'fov', { readonly: true });
     live.addBinding(flight.telemetry, 'flare', { readonly: true });
+    const stim = gui.pane.addFolder({ title: 'simstim' });
+    stim.addBinding(simstim.debug, 'clock', { readonly: true });
+    stim.addBinding(simstim.debug, 'meatTime', {
+      readonly: true,
+      label: 'meat',
+      format: (v: number) => v.toFixed(2),
+    });
+    stim.addBinding(simstim.debug, 'flipped', { readonly: true });
+    stim.addBinding(simstim.debug, 'lag', { readonly: true, format: (v: number) => v.toFixed(2) });
+    stim.addBinding(simstim.debug, 'pain', { readonly: true, format: (v: number) => v.toFixed(2) });
+    stim.addBinding(simstim.debug, 'neural', {
+      readonly: true,
+      format: (v: number) => v.toFixed(1),
+    });
     const phosphorPass = renderer.chain.getPass('persistence') as PersistencePass;
     if ('decayScale' in phosphorPass) {
       const phos = gui.pane.addFolder({ title: 'phosphor' });
@@ -376,6 +408,7 @@ export async function startApp({
     flight,
     cameraRig,
     collision,
+    simstim,
     dispose() {
       renderer.three.setAnimationLoop(null);
       window.removeEventListener('resize', resize);
@@ -383,6 +416,7 @@ export async function startApp({
       labHandle?.dispose();
       sectorLab?.dispose();
       modes.reset();
+      simstim.dispose();
       mission.dispose();
       events.clear();
       inputLab?.dispose();
