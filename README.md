@@ -43,6 +43,7 @@ It runs on `workflow_run`, so it only takes effect from the copy on `main`, and 
 - `?lab=audio` is the M5.1 / M5.3 audio lab (click to unlock the AudioContext; 16 FM voices, HRTF motifs, ducking, adaptive music states, `pulse(t)` readout). It does not need WebGL2.
 - `?lab=sfx` is the M5.2 SFX catalog (every §7.3 recipe, Bell 103 modem, Dixie barks/laugh, event-driven flatline stub). Click to unlock. It does not need WebGL2.
 - `?lab=render` is the M0.4 HDR cube through the post chain. `?quality=low` (or `auto` / `medium` / `high`) is a session override of `settings.graphics.quality`.
+- `?lab=persist` is the M1.4 P7 phosphor lab (radar sweep + orbiting GRID/ICE bars). Use `&quality=medium` or `high` — SwiftShader `auto` is Low and skips persistence.
 - `src/debug/gpuTimer.ts` is the reusable GPU timer for labs and render tasks.
 - Without WebGL2 the app shows a friendly unsupported-browser page instead of the canvas.
 
@@ -83,25 +84,27 @@ Test doubles (recording beam/point batches, event recorder, recording audio engi
 | Flight controller, camera rig, soft hull collision                       | `src/player/{FlightController,CameraRig,Collision}.ts` |
 | Renderer service (HDR targets, PostChain, quality)                       | `src/render/Renderer.ts`                               |
 
-The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.16. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
+The App flushes posted events after every sim step. Under `?debug` and `?lab=` (input, flight, render, persist), the running app is exposed as `window.__nonspace`, and the debug panel shows sim ticks, steps per frame and dropped time. Contract notes are in plan §9.9–9.17. Mouse sensitivity, invert-Y and gamepad dead zone live in `settings.input`; key bindings persist separately in `localStorage` key `nonspace.bindings`.
 
 ## Render
 
 M0.4's Renderer service owns the WebGL2 context, HDR targets and the post chain. Default boot is still a black canvas. Contract notes are in plan §9.16.
 
-| Piece                                          | File                                                                                                 |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Renderer service, scenes, cameras              | `src/render/Renderer.ts`                                                                             |
-| HDR 16F targets + RGBA8 fallback, ping-pong    | `src/render/targets.ts`                                                                              |
-| Quality tiers from `settings.graphics.quality` | `src/render/quality.ts`                                                                              |
-| Dynamic resolution                             | `src/render/dynamicRes.ts`                                                                           |
-| Pass interface + chain                         | `src/render/post/pass.ts`, `PostChain.ts`                                                            |
-| M1 slots (identity stubs)                      | `PersistencePass.ts`, `BloomPass.ts`, `BlackIceComposite.ts`, `VectorCrtPass.ts`, `RasterCrtPass.ts` |
-| Tonemap blit                                   | `FinalComposite.ts`                                                                                  |
+| Piece                                          | File                                                                           |
+| ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| Renderer service, scenes, cameras              | `src/render/Renderer.ts`                                                       |
+| HDR 16F targets + RGBA8 fallback, ping-pong    | `src/render/targets.ts`                                                        |
+| Quality tiers from `settings.graphics.quality` | `src/render/quality.ts`                                                        |
+| Dynamic resolution                             | `src/render/dynamicRes.ts`                                                     |
+| Pass interface + chain                         | `src/render/post/pass.ts`, `PostChain.ts`                                      |
+| Phosphor persistence (M1.4)                    | `PersistencePass.ts`, `post/shaders/persistence.frag`                          |
+| Remaining M1 slots (identity stubs)            | `BloomPass.ts`, `BlackIceComposite.ts`, `VectorCrtPass.ts`, `RasterCrtPass.ts` |
+| Tonemap blit                                   | `FinalComposite.ts`                                                            |
 
 - `?lab=render` — two amber cubes (HDR intensity 4 vs 0.55) through the HDR target and Reinhard tonemap. Screenshot: `docs/screenshots/m0-4-hdr-cube.png`.
+- `?lab=persist` — GRID radar arm + orbiting bars through PersistencePass. Trails shift blue-white → yellow-green. Screenshot: `docs/screenshots/m1-4-phosphor-trails.png`.
 - `?quality=low` (or `auto` / `medium` / `high`) — session override of `settings.graphics.quality` (not persisted).
-- `?debug` adds a graphics folder: quality, internal size, dynres, a GPU-load slider, and inject-20 ms buttons.
-- M1.4–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`.
+- `?debug` adds a graphics folder: quality, internal size, dynres, a GPU-load slider, and inject-20 ms buttons. Persistence tunables live in the `phosphor` folder.
+- M1.5–M1.8 each own one pass file and should not edit sibling passes or `PostChain.ts`. Persistence notes are plan §9.17.
 
 `prototypes/` holds standalone experiments with their own tooling; root lint, format and typecheck skip it.

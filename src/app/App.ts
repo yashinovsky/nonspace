@@ -11,12 +11,13 @@ import { createCameraRig, type CameraRig } from '../player/CameraRig';
 import { createCollisionWorld, type CollisionWorld } from '../player/Collision';
 import { createFlightController, type FlightController } from '../player/FlightController';
 import { createRenderer, type Renderer } from '../render/Renderer';
+import type { PersistencePass } from '../render/post/PersistencePass';
 import { createModeStack, type ModeStack } from './ModeStack';
 
 export interface AppOptions {
   root: HTMLElement;
   debug: boolean;
-  /** `?lab=` value. `render` installs the M0.4 HDR cube scene. */
+  /** `?lab=` value. `render` is the HDR cube; `persist` is the M1.4 phosphor lab. */
   lab?: string | null;
   /** `?quality=` session override; does not write the save. */
   qualityOverride?: QualitySetting;
@@ -146,6 +147,12 @@ export async function startApp({
     root.dataset.lab = 'render';
   }
 
+  if (lab === 'persist') {
+    const { installPersistLab } = await import('../debug/PersistLab');
+    labHandle = installPersistLab(renderer);
+    root.dataset.lab = 'persist';
+  }
+
   let inputLab: { dispose(): void } | null = null;
   if (lab === 'input') {
     const { createInputLab } = await import('../input/InputLab');
@@ -221,6 +228,29 @@ export async function startApp({
     live.addBinding(flight.telemetry, 'headingDeg', { readonly: true, label: 'heading °' });
     live.addBinding(flight.telemetry, 'fov', { readonly: true });
     live.addBinding(flight.telemetry, 'flare', { readonly: true });
+    const phosphorPass = renderer.chain.getPass('persistence') as PersistencePass;
+    if ('decayScale' in phosphorPass) {
+      const phos = gui.pane.addFolder({ title: 'phosphor' });
+      phos.addBinding(phosphorPass, 'decayScale', {
+        min: 0,
+        max: 4,
+        step: 0.05,
+        label: 'decay scale',
+      });
+      phos.addBinding(phosphorPass, 'shift', { min: 0, max: 1, step: 0.01 });
+      phos.addBinding(phosphorPass, 'smearThreshold', {
+        min: 0,
+        max: 8,
+        step: 0.05,
+        label: 'smear ω',
+      });
+      phos.addBinding(phosphorPass, 'smearStrength', {
+        min: 0,
+        max: 8,
+        step: 0.05,
+        label: 'smear k',
+      });
+    }
   }
 
   let last = performance.now();
