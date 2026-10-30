@@ -23,6 +23,9 @@ const LANDMARKS = [
   'turing-geneva',
   'chiba-node',
   'hosaka-m3',
+  'ninsei',
+  'chatsubo',
+  'cheap-hotel',
 ] as const;
 
 function collectErrors(page: Page): string[] {

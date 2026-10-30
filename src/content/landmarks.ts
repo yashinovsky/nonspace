@@ -36,8 +36,21 @@ export const LANDMARK_IDS = [
   'turing-geneva',
   'chiba-node',
   'hosaka-m3',
+  'ninsei',
+  'chatsubo',
+  'cheap-hotel',
 ] as const;
 export type LandmarkId = (typeof LANDMARK_IDS)[number];
+
+/** M1 tutorial cluster (M7.4). Clinic node + nearby Chiba constructs. */
+export const CHIBA_CLUSTER_IDS = [
+  'chiba-node',
+  'hosaka',
+  'ninsei',
+  'chatsubo',
+  'cheap-hotel',
+] as const;
+export type ChibaClusterId = (typeof CHIBA_CLUSTER_IDS)[number];
 
 export const REGION_CODES = ['BAMA', 'CHBA', 'EURO', 'RIO', 'ORBT'] as const;
 export type RegionCode = (typeof REGION_CODES)[number];
@@ -193,6 +206,30 @@ export const LANDMARKS: readonly LandmarkDef[] = [
         },
       },
     ],
+  },
+  {
+    id: 'ninsei',
+    name: 'Ninsei',
+    corp: 'minor',
+    coords: { region: 'CHBA', x: 410.2, z: 178.4, y: 90 },
+    importance: 3,
+    parts: [{ spec: { kind: 'geodesic', frequency: 2, radius: 7 } }],
+  },
+  {
+    id: 'chatsubo',
+    name: 'Chatsubo',
+    corp: 'minor',
+    coords: { region: 'CHBA', x: 411.5, z: 179.1, y: 40 },
+    importance: 2,
+    parts: [{ spec: { kind: 'box', w: 6, h: 9, d: 14, subdivisions: 2, hatch: true } }],
+  },
+  {
+    id: 'cheap-hotel',
+    name: 'Cheap Hotel',
+    corp: 'minor',
+    coords: { region: 'CHBA', x: 413.4, z: 181.0, y: 55 },
+    importance: 2,
+    parts: [{ spec: { kind: 'cubeStack', n: 2, m: 2, k: 7, gap: 0.5, blinkMask: false } }],
   },
 ];
 
