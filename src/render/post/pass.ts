@@ -12,7 +12,14 @@ import {
 } from 'three';
 import type { QualityConfig } from '../quality';
 import type { RenderTargets } from '../targets';
-import fullscreenVert from './shaders/fullscreen.vert';
+
+const FULLSCREEN_VERT = /* glsl */ `
+out vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = vec4(position.xy, 0.0, 1.0);
+}
+`;
 
 /**
  * Named slots in the matrix post chain (plan §8.4). Each slot is a file so
@@ -94,7 +101,7 @@ export function createFullscreenMaterial(
   return new ShaderMaterial({
     name: 'fullscreen',
     glslVersion: GLSL3,
-    vertexShader: fullscreenVert,
+    vertexShader: FULLSCREEN_VERT,
     fragmentShader,
     uniforms,
     depthTest: false,
