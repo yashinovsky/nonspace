@@ -1234,6 +1234,16 @@ Ground grid and local lattice. Parallel look-lane tasks must not edit `render/gr
 - **CPU helpers** (unit-tested, same math as the shaders): `densityFade`, `pristineLine`, `gridDistanceFade`, `checkerCell`, `checkerNearFade`, `warpXZ`, `snapToLattice`, `latticeHalfCells`, `latticeFade`, `forEachLatticeSegment`.
 - **Dev route**: `?lab=grid` (`debug/GridLab.ts`) via `App.ts`. `&scene=cruise|graze|high|warp|lattice`. `window.__nonspaceGrid`. Screenshot: `docs/screenshots/m1-3-grid.png`.
 
+### 9.25 Contract notes from M2.2 (repo copy only)
+
+Corp heraldry and authored landmarks. Consumes M2.1 `generate(spec)` and M5.3 `pulse(t, tempo)`; does not fork primitive emitters. M2.3 streams these as far-LOD lightpoints.
+
+- **`content/corps.ts`**: `CORP_IDS` unchanged. `CORPS[id]` is `{ name, grammar, hues, rhythm, spec, notes }` for every `CorpId`. Rhythm kinds: `breathe` (T-A 0.1 Hz ±15%), `ledger` (Mitsubishi eighths), `reactor` (ESFA 1 Hz + apex jitter), `broadcast` (Sense/Net dishes + 2-bar ring), `ticks` (Hosaka 4/4), `radar` (Turing 0.25 Hz), `listen` (Berne irregular), `drift` (military), `tempo` (minor, tempo-set subdivision).
+- **`pulse(t, tempo?)`**: re-exports the M5.3 raised-cosine quarter-note envelope (default 96 BPM / origin 0). `corpPulse(corp, t, tempo, rhythm?)` is the per-corp animation state (`intensity`, `yaw`, `ring`, `jitter`, `heart`, `eighth`). `ledgerBlinkMask(n,m,k,t,tempo,seed)` is a deterministic per-eighth cube mask. Pass a live `TempoClock` to stay on the sequencer grid (±10 ms).
+- **`content/landmarks.ts`**: authored set `ta-straylight`, `ta-berne`, `mitsubishi-boa`, `esfa`, `sense-net`, `hosaka`, `turing-geneva`, `chiba-node`, `hosaka-m3`. Fixed `MatrixCoord` (region + sector.fraction + altitude). Missions already reference `chiba-node`. `generateLandmark(id, { lod, t, tempo })` calls M2.1 `generate`; **far** is one lightpoint (importance-sized); Berne/Hosaka extras merge at near/mid. `landmarkWorldPos` is `x/z * SECTOR_SIZE`.
+- **Grayscale:** corporations differ by grammar occupancy, not hue. `corpShapeDistance()` Hamming-compares 8³ occupancy of default specs; AC is min pairwise ≥ 12. Lab `?gray=1` paints Rec.709 luma.
+- **Lab:** `?lab=heraldry&id=esfa&gray=1&bpm=96`. Mock tempo clock (no AudioContext). `window.__nonspaceHeraldry` exposes `{ id, pulse, stats, setId, setGrayscale, setTime }`.
+
 ---
 
 ## 10. Milestones and tasks
